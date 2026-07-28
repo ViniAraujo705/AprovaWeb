@@ -496,12 +496,14 @@ export const videoService = {
     urlStorage: string
     nomeArquivo: string
     versao?: number
+    duration?: number
   }): Promise<Video> {
     const res = await api.post<Raw>('/videos', {
       projectId: input.projectId,
       urlStorage: input.urlStorage,
       nomeArquivo: input.nomeArquivo,
       versao: input.versao,
+      duration: input.duration,
     })
     return mapVideo(res)
   },

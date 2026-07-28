@@ -17,7 +17,7 @@ import { clientService, projectService, videoService } from '@/lib/services'
 import type { Client, Project } from '@/lib/types'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
-import { UploadError, uploadToPresignedUrl, validateVideoFile } from '@/lib/upload'
+import { UploadError, readVideoDuration, uploadToPresignedUrl, validateVideoFile } from '@/lib/upload'
 import { UPLOAD_ACCEPTED_LABEL } from '@/lib/config'
 import { DEMO_LINK, isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
@@ -167,17 +167,21 @@ export function UploadView() {
         if (!presigned.publicUrl)
           throw new UploadError('Servidor não retornou a URL pública do arquivo.')
 
-        await uploadToPresignedUrl({
-          url: presigned.uploadUrl,
-          file: item.file,
-          headers: presigned.headers,
-          onProgress: (p) => updateItem(item.id, { progress: p }),
-        })
+        const [, duration] = await Promise.all([
+          uploadToPresignedUrl({
+            url: presigned.uploadUrl,
+            file: item.file,
+            headers: presigned.headers,
+            onProgress: (p) => updateItem(item.id, { progress: p }),
+          }),
+          readVideoDuration(item.file),
+        ])
 
         await videoService.create({
           projectId: targetProjectId,
           urlStorage: presigned.publicUrl,
           nomeArquivo: item.file.name,
+          duration,
         })
 
         updateItem(item.id, { status: 'done', progress: 100 })
