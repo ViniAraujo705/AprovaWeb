@@ -1,0 +1,187 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-bebas);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  color-scheme: light;
+  --background: #f5f5f7;
+  --foreground: #0b0b0d;
+  --card: #ffffff;
+  --card-foreground: #0b0b0d;
+  --popover: #ffffff;
+  --popover-foreground: #0b0b0d;
+  --primary: #0b0b0d;
+  --primary-foreground: #ffffff;
+  --secondary: #e8e8ec;
+  --secondary-foreground: #0b0b0d;
+  --muted: #e8e8ec;
+  --muted-foreground: #6b6b74;
+  --accent: #0b0b0d;
+  --accent-foreground: #ffffff;
+  --destructive: #dc2626;
+  --border: rgba(0, 0, 0, 0.1);
+  --input: rgba(0, 0, 0, 0.14);
+  --ring: #0b0b0d;
+  --chart-1: #0b0b0d;
+  --chart-2: #3f3f46;
+  --chart-3: #6b6b74;
+  --chart-4: #a1a1ab;
+  --chart-5: #d4d4d8;
+  --radius: 0.75rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0b0b0d;
+  --sidebar-primary: #0b0b0d;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8e8ec;
+  --sidebar-accent-foreground: #0b0b0d;
+  --sidebar-border: rgba(0, 0, 0, 0.08);
+  --sidebar-ring: #0b0b0d;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #0b0b0d;
+  --foreground: #f5f5f7;
+  --card: #141417;
+  --card-foreground: #f5f5f7;
+  --popover: #16161a;
+  --popover-foreground: #f5f5f7;
+  --primary: #ffffff;
+  --primary-foreground: #0b0b0d;
+  --secondary: #1c1c21;
+  --secondary-foreground: #f5f5f7;
+  --muted: #1c1c21;
+  --muted-foreground: #a1a1ab;
+  --accent: #ffffff;
+  --accent-foreground: #0b0b0d;
+  --destructive: #ff4d4d;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.14);
+  --ring: #ffffff;
+  --chart-1: #ffffff;
+  --chart-2: #d4d4d8;
+  --chart-3: #a1a1ab;
+  --chart-4: #52525b;
+  --chart-5: #27272a;
+  --sidebar: #101013;
+  --sidebar-foreground: #f5f5f7;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #0b0b0d;
+  --sidebar-accent: #1c1c21;
+  --sidebar-accent-foreground: #f5f5f7;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #ffffff;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body {
+    /*
+     * Rede de segurança contra overflow horizontal no mobile: qualquer
+     * elemento cujo box calculado passe da largura da tela (ex.: um <video>
+     * cujo tamanho intrínseco/rotação a engine do celular interpreta
+     * diferente do esperado) expandia a página inteira, forçando scroll
+     * lateral em vez de ficar contido no player.
+     */
+    @apply overflow-x-hidden;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/*
+ * Acessibilidade: respeita quem pede menos movimento. O Framer Motion trata
+ * isso via useReducedMotion(), mas esta regra é a rede de segurança para
+ * qualquer animação/transição em CSS (ex.: confete, pulsos, transitions).
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/*
+ * Brilho de fundo (aurora/glow) fixo atrás de todo o conteúdo, em todas as
+ * telas. Aplicado uma única vez no root layout (app/layout.tsx) — não deve
+ * ser reincluído por página/rota.
+ */
+.aurora-bg {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 700px 500px at 78% 10%, rgba(236, 72, 153, 0.3), transparent 60%),
+    radial-gradient(ellipse 500px 400px at 95% 35%, rgba(217, 70, 239, 0.18), transparent 65%),
+    radial-gradient(ellipse 400px 300px at 10% 90%, rgba(236, 72, 153, 0.1), transparent 65%);
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Confete sutil da tela de aprovação (desativado em reduced-motion pela regra acima). */
+@keyframes aprova-confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -10px, 0) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--confetti-x, 0), 60vh, 0) rotate(var(--confetti-r, 360deg));
+  }
+}

@@ -1,0 +1,363 @@
+'use client'
+
+import Link from 'next/link'
+import Image from 'next/image'
+import { useState } from 'react'
+import {
+  MessageSquare,
+  Clock,
+  ChevronRight,
+  Film,
+  FileDown,
+  Download,
+  Loader2,
+  AlertTriangle,
+  Sparkles,
+  Link2,
+  Copy,
+  Check,
+} from 'lucide-react'
+import { projectService, publicService, reportService, teamService, videoService } from '@/lib/services'
+import type { Project, TeamMember, Video } from '@/lib/types'
+import { StatusBadge } from '@/components/status-badge'
+import { DeadlineBadge, DeadlineField } from '@/components/deadline-badge'
+import { EditorAssignBadge, EditorAssignField } from '@/components/editor-assign-field'
+import { LoadingState, ErrorState, EmptyState, Skeleton } from '@/components/states'
+import { useQuery } from '@/lib/use-query'
+import { useAuth } from '@/components/auth-provider'
+import { ApiError } from '@/lib/api'
+import { formatDuration, formatSentAt } from '@/lib/format'
+import { triggerDownload } from '@/lib/download'
+
+export function ProjectDetailView({ id }: { id: string }) {
+  const { user } = useAuth()
+  const isOwner = user?.teamRole === 'owner'
+  const project = useQuery<Project>((signal) => projectService.get(id, signal), [id])
+  const videos = useQuery<Video[]>((signal) => videoService.list(id, signal), [id])
+  // Buscado para todo mundo: o editor precisa ver o nome do responsável, mesmo sem poder editar.
+  const members = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
+  const assignableMembers = (members.data ?? []).filter((m) => m.status === 'active')
+
+  function updateVideoDeadline(videoId: string, deadline: string | null) {
+    videos.setData((prev) =>
+      (prev ?? []).map((v) => (v.id === videoId ? { ...v, deadline } : v)),
+    )
+  }
+
+  function updateVideoEditor(videoId: string, editorId: string | null) {
+    videos.setData((prev) =>
+      (prev ?? []).map((v) => (v.id === videoId ? { ...v, editorId } : v)),
+    )
+  }
+
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+
+  const galleryPath = project.data?.publicLink ? `/g/${project.data.publicLink}` : null
+  const [copied, setCopied] = useState(false)
+
+  async function copyGalleryLink() {
+    if (!galleryPath) return
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${galleryPath}`)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  async function exportReport() {
+    setExporting(true)
+    setExportError(null)
+    try {
+      const { url, filename } = await reportService.getProjectReport(id)
+      triggerDownload(url, filename)
+    } catch (err) {
+      setExportError(err instanceof ApiError ? err.message : 'Não foi possível gerar o relatório.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  // Seleção múltipla de vídeos do projeto, para baixar vários de uma vez.
+  // A listagem por projeto (`GET /videos`) é uma resposta enxuta e às vezes
+  // não traz a URL pronta do vídeo — só o link público (que sempre vem, é o
+  // que monta o "Abrir link do cliente"). Por isso um vídeo é selecionável
+  // se tiver `url` OU `publicLink`: sem `url` direto, resolvemos a URL real
+  // na hora do download via `publicService.getByLink` (mesma fonte que já
+  // funciona no botão de baixar da tela do vídeo).
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkDownloading, setBulkDownloading] = useState(false)
+  const [bulkError, setBulkError] = useState<string | null>(null)
+  const downloadableVideos = (videos.data ?? []).filter((v) => !!v.url || !!v.publicLink)
+
+  function toggleSelected(videoId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(videoId)) next.delete(videoId)
+      else next.add(videoId)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    setSelected((prev) =>
+      prev.size === downloadableVideos.length
+        ? new Set()
+        : new Set(downloadableVideos.map((v) => v.id)),
+    )
+  }
+
+  /** Baixa os vídeos selecionados um a um — em sequência, pra não disparar vários downloads simultâneos e o navegador bloquear. */
+  async function downloadSelected() {
+    const items = downloadableVideos.filter((v) => selected.has(v.id))
+    if (items.length === 0) return
+    setBulkDownloading(true)
+    setBulkError(null)
+    let failed = 0
+    try {
+      for (const v of items) {
+        try {
+          let url = v.originalUrl ?? v.url ?? null
+          if (!url && v.publicLink) {
+            const resolved = (await publicService.getByLink(v.publicLink)).video
+            url = resolved.originalUrl ?? resolved.url
+          }
+          if (!url) {
+            failed++
+            continue
+          }
+          await triggerDownload(url, `${v.title || 'video'}.mp4`)
+          await new Promise((resolve) => setTimeout(resolve, 400))
+        } catch {
+          failed++
+        }
+      }
+      if (failed > 0) setBulkError(`${failed} vídeo(s) não puderam ser baixados.`)
+    } finally {
+      setBulkDownloading(false)
+    }
+  }
+
+  return (
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        {project.loading ? (
+          <Skeleton className="h-12 w-64" />
+        ) : project.error ? (
+          <ErrorState message={project.error} onRetry={project.refetch} />
+        ) : (
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              {project.data?.client?.name ?? 'Projeto'}
+            </p>
+            <div className="mt-1 flex items-center gap-3">
+              <h1 className="font-display text-4xl tracking-wide sm:text-5xl">
+                {project.data?.name ?? 'Projeto'}
+              </h1>
+              {project.data?.isExample && (
+                <span
+                  title="Projeto de exemplo — explore e delete quando quiser."
+                  className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary"
+                >
+                  <Sparkles className="size-3.5" /> Exemplo
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!project.error && (
+          <button
+            type="button"
+            onClick={exportReport}
+            disabled={exporting}
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-50"
+          >
+            {exporting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <FileDown className="size-4" />
+            )}
+            Exportar relatório
+          </button>
+        )}
+      </div>
+      {exportError && (
+        <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
+          <AlertTriangle className="size-4" /> {exportError}
+        </p>
+      )}
+
+      {galleryPath && (
+        <div className="mt-4 flex flex-col gap-2 rounded-xl border border-border bg-card p-3 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 items-center gap-2 text-sm">
+            <Link2 className="size-4 shrink-0 text-primary" />
+            <span className="truncate text-muted-foreground">Galeria do projeto: {galleryPath}</span>
+          </div>
+          <button
+            type="button"
+            onClick={copyGalleryLink}
+            className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground transition-colors hover:bg-secondary/70 sm:ml-auto"
+          >
+            {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+            {copied ? 'Copiado' : 'Copiar link da galeria'}
+          </button>
+        </div>
+      )}
+
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-display text-2xl tracking-wide">VÍDEOS DO PROJETO</h2>
+        {downloadableVideos.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                className="size-4 accent-primary"
+                checked={selected.size > 0 && selected.size === downloadableVideos.length}
+                onChange={toggleSelectAll}
+              />
+              Selecionar todos
+            </label>
+            {selected.size > 0 && (
+              <button
+                type="button"
+                onClick={downloadSelected}
+                disabled={bulkDownloading}
+                className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {bulkDownloading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Download className="size-4" />
+                )}
+                Baixar selecionados ({selected.size})
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      {bulkError && (
+        <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
+          <AlertTriangle className="size-4" /> {bulkError}
+        </p>
+      )}
+
+      <div className="mt-4">
+        {videos.loading ? (
+          <LoadingState label="Carregando vídeos…" />
+        ) : videos.error ? (
+          <ErrorState message={videos.error} onRetry={videos.refetch} />
+        ) : (videos.data ?? []).length === 0 ? (
+          <EmptyState
+            icon={<Film className="size-7" />}
+            title="Nenhum vídeo neste projeto"
+            description="Os vídeos enviados para este projeto aparecerão aqui."
+          />
+        ) : (
+          <div className="grid gap-3">
+            {(videos.data ?? []).map((v) => {
+              const publicHref = v.publicLink
+                ? project.data?.publicLink
+                  ? `/v/${v.publicLink}?g=${encodeURIComponent(project.data.publicLink)}`
+                  : `/v/${v.publicLink}`
+                : null
+              return (
+                <div
+                  key={v.id}
+                  className="group relative flex min-w-0 items-center gap-4 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary/50"
+                >
+                  {/*
+                    Link "esticado": cobre o card inteiro por baixo. O seletor de
+                    editor/prazo abaixo fica acima dele (z-index maior) — não pode
+                    ficar aninhado DENTRO do <a>, senão o clique no <select> aciona
+                    a navegação do link em vez de abrir o dropdown.
+                  */}
+                  {publicHref && (
+                    <Link
+                      href={publicHref}
+                      aria-label={`Abrir link do cliente de ${v.title}`}
+                      className="absolute inset-0 z-[1] rounded-xl"
+                    />
+                  )}
+
+                  <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-secondary sm:w-40">
+                    <Image
+                      src={v.posterUrl || '/placeholder.svg'}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes="160px"
+                      unoptimized
+                    />
+                    {(v.url || v.publicLink) && (
+                      <input
+                        type="checkbox"
+                        aria-label={`Selecionar ${v.title} para baixar`}
+                        checked={selected.has(v.id)}
+                        onChange={() => toggleSelected(v.id)}
+                        className="absolute left-1.5 top-1.5 z-[2] size-4 cursor-pointer accent-primary"
+                      />
+                    )}
+                    <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                      {formatDuration(v.duration)}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        {v.type}
+                      </span>
+                      <StatusBadge status={v.status} />
+                    </div>
+                    <h3 className="mt-1.5 truncate font-medium text-foreground">{v.title}</h3>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="size-3.5" />
+                        {formatSentAt(v.createdAt)}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <MessageSquare className="size-3.5" />
+                        {v.commentsCount}
+                      </span>
+                    </div>
+                    {/*
+                      Prazo de entrega e editor responsável: só a equipe vê (owner
+                      edita, editor só lê). Só ESTA linha precisa ficar acima do
+                      link esticado (z-index maior) — o resto do card (miniatura,
+                      título, etc.) fica sem z-index de propósito, pra deixar o
+                      clique passar direto pro link por baixo.
+                    */}
+                    <div className="relative z-[2] mt-2 flex flex-wrap items-center gap-2">
+                      {isOwner ? (
+                        <DeadlineField
+                          videoId={v.id}
+                          deadline={v.deadline}
+                          onUpdated={(deadline) => updateVideoDeadline(v.id, deadline)}
+                        />
+                      ) : (
+                        <DeadlineBadge deadline={v.deadline} />
+                      )}
+                      {isOwner ? (
+                        <EditorAssignField
+                          videoId={v.id}
+                          editorId={v.editorId}
+                          members={assignableMembers}
+                          onUpdated={(editorId) => updateVideoEditor(v.id, editorId)}
+                        />
+                      ) : (
+                        <EditorAssignBadge editorId={v.editorId} members={assignableMembers} />
+                      )}
+                    </div>
+                  </div>
+                  <ChevronRight className="hidden size-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary sm:block" />
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

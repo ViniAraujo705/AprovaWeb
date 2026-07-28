@@ -1,0 +1,306 @@
+/**
+ * Tipos de domínio usados pelo frontend.
+ *
+ * As respostas cruas da API são normalizadas para estes shapes em
+ * `lib/services.ts`, então os componentes trabalham sempre com um formato
+ * estável mesmo que os nomes dos campos do backend variem levemente.
+ */
+
+export type Role = 'admin' | 'user'
+
+/**
+ * Papel do usuário DENTRO da conta/agência (eixo diferente de `Role`, que é o
+ * papel de sistema). O dono da conta é `owner`; editores são convidados.
+ * Usado para liberar/esconder gestão de equipe, canal do cliente e branding.
+ */
+export type TeamRole = 'owner' | 'editor'
+
+export const teamRoleLabel: Record<TeamRole, string> = {
+  owner: 'Owner',
+  editor: 'Editor',
+}
+
+export interface User {
+  id: string
+  name: string
+  email: string
+  role: Role
+  /** Papel na conta/agência (owner/editor). Default: owner. */
+  teamRole: TeamRole
+  /** Marca própria da agência (logo/nome), quando configurada. */
+  branding?: Branding | null
+}
+
+export interface AuthResponse {
+  token: string
+  user: User
+}
+
+// Status exibidos na UI (pt-BR). O backend pode devolver em inglês; ver
+// `normalizeStatus` em services.ts.
+export type VideoStatus = 'pendente' | 'aprovado' | 'ajuste' | 'erro'
+
+export const statusLabel: Record<VideoStatus, string> = {
+  pendente: 'Pendente',
+  aprovado: 'Aprovado',
+  ajuste: 'Ajuste',
+  erro: 'Erro',
+}
+
+export interface Client {
+  id: string
+  name: string
+  email: string
+  /** Cliente de exemplo criado no onboarding (isExemplo). */
+  isExample: boolean
+  /** Legenda exibida no modo Reels da tela pública do cliente (bio estilo Instagram). */
+  description: string | null
+  /** Foto de perfil do cliente, exibida como avatar no modo Reels. */
+  photoUrl: string | null
+}
+
+export interface Project {
+  id: string
+  name: string
+  clientId: string
+  client?: Client
+  /** Projeto de exemplo criado no onboarding (is_exemplo). */
+  isExample: boolean
+  /** Link público (slug) da galeria do projeto, para a rota /g/:linkPublico. */
+  publicLink: string | null
+}
+
+// Estado do processamento do vídeo otimizado no backend. Enquanto está
+// "processando" a tela do cliente mostra a thumbnail com um indicador sutil.
+export type VideoProcessingStatus = 'processando' | 'pronto'
+
+export interface Video {
+  id: string
+  title: string
+  type: string
+  status: VideoStatus
+  /** Duração em segundos (0 se desconhecida). */
+  duration: number
+  /** URL de reprodução (otimizada quando pronta, senão o arquivo original). */
+  url: string | null
+  /** URL do arquivo original enviado (urlStorage), para "baixar original". */
+  originalUrl: string | null
+  /** URL do poster/thumbnail. */
+  posterUrl: string | null
+  /** Link público (slug) para a rota /v/:link. */
+  publicLink: string | null
+  clientName: string
+  projectId: string | null
+  commentsCount: number
+  createdAt: string | null
+  /** Status do processamento do vídeo otimizado (status_processamento). */
+  processingStatus: VideoProcessingStatus
+  /** Vídeo pertencente ao projeto de exemplo do onboarding (is_exemplo). */
+  isExample: boolean
+  /**
+   * Prazo de entrega definido pelo owner (ISO date), visível só para a equipe
+   * da agência (owner/editor) — nunca exibido nas telas do cliente.
+   */
+  deadline: string | null
+  /**
+   * Id do editor responsável pelo vídeo (membro da equipe), definido pelo
+   * owner. Alimenta o cálculo de desempenho do editor.
+   */
+  editorId: string | null
+}
+
+/**
+ * Quem escreveu um comentário.
+ * - `client`: comentário do cliente no canal público.
+ * - `owner`/`editor`: membros da agência (canal interno).
+ * - `agency`: resposta da agência publicada no canal do cliente.
+ */
+export type CommentAuthorRole = 'client' | 'owner' | 'editor' | 'agency'
+
+export interface Comment {
+  id: string
+  author: string
+  /** Momento do vídeo, em segundos. */
+  timestamp: number
+  text: string
+  createdAt: string | null
+  /** Papel de quem escreveu (para badges e diferenciação visual). */
+  authorRole: CommentAuthorRole | null
+  /** Comentário-pai numa thread (parent_comment_id). null = comentário raiz. */
+  parentId: string | null
+}
+
+/** Um comentário raiz com suas respostas (thread), para o canal interno. */
+export interface CommentThread {
+  comment: Comment
+  replies: Comment[]
+}
+
+/** true para autores do lado da agência (owner/editor/agency). */
+export function isAgencyAuthor(role: CommentAuthorRole | null): boolean {
+  return role === 'owner' || role === 'editor' || role === 'agency'
+}
+
+export interface Rating {
+  id: string
+  /** Id da pergunta de avaliação correspondente (null em dados legados). */
+  questionId: string | null
+  /** Texto da categoria/pergunta no momento da nota (fallback de exibição). */
+  category: string
+  value: number
+}
+
+/** Pergunta de avaliação customizável por agência (GET/POST/PATCH/DELETE /rating-questions). */
+export interface RatingQuestion {
+  id: string
+  text: string
+  /** Posição na lista (menor = primeiro). */
+  order: number
+  active: boolean
+}
+
+/** Identidade visual da agência exibida na tela pública do cliente. */
+export interface Branding {
+  /** URL do logo enviado pela agência (null = usar logo padrão do sistema). */
+  logoUrl: string | null
+  /** Nome de exibição da agência (opcional, usado como alt/label). */
+  agencyName: string | null
+}
+
+export interface PublicVideo {
+  video: Video
+  comments: Comment[]
+  ratings: Rating[]
+  /** Perguntas de avaliação ativas da agência, na ordem de exibição. */
+  ratingQuestions: RatingQuestion[]
+  /** Nota geral já registrada (1-5), se o cliente já avaliou. */
+  overallRating: number | null
+  /** Nome do projeto (para título/Open Graph). */
+  projectName: string | null
+  /** Marca da agência dona do vídeo (logo no topo da tela pública). */
+  branding: Branding | null
+  /**
+   * Todos os vídeos do mesmo cliente (o atual incluso), na ordem de exibição —
+   * alimenta a navegação por swipe estilo Reels na aba "Preview Reels".
+   * Vazio quando o cliente só tem este vídeo.
+   */
+  queue: QueueVideoItem[]
+  /** Foto de perfil do cliente (configurada pelo owner), usada como avatar no modo Reels. */
+  clientPhotoUrl: string | null
+  /** Legenda do cliente (configurada pelo owner), exibida como legenda no modo Reels. */
+  clientDescription: string | null
+}
+
+/** Item leve de um vídeo do cliente, usado só para montar a fila de swipe. */
+export interface QueueVideoItem {
+  link: string
+  title: string
+  posterUrl: string | null
+  status: VideoStatus
+}
+
+/** Um vídeo listado na galeria pública do projeto (GET /public/projects/:linkPublico). */
+export interface GalleryVideoItem {
+  /** linkPublico do vídeo — usado para montar a URL do player (/v/:link). */
+  link: string
+  title: string
+  posterUrl: string | null
+  status: VideoStatus
+  processingStatus: VideoProcessingStatus
+  version: number
+}
+
+/** Galeria pública de um projeto: um link só para todos os vídeos da entrega. */
+export interface ProjectGallery {
+  projectName: string
+  clientName: string
+  branding: Branding | null
+  videos: GalleryVideoItem[]
+}
+
+/** Cards de destaque do dashboard (GET /dashboard/insights). */
+export interface DashboardInsights {
+  /** Vídeos pendentes há mais de 48h. */
+  pendingOver48h: number
+  /** Cliente mais rápido para aprovar (menor tempo médio). */
+  fastestClient: { name: string; avgHours: number } | null
+  /** Total de vídeos aprovados no mês atual. */
+  approvedThisMonth: number
+}
+
+export type UserStatus = 'active' | 'inactive' | 'suspended'
+
+export interface AdminUser extends User {
+  status: UserStatus
+  createdAt: string | null
+}
+
+export interface AdminMetrics {
+  totalUsers: number
+  totalVideos: number
+  pendingVideos: number
+  approvedVideos: number
+}
+
+/* ------------------------------- equipe ---------------------------------- */
+
+export type MemberStatus = 'active' | 'invited' | 'suspended'
+
+export const memberStatusLabel: Record<MemberStatus, string> = {
+  active: 'Ativo',
+  invited: 'Convite pendente',
+  suspended: 'Suspenso',
+}
+
+/** Membro da conta/agência (GET /account/members). */
+export interface TeamMember {
+  id: string
+  name: string
+  email: string
+  teamRole: TeamRole
+  status: MemberStatus
+  createdAt: string | null
+}
+
+/* --------------------------- desempenho da equipe ------------------------- */
+
+/** Faixa de desempenho do editor, conforme a nota média (0-10). */
+export type PerformanceTier = 'verde' | 'amarelo' | 'laranja' | 'vermelho' | 'sem_dados'
+
+/** Uma linha de GET /team/performance. */
+export interface EditorPerformance {
+  editorId: string
+  name: string
+  avatarUrl: string | null
+  /** Nota média (0-10) dos vídeos aprovados; null quando "sem_dados". */
+  averageScore: number | null
+  approvedVideosCount: number
+  tier: PerformanceTier
+}
+
+/* ---------------------------- notificações --------------------------------- */
+
+export type NotificationType =
+  | 'comentario_cliente'
+  | 'aprovacao_cliente'
+  | 'ajuste_solicitado'
+  | 'avaliacao_cliente'
+
+/**
+ * Notificação de ação do cliente num vídeo (GET /notifications). Nomeado
+ * `AppNotification` (não `Notification`) pra não colidir com a Notification API do browser.
+ */
+export interface AppNotification {
+  id: string
+  type: NotificationType
+  read: boolean
+  createdAt: string | null
+  video: {
+    id: string
+    title: string
+    posterUrl: string | null
+    publicLink: string | null
+    projectName: string
+    clientName: string
+  }
+}

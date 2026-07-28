@@ -1,0 +1,523 @@
+/**
+ * Modo demo — permite navegar por todas as telas sem backend.
+ *
+ * Ativado por uma flag em localStorage (botão "Entrar como demo" no login).
+ * Quando ativo, os serviços em `lib/services.ts` retornam estes dados de
+ * exemplo em vez de chamar a API. A rota pública /v/demo funciona sempre
+ * (independente da flag), pois é reconhecida pelo próprio link "demo".
+ *
+ * Para desativar de vez, basta não usar o botão demo — nada aqui roda quando
+ * a flag está desligada.
+ */
+import { DEMO_FLAG_KEY } from '@/lib/config'
+import type {
+  AdminMetrics,
+  AdminUser,
+  AppNotification,
+  Client,
+  Comment,
+  DashboardInsights,
+  EditorPerformance,
+  GalleryVideoItem,
+  Project,
+  ProjectGallery,
+  PublicVideo,
+  QueueVideoItem,
+  RatingQuestion,
+  TeamMember,
+  User,
+  Video,
+} from '@/lib/types'
+
+export const DEMO_TOKEN = 'demo'
+export const DEMO_LINK = 'demo'
+
+export function isDemo(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(DEMO_FLAG_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/** true para o link "demo" e para os links dos demais vídeos de exemplo (fila de swipe). */
+export function isDemoVideoLink(link: string): boolean {
+  return link === DEMO_LINK || demoVideos.some((v) => v.publicLink === link)
+}
+
+/** true para os links de galeria dos projetos de exemplo. */
+export function isDemoProjectLink(link: string): boolean {
+  return demoProjects.some((p) => p.publicLink === link)
+}
+
+export function enableDemoFlag() {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(DEMO_FLAG_KEY, '1')
+}
+
+export function clearDemoFlag() {
+  if (typeof window === 'undefined') return
+  window.localStorage.removeItem(DEMO_FLAG_KEY)
+}
+
+export const demoUser: User = {
+  id: 'demo-user',
+  name: 'Você (demo)',
+  email: 'demo@aprova.app',
+  role: 'admin',
+  teamRole: 'owner',
+}
+
+/** Pequeno atraso para simular latência de rede e exercitar os loaders. */
+export function delay<T>(value: T, ms = 400): Promise<T> {
+  return new Promise((resolve) => setTimeout(() => resolve(value), ms))
+}
+
+export const demoClients: Client[] = [
+  {
+    id: 'c1',
+    name: 'Bela Cosméticos',
+    email: 'contato@belacosmeticos.com',
+    isExample: true,
+    description: 'Gostou do resultado?💛',
+    photoUrl: null,
+  },
+  { id: 'c2', name: 'Burger House', email: 'contato@burgerhouse.com', isExample: false, description: null, photoUrl: null },
+  { id: 'c3', name: 'Studio Moda', email: 'contato@studiomoda.com', isExample: false, description: null, photoUrl: null },
+  { id: 'c4', name: 'Café Aurora', email: 'contato@cafeaurora.com', isExample: false, description: null, photoUrl: null },
+]
+
+export const demoProjects: Project[] = [
+  // p1 é o "projeto de exemplo" do onboarding (is_exemplo).
+  {
+    id: 'p1',
+    name: 'Projeto de exemplo',
+    clientId: 'c1',
+    client: demoClients[0],
+    isExample: true,
+    publicLink: 'demo-projeto',
+  },
+  {
+    id: 'p2',
+    name: 'Combo do mês',
+    clientId: 'c2',
+    client: demoClients[1],
+    isExample: false,
+    publicLink: 'demo-projeto-combo',
+  },
+]
+
+const now = Date.now()
+const iso = (hoursAgo: number) => new Date(now - hoursAgo * 3600_000).toISOString()
+/** Data futura (prazo de entrega), em horas a partir de agora. */
+const futureIso = (hoursAhead: number) => new Date(now + hoursAhead * 3600_000).toISOString()
+
+export const demoVideos: Video[] = [
+  {
+    id: 'rv-01',
+    title: 'Reel lançamento batom matte',
+    type: 'Reels',
+    status: 'pendente',
+    duration: 28,
+    url: null,
+    originalUrl: null,
+    posterUrl: '/videos/reel-cosmetics.png',
+    publicLink: DEMO_LINK,
+    clientName: 'Bela Cosméticos',
+    projectId: 'p1',
+    commentsCount: 3,
+    createdAt: iso(3),
+    processingStatus: 'pronto',
+    isExample: true,
+    deadline: futureIso(30), // prazo próximo (< 2 dias)
+    editorId: 'm2',
+  },
+  {
+    id: 'rv-02',
+    title: 'Campanha combo duplo',
+    type: 'Post',
+    status: 'ajuste',
+    duration: 15,
+    url: null,
+    originalUrl: null,
+    posterUrl: '/videos/reel-food.png',
+    publicLink: `${DEMO_LINK}-rv-02`,
+    clientName: 'Burger House',
+    projectId: 'p2',
+    commentsCount: 5,
+    createdAt: iso(20),
+    processingStatus: 'pronto',
+    isExample: false,
+    deadline: iso(8), // prazo vencido
+    editorId: 'm3',
+  },
+  {
+    id: 'rv-03',
+    title: 'Editorial coleção inverno',
+    type: 'Reels',
+    status: 'aprovado',
+    duration: 34,
+    url: null,
+    originalUrl: null,
+    posterUrl: '/videos/reel-fashion.png',
+    publicLink: `${DEMO_LINK}-rv-03`,
+    clientName: 'Studio Moda',
+    projectId: null,
+    commentsCount: 2,
+    createdAt: iso(48),
+    processingStatus: 'pronto',
+    isExample: false,
+    deadline: null, // já aprovado, sem prazo definido
+    editorId: 'm2',
+  },
+  {
+    id: 'rv-04',
+    title: 'Teaser novo blush',
+    type: 'Stories',
+    status: 'pendente',
+    duration: 9,
+    url: null,
+    originalUrl: null,
+    posterUrl: '/videos/reel-cosmetics.png',
+    publicLink: `${DEMO_LINK}-rv-04`,
+    clientName: 'Bela Cosméticos',
+    projectId: 'p1',
+    commentsCount: 0,
+    createdAt: iso(60),
+    processingStatus: 'processando',
+    isExample: true,
+    deadline: futureIso(96), // prazo tranquilo
+    editorId: null,
+  },
+  {
+    id: 'rv-05',
+    title: 'Bastidores hambúrguer artesanal',
+    type: 'Reels',
+    status: 'aprovado',
+    duration: 41,
+    url: null,
+    originalUrl: null,
+    posterUrl: '/videos/reel-food.png',
+    publicLink: `${DEMO_LINK}-rv-05`,
+    clientName: 'Burger House',
+    projectId: 'p2',
+    commentsCount: 4,
+    createdAt: iso(72),
+    processingStatus: 'pronto',
+    isExample: false,
+    deadline: futureIso(240),
+    editorId: 'm3',
+  },
+]
+
+export function demoVideosForProject(projectId: string): Video[] {
+  return demoVideos.filter((v) => v.projectId === projectId)
+}
+
+/** Notificações de exemplo (sininho no topo do app) a partir dos vídeos de exemplo. */
+function buildDemoNotification(
+  id: string,
+  type: AppNotification['type'],
+  videoId: string,
+  hoursAgo: number,
+  read: boolean,
+): AppNotification {
+  const video = demoVideos.find((v) => v.id === videoId)!
+  const project = demoProjects.find((p) => p.id === video.projectId)
+  return {
+    id,
+    type,
+    read,
+    createdAt: iso(hoursAgo),
+    video: {
+      id: video.id,
+      title: video.title,
+      posterUrl: video.posterUrl,
+      publicLink: video.publicLink,
+      projectName: project?.name ?? '',
+      clientName: video.clientName,
+    },
+  }
+}
+
+export const demoNotifications: AppNotification[] = [
+  buildDemoNotification('n1', 'comentario_cliente', 'rv-01', 1, false),
+  buildDemoNotification('n2', 'ajuste_solicitado', 'rv-02', 6, false),
+  buildDemoNotification('n3', 'avaliacao_cliente', 'rv-01', 20, false),
+  buildDemoNotification('n4', 'aprovacao_cliente', 'rv-05', 40, true),
+  buildDemoNotification('n5', 'aprovacao_cliente', 'rv-03', 50, true),
+]
+
+/** Perguntas de avaliação da conta (para /configuracoes/perguntas e a tela do cliente). */
+export function demoRatingQuestions(): RatingQuestion[] {
+  return [
+    { id: 'q1', text: 'Iluminação', order: 0, active: true },
+    { id: 'q2', text: 'Áudio', order: 1, active: true },
+    { id: 'q3', text: 'Enquadramento', order: 2, active: true },
+    { id: 'q4', text: 'Ritmo da edição', order: 3, active: false },
+  ]
+}
+
+// Amostra pública pequena — permite testar player, seek e marcadores nos vídeos de exemplo.
+const DEMO_SAMPLE_URL = 'https://www.w3schools.com/html/mov_bbb.mp4'
+
+/** Comentários de exemplo por vídeo (id). Vídeos sem entrada aqui entram sem comentários. */
+function demoCommentsFor(videoId: string): Comment[] {
+  switch (videoId) {
+    case 'rv-01':
+      return [
+        { id: 'c1', author: 'Cliente', timestamp: 2, text: 'A abertura ficou ótima! Só deixa a logo aparecer 1s a mais.', createdAt: iso(2), authorRole: 'client', parentId: null },
+        { id: 'c2', author: 'Cliente', timestamp: 5, text: 'Esse corte está muito rápido, dá pra segurar mais nesse plano?', createdAt: iso(2), authorRole: 'client', parentId: null },
+        { id: 'c3', author: 'Cliente', timestamp: 8, text: 'Adorei a trilha entrando aqui.', createdAt: iso(1), authorRole: 'client', parentId: null },
+      ]
+    case 'rv-02':
+      return [
+        { id: 'c4', author: 'Cliente', timestamp: 3, text: 'Dá pra trocar o preço exibido? Mudamos a promoção.', createdAt: iso(10), authorRole: 'client', parentId: null },
+      ]
+    case 'rv-05':
+      return [
+        { id: 'c5', author: 'Cliente', timestamp: 6, text: 'Ficou show, aprovado!', createdAt: iso(40), authorRole: 'client', parentId: null },
+      ]
+    default:
+      return []
+  }
+}
+
+/** Outros vídeos do mesmo cliente (o atual incluso), para a fila de swipe estilo Reels. */
+function demoQueueFor(clientName: string): QueueVideoItem[] {
+  return demoVideos
+    .filter((v) => v.clientName === clientName)
+    .map((v) => ({
+      link: v.publicLink ?? '',
+      title: v.title,
+      posterUrl: v.posterUrl,
+      status: v.status,
+    }))
+}
+
+/**
+ * Tela pública de exemplo, com vídeo real reproduzível, comentários e notas.
+ * `link` seleciona qual vídeo de exemplo mostrar (default: o primeiro, /v/demo);
+ * os demais vídeos do mesmo cliente formam a fila de swipe da aba Reels.
+ */
+export function demoPublicVideo(link: string = DEMO_LINK): PublicVideo {
+  const match = demoVideos.find((v) => v.publicLink === link) ?? demoVideos[0]
+  const video: Video = {
+    ...match,
+    duration: 10,
+    url: DEMO_SAMPLE_URL,
+    originalUrl: DEMO_SAMPLE_URL,
+    deadline: null, // prazo é interno à agência — nunca exposto na tela pública
+  }
+  const project = demoProjects.find((p) => p.id === match.projectId)
+  // Vídeo demo só guarda `clientName` (string livre) — casa com `demoClients`
+  // pelo nome pra alimentar a foto/legenda configuradas pelo owner no modo Reels.
+  const client = demoClients.find((c) => c.name === match.clientName) ?? null
+  return {
+    video,
+    comments: demoCommentsFor(match.id),
+    ratings: [],
+    ratingQuestions: demoRatingQuestions().filter((q) => q.active),
+    overallRating: null,
+    projectName: project?.name ?? null,
+    // branding null → tela pública usa o logo padrão do sistema (fallback).
+    branding: null,
+    queue: demoQueueFor(match.clientName),
+    clientPhotoUrl: client?.photoUrl ?? null,
+    clientDescription: client?.description ?? null,
+  }
+}
+
+/** Galeria pública de exemplo (um link só listando todos os vídeos do projeto). */
+export function demoProjectGallery(link: string): ProjectGallery {
+  const project = demoProjects.find((p) => p.publicLink === link) ?? demoProjects[0]
+  const videos: GalleryVideoItem[] = demoVideosForProject(project.id).map((v) => ({
+    link: v.publicLink ?? '',
+    title: v.title,
+    posterUrl: v.posterUrl,
+    status: v.status,
+    processingStatus: v.processingStatus,
+    version: 1,
+  }))
+  return {
+    projectName: project.name,
+    clientName: project.client?.name ?? '',
+    // branding null → a galeria usa o logo padrão do sistema (fallback).
+    branding: null,
+    videos,
+  }
+}
+
+export const demoAdminUsers: AdminUser[] = [
+  { id: 'demo-user', name: 'Você (demo)', email: 'demo@aprova.app', role: 'admin', teamRole: 'owner', status: 'active', createdAt: iso(240) },
+  { id: 'u2', name: 'Marina Alves', email: 'marina@agencia.com', role: 'user', teamRole: 'editor', status: 'active', createdAt: iso(200) },
+  { id: 'u3', name: 'Rafael Souza', email: 'rafael@agencia.com', role: 'user', teamRole: 'editor', status: 'suspended', createdAt: iso(120) },
+  { id: 'u4', name: 'Bruno Lima', email: 'bruno@agencia.com', role: 'user', teamRole: 'editor', status: 'inactive', createdAt: iso(60) },
+]
+
+export const demoMetrics: AdminMetrics = {
+  totalUsers: demoAdminUsers.length,
+  totalVideos: demoVideos.length,
+  pendingVideos: demoVideos.filter((v) => v.status === 'pendente').length,
+  approvedVideos: demoVideos.filter((v) => v.status === 'aprovado').length,
+}
+
+/** Usuário demo + branding (para /configuracoes). Sem logo por padrão. */
+export function demoMe(): User {
+  return { ...demoUser, branding: null }
+}
+
+/* ----------------------- canais interno / cliente ------------------------ */
+
+/**
+ * Comentários do canal interno (só agência), com thread: o comentário do editor
+ * tem uma resposta do owner (parentId aponta pro comentário-pai).
+ */
+export function demoInternalComments(_videoId: string): Comment[] {
+  return [
+    {
+      id: 'ic1',
+      author: 'Marina Alves',
+      timestamp: 3,
+      text: 'Renderizei numa qualidade menor pra aprovar rápido — subo a final depois. Ok?',
+      createdAt: iso(5),
+      authorRole: 'editor',
+      parentId: null,
+    },
+    {
+      id: 'ic1-r1',
+      author: 'Você (demo)',
+      timestamp: 3,
+      text: 'Pode subir a final. Só confirma o LUT antes de mandar pro cliente.',
+      createdAt: iso(4),
+      authorRole: 'owner',
+      parentId: 'ic1',
+    },
+    {
+      id: 'ic2',
+      author: 'Você (demo)',
+      timestamp: 9,
+      text: 'Aqui o corte ficou seco. Vamos adicionar um crossfade de 4 frames.',
+      createdAt: iso(2),
+      authorRole: 'owner',
+      parentId: null,
+    },
+  ]
+}
+
+/**
+ * Canal do cliente na visão da agência (por id de vídeo). Reaproveita a tela
+ * pública de exemplo e injeta uma resposta da agência já publicada, para
+ * mostrar a diferenciação visual ("Resposta da agência").
+ */
+export function demoClientChannel(_videoId: string): PublicVideo {
+  const base = demoPublicVideo()
+  const agencyReply: Comment = {
+    id: 'ag1',
+    author: 'Você (demo)',
+    timestamp: 5,
+    text: 'Boa! Já seguramos esse plano por mais 1s na nova versão. 🙌',
+    createdAt: iso(1),
+    authorRole: 'agency',
+    parentId: null,
+  }
+  return { ...base, comments: [...base.comments, agencyReply] }
+}
+
+/** Membros da conta/agência para /configuracoes/equipe. */
+export function demoTeamMembers(): TeamMember[] {
+  return [
+    { id: 'demo-user', name: 'Você (demo)', email: 'demo@aprova.app', teamRole: 'owner', status: 'active', createdAt: iso(240) },
+    { id: 'm2', name: 'Marina Alves', email: 'marina@agencia.com', teamRole: 'editor', status: 'active', createdAt: iso(200) },
+    { id: 'm3', name: 'Rafael Souza', email: 'rafael@agencia.com', teamRole: 'editor', status: 'suspended', createdAt: iso(120) },
+    { id: 'm4', name: '', email: 'novo.editor@agencia.com', teamRole: 'editor', status: 'invited', createdAt: iso(6) },
+  ]
+}
+
+/** Desempenho dos editores para /equipe/desempenho, calculado a partir dos vídeos de exemplo. */
+export function demoTeamPerformance(): EditorPerformance[] {
+  return [
+    {
+      editorId: 'm2',
+      name: 'Marina Alves',
+      avatarUrl: null,
+      averageScore: 8.6,
+      approvedVideosCount: 12,
+      tier: 'verde',
+    },
+    {
+      editorId: 'm3',
+      name: 'Rafael Souza',
+      avatarUrl: null,
+      averageScore: 7.2,
+      approvedVideosCount: 8,
+      tier: 'amarelo',
+    },
+    {
+      editorId: 'm5',
+      name: 'Bruno Lima',
+      avatarUrl: null,
+      averageScore: 6.3,
+      approvedVideosCount: 5,
+      tier: 'laranja',
+    },
+    {
+      editorId: 'm6',
+      name: 'Carla Nunes',
+      avatarUrl: null,
+      averageScore: 4.8,
+      approvedVideosCount: 3,
+      tier: 'vermelho',
+    },
+    {
+      editorId: 'm4',
+      name: 'Novo editor',
+      avatarUrl: null,
+      averageScore: null,
+      approvedVideosCount: 0,
+      tier: 'sem_dados',
+    },
+  ]
+}
+
+/** Insights do dashboard calculados a partir dos vídeos de exemplo. */
+export function demoInsights(): DashboardInsights {
+  const pendingOver48h = demoVideos.filter(
+    (v) =>
+      v.status === 'pendente' &&
+      v.createdAt !== null &&
+      now - new Date(v.createdAt).getTime() > 48 * 3600_000,
+  ).length
+  return {
+    pendingOver48h,
+    fastestClient: { name: 'Studio Moda', avgHours: 4 },
+    approvedThisMonth: demoVideos.filter((v) => v.status === 'aprovado').length,
+  }
+}
+
+/**
+ * Gera um "relatório" textual de exemplo (Blob URL) para o modo demo, já que
+ * não há backend para produzir o PDF real. Serve só para exercitar o download.
+ */
+export function buildDemoReport(projectId: string): string {
+  const project = demoProjects.find((p) => p.id === projectId)
+  const videos = demoVideosForProject(projectId)
+  const lines = [
+    'APROVA — Relatório do projeto (exemplo)',
+    '======================================',
+    `Projeto: ${project?.name ?? projectId}`,
+    `Cliente: ${project?.client?.name ?? '-'}`,
+    `Gerado em: ${new Date().toLocaleString('pt-BR')}`,
+    '',
+    'Vídeos:',
+    ...videos.map(
+      (v) => `- ${v.title} · ${v.type} · ${v.status} · ${v.commentsCount} comentários`,
+    ),
+    '',
+    '(Modo demo: relatório fictício. Com backend, um PDF real é gerado.)',
+  ]
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
+  return URL.createObjectURL(blob)
+}
+

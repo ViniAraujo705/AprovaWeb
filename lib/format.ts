@@ -1,0 +1,48 @@
+/** Formata segundos como m:ss (ex.: 28 -> "0:28"). */
+export function formatDuration(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds || 0))
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
+/** Data relativa amigável em pt-BR a partir de um ISO string. */
+export function formatSentAt(iso: string | null): string {
+  if (!iso) return ''
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const day = 24 * 60 * 60 * 1000
+  const sameDay = date.toDateString() === now.toDateString()
+  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+
+  if (sameDay) return `Enviado hoje, ${time}`
+  const yesterday = new Date(now.getTime() - day)
+  if (date.toDateString() === yesterday.toDateString()) return `Enviado ontem, ${time}`
+  const days = Math.floor(diffMs / day)
+  if (days < 7) return `Enviado ${days} dias atrás`
+  return `Enviado em ${date.toLocaleDateString('pt-BR')}`
+}
+
+/** Data curta em pt-BR a partir de um ISO string (ex.: "10/07/2026"). */
+export function formatDeadline(iso: string | null): string {
+  if (!iso) return ''
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('pt-BR')
+}
+
+export type DeadlineUrgency = 'overdue' | 'soon' | 'ok'
+
+/** Urgência do prazo: vencido, próximo (<= 2 dias) ou tranquilo. */
+export function getDeadlineUrgency(iso: string | null): DeadlineUrgency | null {
+  if (!iso) return null
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return null
+  const diffMs = date.getTime() - Date.now()
+  const day = 24 * 60 * 60 * 1000
+  if (diffMs < 0) return 'overdue'
+  if (diffMs <= 2 * day) return 'soon'
+  return 'ok'
+}

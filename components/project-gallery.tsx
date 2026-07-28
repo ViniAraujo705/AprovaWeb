@@ -1,0 +1,312 @@
+'use client'
+
+import Image from 'next/image'
+import Link from 'next/link'
+import { useState } from 'react'
+import { Loader2, Film, Download, AlertTriangle, Share2, Check } from 'lucide-react'
+import type { ProjectGallery } from '@/lib/types'
+import { publicService } from '@/lib/services'
+import { triggerDownload } from '@/lib/download'
+import { AgencyLogo } from '@/components/agency-logo'
+import { ThemeToggle } from '@/components/theme-toggle'
+import { StatusBadge } from '@/components/status-badge'
+import { EmptyState } from '@/components/states'
+import { FadeIn, StaggerList, staggerItem, motion } from '@/components/motion'
+
+/**
+ * Galeria pública de um projeto (rota /g/:linkPublico) — porta de entrada única
+ * para todos os vídeos de uma entrega. Cada card abre o player normal (/v/:link),
+ * sem mudar o contrato de aprovação/comentário/avaliação já existente ali.
+ */
+export function ProjectGalleryView({
+  gallery,
+  link,
+}: {
+  gallery: ProjectGallery
+  /** Link público desta galeria (linkPublico do projeto) — repassado ao player via query string para escopar o swipe a este projeto, em vez de todos os vídeos do cliente. */
+  link: string
+}) {
+  const count = gallery.videos.length
+
+  // Seleção múltipla, para o cliente baixar vários vídeos de uma vez. A
+  // galeria pública só traz `link`/`posterUrl` por vídeo (resposta enxuta) —
+  // a URL real do arquivo (e a original, em qualidade máxima) só é resolvida
+  // na hora do download, via `publicService.getByLink` (mesma fonte que já
+  // alimenta o player em /v/:link).
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkDownloading, setBulkDownloading] = useState(false)
+  const [bulkError, setBulkError] = useState<string | null>(null)
+  const [sharing, setSharing] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
+  // Compartilhar a galeria inteira (link feio de UUID) — feito uma vez aqui em
+  // vez de o cliente ter que selecionar/copiar a URL do navegador na mão.
+  const [gallerySharing, setGallerySharing] = useState(false)
+  const [galleryShareCopied, setGalleryShareCopied] = useState(false)
+
+  function toggleSelected(videoLink: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(videoLink)) next.delete(videoLink)
+      else next.add(videoLink)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    setSelected((prev) =>
+      prev.size === gallery.videos.length ? new Set() : new Set(gallery.videos.map((v) => v.link)),
+    )
+  }
+
+  /** Baixa os vídeos selecionados um a um, na maior qualidade disponível (arquivo original). */
+  async function downloadSelected() {
+    const items = gallery.videos.filter((v) => selected.has(v.link))
+    if (items.length === 0) return
+    setBulkDownloading(true)
+    setBulkError(null)
+    let failed = 0
+    try {
+      for (const v of items) {
+        try {
+          const resolved = (await publicService.getByLink(v.link)).video
+          const url = resolved.originalUrl ?? resolved.url
+          if (!url) {
+            failed++
+            continue
+          }
+          triggerDownload(url, `${v.title || 'video'}.mp4`)
+          await new Promise((resolve) => setTimeout(resolve, 400))
+        } catch {
+          failed++
+        }
+      }
+      if (failed > 0) setBulkError(`${failed} vídeo(s) não puderam ser baixados.`)
+    } finally {
+      setBulkDownloading(false)
+    }
+  }
+
+  /** Folha nativa de compartilhamento (WhatsApp, e-mail…) quando disponível; cópia pra área de transferência como alternativa (desktop, ou se o cliente fechar a folha sem escolher nada). */
+  async function shareOrCopy(
+    data: ShareData,
+    copyText: string,
+    setBusy: (v: boolean) => void,
+    setCopied: (v: boolean) => void,
+  ) {
+    setBusy(true)
+    try {
+      if (navigator.share) {
+        try {
+          await navigator.share(data)
+          return
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') return // fechou sem escolher
+        }
+      }
+      try {
+        await navigator.clipboard.writeText(copyText)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch {
+        // Sem feedback bloqueante: se a área de transferência falhar, o cliente
+        // não tem como saber a URL de outro jeito por aqui.
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Compartilha o link da galeria inteira — resolve a reclamação de link feio/grande sem o cliente precisar copiar a URL na mão. */
+  async function shareGallery() {
+    const url = `${window.location.origin}/g/${link}`
+    const title = gallery.projectName || 'Vídeos para aprovação'
+    await shareOrCopy({ title, url }, url, setGallerySharing, setGalleryShareCopied)
+  }
+
+  /** Compartilha os links dos vídeos selecionados. */
+  async function shareSelected() {
+    const items = gallery.videos.filter((v) => selected.has(v.link))
+    if (items.length === 0) return
+    const urls = items.map(
+      (v) => `${window.location.origin}/v/${v.link}?g=${encodeURIComponent(link)}`,
+    )
+    const title = gallery.projectName || 'Vídeos'
+    await shareOrCopy(
+      urls.length === 1
+        ? { title: items[0].title || title, url: urls[0] }
+        : { title, text: urls.join('\n') },
+      urls.join('\n'),
+      setSharing,
+      setShareCopied,
+    )
+  }
+
+  return (
+    <div className="min-h-screen">
+      <motion.header
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/90 px-4 py-3 backdrop-blur"
+      >
+        <AgencyLogo branding={gallery.branding} />
+        <div className="flex shrink-0 items-center gap-2">
+          {gallery.clientName && (
+            <span className="min-w-0 shrink truncate rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
+              {gallery.clientName}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={shareGallery}
+            disabled={gallerySharing}
+            aria-label="Compartilhar galeria"
+            title="Compartilhar galeria"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-50"
+          >
+            {gallerySharing ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : galleryShareCopied ? (
+              <Check className="size-4" />
+            ) : (
+              <Share2 className="size-4" />
+            )}
+          </button>
+          <ThemeToggle />
+        </div>
+      </motion.header>
+      {galleryShareCopied && (
+        <p className="px-4 pt-2 text-center text-xs text-muted-foreground sm:px-6">
+          Link copiado para a área de transferência.
+        </p>
+      )}
+
+      <FadeIn className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              {count} {count === 1 ? 'vídeo' : 'vídeos'} para aprovação
+            </p>
+            <h1 className="mt-1 font-display text-4xl leading-none tracking-wide sm:text-5xl">
+              {gallery.projectName || 'Vídeos'}
+            </h1>
+          </div>
+          {count > 0 && (
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-primary"
+                  checked={selected.size > 0 && selected.size === gallery.videos.length}
+                  onChange={toggleSelectAll}
+                />
+                Selecionar todos
+              </label>
+              {selected.size > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={shareSelected}
+                    disabled={sharing}
+                    className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-secondary px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-50"
+                  >
+                    {sharing ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : shareCopied ? (
+                      <Check className="size-4" />
+                    ) : (
+                      <Share2 className="size-4" />
+                    )}
+                    {shareCopied ? 'Link copiado' : `Compartilhar (${selected.size})`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={downloadSelected}
+                    disabled={bulkDownloading}
+                    className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                  >
+                    {bulkDownloading ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Download className="size-4" />
+                    )}
+                    Baixar selecionados ({selected.size})
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        {bulkError && (
+          <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
+            <AlertTriangle className="size-4" /> {bulkError}
+          </p>
+        )}
+
+        <div className="mt-6">
+          {count === 0 ? (
+            <EmptyState
+              icon={<Film className="size-7" />}
+              title="Nenhum vídeo nesta galeria"
+              description="Os vídeos enviados para este projeto vão aparecer aqui."
+            />
+          ) : (
+            <StaggerList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {gallery.videos.map((v) => (
+                <motion.div
+                  key={v.link}
+                  variants={staggerItem}
+                  className="group relative overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/50"
+                >
+                  {/*
+                    Link "esticado": cobre o card inteiro por baixo. O checkbox
+                    fica acima dele (z-index maior) — não pode ficar aninhado
+                    DENTRO do <a>, senão o clique nele também aciona a navegação.
+                  */}
+                  <Link
+                    href={`/v/${v.link}?g=${encodeURIComponent(link)}`}
+                    aria-label={`Abrir ${v.title}`}
+                    className="absolute inset-0 z-[1]"
+                  />
+                  <div className="relative aspect-video w-full overflow-hidden bg-secondary">
+                    <Image
+                      src={v.posterUrl || '/placeholder.svg'}
+                      alt=""
+                      fill
+                      className="object-cover transition-transform group-hover:scale-105"
+                      sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                      unoptimized
+                    />
+                    {v.processingStatus === 'processando' && (
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50">
+                        <Loader2 className="size-6 animate-spin text-white" />
+                      </div>
+                    )}
+                    <input
+                      type="checkbox"
+                      aria-label={`Selecionar ${v.title} para baixar`}
+                      checked={selected.has(v.link)}
+                      onChange={() => toggleSelected(v.link)}
+                      className="absolute right-2 top-2 z-[2] size-4 cursor-pointer accent-primary"
+                    />
+                    <div className="absolute left-2 top-2">
+                      <StatusBadge status={v.status} />
+                    </div>
+                    {v.version > 1 && (
+                      <span className="absolute bottom-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                        v{v.version}
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <h3 className="truncate text-sm font-medium text-foreground">{v.title}</h3>
+                  </div>
+                </motion.div>
+              ))}
+            </StaggerList>
+          )}
+        </div>
+      </FadeIn>
+    </div>
+  )
+}
