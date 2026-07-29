@@ -11,11 +11,14 @@ import {
   AlarmClock,
   Zap,
   CircleCheckBig,
+  Pencil,
   Sparkles,
   Trash2,
   Loader2,
   Lock,
   Users,
+  Play,
+  Search,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
 import { dashboardService, sampleDataService, videoService } from '@/lib/services'
@@ -40,6 +43,7 @@ const ALL_CLIENTS = 'Todos os clientes'
 export function DashboardView() {
   const [client, setClient] = useState(ALL_CLIENTS)
   const [status, setStatus] = useState<'todos' | VideoStatus>('todos')
+  const [search, setSearch] = useState('')
 
   const { data, loading, error, refetch } = useQuery<Video[]>(
     (signal) => videoService.list(undefined, signal),
@@ -80,7 +84,8 @@ export function DashboardView() {
   const filtered = videos.filter((v) => {
     const byClient = client === ALL_CLIENTS || v.clientName === client
     const byStatus = status === 'todos' || v.status === status
-    return byClient && byStatus
+    const bySearch = search.trim() === '' || v.title.toLowerCase().includes(search.trim().toLowerCase())
+    return byClient && byStatus && bySearch
   })
 
   const pending = videos.filter((v) => v.status === 'pendente').length
@@ -118,37 +123,57 @@ export function DashboardView() {
         )}
       </AnimatePresence>
 
-      {/* Insights em destaque (GET /dashboard/insights) */}
-      <InsightsRow query={insights} />
-
-      {/* Stats */}
-      <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
-        <StatCard label="Pendentes" value={pending} accent loading={loading} />
-        <StatCard label="Aprovados" value={approved} loading={loading} />
-        <StatCard label="Ajustes" value={adjust} loading={loading} />
-      </div>
+      {/* Visão geral: pendentes +48h, aprovados no mês, em ajustes, cliente mais rápido */}
+      <OverviewRow
+        insights={insights}
+        pending={pending}
+        approved={approved}
+        adjust={adjust}
+        loadingVideos={loading}
+      />
 
       {/* Filters */}
       <div className="mt-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap gap-2">
-          {filters.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setStatus(f.key)}
-              className={cn(
-                'min-h-11 rounded-lg px-4 text-sm font-medium transition-colors',
-                status === f.key
-                  ? 'bg-foreground text-background'
-                  : 'bg-secondary text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
+          {filters.map((f) => {
+            const count = f.key === 'todos' ? videos.length : videos.filter((v) => v.status === f.key).length
+            const active = status === f.key
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setStatus(f.key)}
+                className={cn(
+                  'inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors',
+                  active
+                    ? 'bg-foreground text-background'
+                    : 'bg-secondary text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {f.label}
+                <span
+                  className={cn(
+                    'inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold',
+                    active ? 'bg-background/20 text-background' : 'bg-border text-foreground',
+                  )}
+                >
+                  {count}
+                </span>
+              </button>
+            )
+          })}
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Cliente:</span>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por arquivo..."
+              className="min-h-11 w-full rounded-lg border border-border bg-secondary pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary sm:w-56"
+            />
+          </div>
           <select
             value={client}
             onChange={(e) => setClient(e.target.value)}
@@ -160,18 +185,17 @@ export function DashboardView() {
               </option>
             ))}
           </select>
-        </label>
+        </div>
       </div>
 
       {/* Video list */}
       <div className="mt-6">
         {loading ? (
-          <div className="grid gap-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 rounded-xl border border-border bg-card p-3">
-                <Skeleton className="aspect-video w-28 shrink-0 sm:w-40" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-24" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="overflow-hidden rounded-xl border border-border bg-card">
+                <Skeleton className="aspect-video w-full" />
+                <div className="space-y-2 p-3">
                   <Skeleton className="h-4 w-3/4" />
                   <Skeleton className="h-3 w-1/2" />
                 </div>
@@ -202,9 +226,9 @@ export function DashboardView() {
             />
           )
         ) : (
-          <div className="grid gap-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {filtered.map((v) => (
-              <VideoRow key={v.id} video={v} />
+              <VideoCard key={v.id} video={v} />
             ))}
           </div>
         )}
@@ -213,7 +237,7 @@ export function DashboardView() {
   )
 }
 
-function VideoRow({ video: v }: { video: Video }) {
+function VideoCard({ video: v }: { video: Video }) {
   const { user } = useAuth()
   const isOwner = user?.teamRole === 'owner'
   // Link principal (o card inteiro) leva à tela pública do cliente. As ações da
@@ -222,75 +246,83 @@ function VideoRow({ video: v }: { video: Video }) {
   const publicHref = v.publicLink ? `/v/${v.publicLink}` : null
 
   return (
-    <div className="group relative flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary/50 sm:flex-row sm:items-center sm:gap-4">
+    <div className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/50">
       {publicHref && (
         <Link
           href={publicHref}
           aria-label={`Abrir link do cliente de ${v.title}`}
-          className="absolute inset-0 z-[1] rounded-xl"
+          className="absolute inset-0 z-[1]"
         />
       )}
 
-      <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-secondary sm:w-40">
+      <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-secondary">
         <Image
           src={v.posterUrl || '/placeholder.svg'}
           alt=""
           fill
           className="object-cover"
-          sizes="160px"
+          sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
           unoptimized
         />
-        <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
-          {formatDuration(v.duration)}
-        </span>
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="rounded bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {v.type}
-          </span>
-          <StatusBadge status={v.status} />
+        <div className="absolute inset-x-2 top-2 flex items-start justify-between gap-2">
+          <div className="rounded-full bg-black/30 backdrop-blur-sm">
+            <StatusBadge status={v.status} />
+          </div>
           {v.isExample && (
             <span
               title="Este é um item de exemplo — explore e delete quando quiser."
-              className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary"
+              className="inline-flex items-center gap-1 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground backdrop-blur-sm"
             >
               <Sparkles className="size-3" /> Exemplo
             </span>
           )}
         </div>
-        <h3 className="mt-1.5 truncate font-medium text-foreground">{v.title}</h3>
-        <p className="truncate text-sm text-muted-foreground">{v.clientName}</p>
-        <div className="mt-1.5 flex items-center gap-4 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1">
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className="grid size-11 place-items-center rounded-full bg-black/45 text-white transition-transform group-hover:scale-105">
+            <Play className="size-4.5 fill-white" />
+          </span>
+        </span>
+        <span className="absolute bottom-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+          {formatDuration(v.duration)}
+        </span>
+      </div>
+
+      <div className="flex flex-1 flex-col gap-2 p-3">
+        <span className="w-fit rounded bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {v.type}
+        </span>
+        <h3 className="truncate font-medium text-foreground">{v.title}</h3>
+        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span className="truncate font-semibold text-primary">{v.clientName}</span>
+          <span className="inline-flex shrink-0 items-center gap-1">
             <Clock className="size-3.5" />
             {formatSentAt(v.createdAt)}
           </span>
-          <span className="inline-flex items-center gap-1">
-            <MessageSquare className="size-3.5" />
-            {v.commentsCount}
-          </span>
         </div>
-      </div>
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <MessageSquare className="size-3.5" />
+          {v.commentsCount}
+        </div>
 
-      {/* Ações da agência (acima do link do card) */}
-      <div className="relative z-[2] flex shrink-0 flex-wrap gap-2 sm:flex-col">
-        <Link
-          href={`/videos/${v.id}/revisao`}
-          className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-primary/15 px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary/25"
-        >
-          <Lock className="size-3.5" />
-          Revisão interna
-        </Link>
-        {isOwner && (
+        {/* Ações da agência (acima do link do card) */}
+        <div className="relative z-[2] mt-1 flex flex-wrap gap-2">
           <Link
-            href={`/videos/${v.id}/canal-cliente`}
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground transition-colors hover:bg-secondary/70"
+            href={`/videos/${v.id}/revisao`}
+            className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary/15 px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary/25"
           >
-            <Users className="size-3.5" />
-            Canal do cliente
+            <Lock className="size-3.5" />
+            Revisão interna
           </Link>
-        )}
+          {isOwner && (
+            <Link
+              href={`/videos/${v.id}/canal-cliente`}
+              className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground transition-colors hover:bg-secondary/70"
+            >
+              <Users className="size-3.5" />
+              Canal do cliente
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -369,88 +401,115 @@ function OnboardingBanner({
   )
 }
 
-function InsightsRow({
-  query,
+function OverviewRow({
+  insights,
+  pending,
+  approved,
+  adjust,
+  loadingVideos,
 }: {
-  query: {
+  insights: {
     data: DashboardInsights | null
     loading: boolean
     error: string | null
   }
+  pending: number
+  approved: number
+  adjust: number
+  loadingVideos: boolean
 }) {
-  if (query.loading) {
+  if (loadingVideos || insights.loading) {
     return (
-      <div className="mt-6 grid gap-3 sm:grid-cols-3 sm:gap-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full rounded-xl" />
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-28 w-full rounded-xl" />
         ))}
       </div>
     )
   }
 
-  // Insights são complementares: em caso de erro, apenas não renderiza a faixa.
-  if (query.error || !query.data) return null
-
-  const { pendingOver48h, fastestClient, approvedThisMonth } = query.data
+  const data = insights.data
+  const pendingOver48h = data?.pendingOver48h ?? pending
+  const approvedThisMonth = data?.approvedThisMonth ?? approved
+  const fastestClient = data?.fastestClient ?? null
+  const hasPendingAlert = pendingOver48h > 0
 
   return (
-    <StaggerList className="mt-6 grid gap-3 sm:grid-cols-3 sm:gap-4">
-      <InsightCard
-        icon={<AlarmClock className="size-4" />}
-        label="Pendentes há +48h"
-        value={pendingOver48h}
-        hint={pendingOver48h > 0 ? 'Vale um lembrete ao cliente' : 'Tudo em dia'}
-        accent={pendingOver48h > 0}
-      />
-      <InsightCard
-        icon={<Zap className="size-4" />}
-        label="Cliente mais rápido"
-        value={fastestClient ? fastestClient.name : '—'}
-        hint={
-          fastestClient ? `Aprova em ~${fastestClient.avgHours}h em média` : 'Sem dados ainda'
-        }
-      />
-      <InsightCard
+    <StaggerList className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+      <motion.div
+        variants={staggerItem}
+        className={cn(
+          'col-span-2 flex items-center gap-3 rounded-xl border p-4 sm:col-span-1',
+          hasPendingAlert ? 'border-primary/40 bg-primary text-primary-foreground' : 'border-border bg-card',
+        )}
+      >
+        <span
+          className={cn(
+            'grid size-11 shrink-0 place-items-center rounded-full',
+            hasPendingAlert ? 'bg-primary-foreground/15' : 'bg-secondary text-muted-foreground',
+          )}
+        >
+          <AlarmClock className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <p className="font-display text-3xl leading-none tracking-wide sm:text-4xl">
+            {pendingOver48h}
+          </p>
+          <p
+            className={cn(
+              'mt-1 text-xs',
+              hasPendingAlert ? 'text-primary-foreground/80' : 'text-muted-foreground',
+            )}
+          >
+            {hasPendingAlert ? 'pendentes há +48h · vale um lembrete' : 'pendentes há +48h · tudo em dia'}
+          </p>
+        </div>
+      </motion.div>
+
+      <OverviewCard
         icon={<CircleCheckBig className="size-4" />}
         label="Aprovados no mês"
         value={approvedThisMonth}
         hint="Total do mês atual"
       />
+      <OverviewCard
+        icon={<Pencil className="size-4" />}
+        label="Em ajustes"
+        value={adjust}
+        hint="Aguardando revisão"
+      />
+      <OverviewCard
+        icon={<Zap className="size-4" />}
+        label="Cliente + rápido"
+        value={fastestClient ? fastestClient.name : '—'}
+        hint={fastestClient ? `~${fastestClient.avgHours}h em média` : 'Sem dados ainda'}
+      />
     </StaggerList>
   )
 }
 
-function InsightCard({
+function OverviewCard({
   icon,
   label,
   value,
   hint,
-  accent,
 }: {
   icon: React.ReactNode
   label: string
   value: string | number
   hint?: string
-  accent?: boolean
 }) {
   const numeric = typeof value === 'number'
   return (
-    <motion.div
-      variants={staggerItem}
-      className={cn(
-        'rounded-xl border p-4',
-        accent ? 'border-primary/40 bg-primary/10' : 'border-border bg-card',
-      )}
-    >
+    <motion.div variants={staggerItem} className="rounded-xl border border-border bg-card p-4">
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-        <span className={cn(accent ? 'text-primary' : 'text-muted-foreground')}>{icon}</span>
+        <span className="text-muted-foreground">{icon}</span>
         {label}
       </div>
       <p
         className={cn(
-          'mt-2 leading-none tracking-wide',
-          numeric ? 'font-display text-4xl sm:text-5xl' : 'truncate text-2xl font-semibold',
-          accent ? 'text-primary' : 'text-foreground',
+          'mt-2 leading-none tracking-wide text-foreground',
+          numeric ? 'font-display text-3xl sm:text-4xl' : 'truncate text-xl font-semibold',
         )}
         title={numeric ? undefined : String(value)}
       >
@@ -458,40 +517,5 @@ function InsightCard({
       </p>
       {hint && <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p>}
     </motion.div>
-  )
-}
-
-function StatCard({
-  label,
-  value,
-  accent,
-  loading,
-}: {
-  label: string
-  value: number
-  accent?: boolean
-  loading?: boolean
-}) {
-  return (
-    <div
-      className={cn(
-        'rounded-xl border p-4',
-        accent ? 'border-primary/40 bg-primary/10' : 'border-border bg-card',
-      )}
-    >
-      {loading ? (
-        <Skeleton className="h-10 w-10" />
-      ) : (
-        <p
-          className={cn(
-            'font-display text-4xl leading-none tracking-wide sm:text-5xl',
-            accent ? 'text-primary' : 'text-foreground',
-          )}
-        >
-          {value}
-        </p>
-      )}
-      <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{label}</p>
-    </div>
   )
 }
