@@ -22,10 +22,22 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { ApprovedCelebration } from '@/components/approved-celebration'
 import { VideoStage, type VideoStageHandle, type StageMarker } from '@/components/video-stage'
 import { AgencyReplyItem, ClientCommentItem } from '@/components/comment-items'
+import { VideoTitleField } from '@/components/video-title-field'
 
 /** Decisão já registrada (se houver) a partir do status atual do vídeo. */
 function decisionFromStatus(status: VideoStatus): VideoStatus | null {
   return status === 'aprovado' || status === 'ajuste' ? status : null
+}
+
+/** Som curto tocado quando o cliente aprova o vídeo. Falha silenciosa se o navegador bloquear autoplay. */
+function playApproveSound() {
+  try {
+    const audio = new Audio('/sounds/approve.mp3')
+    audio.volume = 0.6
+    void audio.play().catch(() => {})
+  } catch {
+    // ambiente sem suporte a Audio — ignora.
+  }
 }
 
 /** Nome do cliente (sem login) persistido no navegador — pedido uma vez, reusado depois. */
@@ -220,6 +232,9 @@ export function ClientReview({
   async function decide(kind: VideoStatus) {
     setDecisionBusy(kind)
     setDecisionError(null)
+    // Toca já no clique (não após o await) para não perder o gesto do usuário — alguns
+    // navegadores (Safari/iOS) bloqueiam áudio iniciado fora do handler de interação direto.
+    if (kind === 'aprovado') playApproveSound()
     try {
       if (kind === 'aprovado') await publicService.approve(activeLink, overallRating || undefined)
       else await publicService.requestChanges(activeLink)
@@ -257,9 +272,14 @@ export function ClientReview({
               <p className="text-xs uppercase tracking-wide text-muted-foreground">
                 {video.type} · para aprovação
               </p>
-              <h1 className="mt-1 truncate font-display text-3xl leading-none tracking-wide sm:text-4xl">
-                {video.title}
-              </h1>
+              <VideoTitleField
+                title={video.title}
+                onSave={async (title) => {
+                  const updated = await publicService.updateTitle(activeLink, title)
+                  setData((prev) => ({ ...prev, video: { ...prev.video, title: updated.title } }))
+                }}
+                className="mt-1 font-display text-3xl leading-none tracking-wide sm:text-4xl"
+              />
             </div>
             {(video.originalUrl || video.url) && (
               <button

@@ -16,6 +16,8 @@ import {
   Link2,
   Copy,
   Check,
+  Trash2,
+  X,
 } from 'lucide-react'
 import { projectService, publicService, reportService, teamService, videoService } from '@/lib/services'
 import type { Project, TeamMember, Video } from '@/lib/types'
@@ -107,6 +109,30 @@ export function ProjectDetailView({ id }: { id: string }) {
         ? new Set()
         : new Set(downloadableVideos.map((v) => v.id)),
     )
+  }
+
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  async function removeVideo(id: string) {
+    setDeletingId(id)
+    setDeleteError(null)
+    try {
+      await videoService.remove(id)
+      videos.setData((prev) => (prev ?? []).filter((v) => v.id !== id))
+      setSelected((prev) => {
+        if (!prev.has(id)) return prev
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    } catch (err) {
+      setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível excluir o vídeo.')
+    } finally {
+      setDeletingId(null)
+      setConfirmingDeleteId(null)
+    }
   }
 
   /** Baixa os vídeos selecionados um a um — em sequência, pra não disparar vários downloads simultâneos e o navegador bloquear. */
@@ -243,6 +269,11 @@ export function ProjectDetailView({ id }: { id: string }) {
           <AlertTriangle className="size-4" /> {bulkError}
         </p>
       )}
+      {deleteError && (
+        <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
+          <AlertTriangle className="size-4" /> {deleteError}
+        </p>
+      )}
 
       <div className="mt-4">
         {videos.loading ? (
@@ -352,6 +383,46 @@ export function ProjectDetailView({ id }: { id: string }) {
                     </div>
                   </div>
                   <ChevronRight className="hidden size-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary sm:block" />
+
+                  {isOwner && (
+                    <div className="absolute right-3 top-3 z-[2]">
+                      {confirmingDeleteId === v.id ? (
+                        <div className="flex items-center gap-1.5 rounded-lg bg-card p-1 shadow-lg ring-1 ring-border">
+                          <button
+                            type="button"
+                            onClick={() => removeVideo(v.id)}
+                            disabled={deletingId === v.id}
+                            className="inline-flex min-h-8 items-center gap-1 rounded-lg bg-destructive px-2.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                          >
+                            {deletingId === v.id ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="size-3.5" />
+                            )}
+                            Confirmar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmingDeleteId(null)}
+                            disabled={deletingId === v.id}
+                            aria-label="Cancelar exclusão"
+                            className="grid size-8 place-items-center rounded-lg bg-secondary text-foreground disabled:opacity-50"
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingDeleteId(v.id)}
+                          aria-label={`Excluir ${v.title}`}
+                          className="grid size-8 place-items-center rounded-lg bg-card/90 text-muted-foreground ring-1 ring-border hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}

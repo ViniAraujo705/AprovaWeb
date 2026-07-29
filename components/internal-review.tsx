@@ -25,6 +25,7 @@ import { FadeIn, motion, AnimatePresence } from '@/components/motion'
 import { VideoStage, type VideoStageHandle, type StageMarker } from '@/components/video-stage'
 import { RoleBadge } from '@/components/comment-items'
 import { DeadlineBadge, DeadlineField } from '@/components/deadline-badge'
+import { VideoTitleField } from '@/components/video-title-field'
 
 interface InternalData {
   video: Video
@@ -84,6 +85,12 @@ export function InternalReview({ videoId }: { videoId: string }) {
     )
   }
 
+  function updateTitle(title: string) {
+    setData((prev) =>
+      prev ? { ...prev, video: { ...prev.video, title } } : (prev as unknown as InternalData),
+    )
+  }
+
   if (loading) {
     return (
       <div className="grid min-h-[60vh] place-items-center">
@@ -124,9 +131,20 @@ export function InternalReview({ videoId }: { videoId: string }) {
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
               {video.type} · {video.clientName || 'Cliente'}
             </p>
-            <h1 className="mt-1 font-display text-4xl leading-none tracking-wide sm:text-5xl">
-              {video.title}
-            </h1>
+            {isOwner ? (
+              <VideoTitleField
+                title={video.title}
+                onSave={async (title) => {
+                  const updated = await videoService.updateTitle(videoId, title)
+                  updateTitle(updated.title)
+                }}
+                className="mt-1 font-display text-4xl leading-none tracking-wide sm:text-5xl"
+              />
+            ) : (
+              <h1 className="mt-1 font-display text-4xl leading-none tracking-wide sm:text-5xl">
+                {video.title}
+              </h1>
+            )}
             {/* Prazo de entrega: owner define, editor só visualiza. */}
             <div className="mt-2">
               {isOwner ? (

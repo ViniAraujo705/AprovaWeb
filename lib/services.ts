@@ -521,6 +521,18 @@ export const videoService = {
     return mapVideo(res)
   },
 
+  /** Renomeia o vídeo. Owner e cliente (via link público) podem chamar isto. */
+  async updateTitle(id: string, title: string): Promise<Video> {
+    if (isDemo()) {
+      const found = demoVideos.find((v) => v.id === id)
+      if (!found) throw new ApiError('Vídeo não encontrado.', 404)
+      found.title = title
+      return delay(found, 300)
+    }
+    const res = await api.patch<Raw>(`/videos/${id}/titulo`, { nomeArquivo: title })
+    return mapVideo(res)
+  },
+
   /** Define o editor responsável pelo vídeo (só o owner deve chamar). */
   async assignEditor(id: string, editorId: string | null): Promise<Video> {
     if (isDemo()) {
@@ -545,6 +557,16 @@ export const videoService = {
     const url = video.originalUrl ?? video.url
     if (!url) throw new ApiError('Arquivo original indisponível.', 404)
     return { url, filename: video.title || `video-${id}-original.mp4` }
+  },
+
+  /** Exclui o vídeo (só o owner deve chamar). */
+  async remove(id: string): Promise<void> {
+    if (isDemo()) {
+      const idx = demoVideos.findIndex((v) => v.id === id)
+      if (idx !== -1) demoVideos.splice(idx, 1)
+      return void (await delay(null, 300))
+    }
+    await api.delete(`/videos/${id}`)
   },
 }
 
@@ -759,6 +781,21 @@ export const publicService = {
     await api.post(`/public/videos/${encodeURIComponent(link)}/request-changes`, undefined, {
       auth: false,
     })
+  },
+
+  /** Renomeia o vídeo a partir da tela pública do cliente. */
+  async updateTitle(link: string, title: string): Promise<Video> {
+    if (isDemoVideoLink(link)) {
+      const found = demoVideos.find((v) => v.publicLink === link) ?? demoVideos[0]
+      found.title = title
+      return delay(found, 300)
+    }
+    const res = await api.patch<Raw>(
+      `/public/videos/${encodeURIComponent(link)}/titulo`,
+      { nomeArquivo: title },
+      { auth: false },
+    )
+    return mapVideo(res)
   },
 
   /** Galeria pública do projeto: um link só listando todos os vídeos da entrega. */
