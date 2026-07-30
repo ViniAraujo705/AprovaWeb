@@ -24,12 +24,13 @@ import type { Project, TeamMember, Video } from '@/lib/types'
 import { StatusBadge } from '@/components/status-badge'
 import { DeadlineBadge, DeadlineField } from '@/components/deadline-badge'
 import { EditorAssignBadge, EditorAssignField } from '@/components/editor-assign-field'
-import { LoadingState, ErrorState, EmptyState, Skeleton } from '@/components/states'
+import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { useAuth } from '@/components/auth-provider'
 import { ApiError } from '@/lib/api'
 import { formatDuration, formatSentAt } from '@/lib/format'
 import { triggerDownload } from '@/lib/download'
+import { toast } from '@/lib/toast'
 
 export function ProjectDetailView({ id }: { id: string }) {
   const { user } = useAuth()
@@ -75,6 +76,7 @@ export function ProjectDetailView({ id }: { id: string }) {
     try {
       const { url, filename } = await reportService.getProjectReport(id)
       triggerDownload(url, filename)
+      toast.success('Relatório gerado', 'O download deve começar em instantes.')
     } catch (err) {
       setExportError(err instanceof ApiError ? err.message : 'Não foi possível gerar o relatório.')
     } finally {
@@ -127,6 +129,7 @@ export function ProjectDetailView({ id }: { id: string }) {
         next.delete(id)
         return next
       })
+      toast.success('Vídeo excluído')
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível excluir o vídeo.')
     } finally {
@@ -161,6 +164,7 @@ export function ProjectDetailView({ id }: { id: string }) {
         }
       }
       if (failed > 0) setBulkError(`${failed} vídeo(s) não puderam ser baixados.`)
+      else toast.success(`${items.length} vídeo(s) baixados`)
     } finally {
       setBulkDownloading(false)
     }
@@ -277,14 +281,32 @@ export function ProjectDetailView({ id }: { id: string }) {
 
       <div className="mt-4">
         {videos.loading ? (
-          <LoadingState label="Carregando vídeos…" />
+          <div className="grid gap-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 rounded-xl border border-border bg-card p-3">
+                <Skeleton className="aspect-video w-28 shrink-0 sm:w-40" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-1/3" />
+                  <Skeleton className="h-3 w-1/4" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : videos.error ? (
           <ErrorState message={videos.error} onRetry={videos.refetch} />
         ) : (videos.data ?? []).length === 0 ? (
           <EmptyState
             icon={<Film className="size-7" />}
             title="Nenhum vídeo neste projeto"
-            description="Os vídeos enviados para este projeto aparecerão aqui."
+            description="Envie o primeiro vídeo para começar a coletar aprovação e comentários."
+            action={
+              <Link
+                href="/upload"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+              >
+                Enviar vídeo
+              </Link>
+            }
           />
         ) : (
           <div className="grid gap-3">

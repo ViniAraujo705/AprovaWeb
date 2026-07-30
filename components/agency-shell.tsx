@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -57,7 +58,9 @@ const nav: NavItem[] = [
     icon: ListChecks,
     teamRole: 'owner',
   },
-  { href: '/configuracoes', label: 'Configurações', icon: Settings, teamRole: 'owner', exact: true },
+  // Sem teamRole: editor também acessa para editar o próprio perfil (a
+  // seção de branding dentro da tela é que fica escondida do editor).
+  { href: '/configuracoes', label: 'Configurações', icon: Settings, exact: true },
   { href: '/planos', label: 'Planos', icon: CreditCard, teamRole: 'owner' },
   { href: '/admin', label: 'Admin', icon: Shield, role: 'admin' },
 ]
@@ -144,9 +147,13 @@ function UserFooter({ collapsed }: { collapsed?: boolean }) {
       <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-sidebar-border bg-secondary/40 p-2">
         <span
           title={user?.name || user?.email || ''}
-          className="grid size-8 shrink-0 place-items-center rounded-full bg-secondary text-xs font-bold uppercase text-foreground"
+          className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary text-xs font-bold uppercase text-foreground"
         >
-          {(user?.name || user?.email || '?').slice(0, 1)}
+          {user?.photoUrl ? (
+            <Image src={user.photoUrl} alt="" fill className="object-cover" sizes="32px" unoptimized />
+          ) : (
+            (user?.name || user?.email || '?').slice(0, 1)
+          )}
         </span>
         <NotificationBell direction="up" />
         <ThemeToggle />
@@ -166,8 +173,12 @@ function UserFooter({ collapsed }: { collapsed?: boolean }) {
   return (
     <div className="mt-4 flex items-center justify-between gap-2 rounded-xl border border-sidebar-border bg-secondary/40 p-3">
       <div className="flex min-w-0 items-center gap-2">
-        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-secondary text-xs font-bold uppercase text-foreground">
-          {(user?.name || user?.email || '?').slice(0, 1)}
+        <span className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary text-xs font-bold uppercase text-foreground">
+          {user?.photoUrl ? (
+            <Image src={user.photoUrl} alt="" fill className="object-cover" sizes="32px" unoptimized />
+          ) : (
+            (user?.name || user?.email || '?').slice(0, 1)
+          )}
         </span>
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">

@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Bebas_Neue, Inter } from 'next/font/google'
 import { AuthProvider } from '@/components/auth-provider'
 import { ThemeProvider } from '@/components/theme-provider'
+import { Toaster } from '@/components/toaster'
 import './globals.css'
 
 const inter = Inter({
@@ -52,6 +53,7 @@ export default function RootLayout({
             <AuthProvider>{children}</AuthProvider>
           </ThemeProvider>
         </div>
+        <Toaster />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

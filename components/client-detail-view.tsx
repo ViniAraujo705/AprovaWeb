@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { clientService, projectService } from '@/lib/services'
 import type { Client, Project } from '@/lib/types'
-import { ErrorState, EmptyState, Skeleton, LoadingState } from '@/components/states'
+import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { validateImageFile, uploadToPresignedUrl, UploadError } from '@/lib/upload'
@@ -24,6 +24,7 @@ import { isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
 import { FadeIn, AnimatePresence, motion, StaggerList, staggerItem } from '@/components/motion'
 import { useRouter } from 'next/navigation'
+import { toast } from '@/lib/toast'
 
 /** Lê um arquivo como Data URL (usado só no preview/modo demo). */
 function readAsDataUrl(file: File): Promise<string> {
@@ -94,6 +95,7 @@ function ClientForm({
 
   function flashSaved() {
     setSaved(true)
+    toast.success('Configuração salva')
     setTimeout(() => setSaved(false), 2000)
   }
 
@@ -323,6 +325,7 @@ function ClientProjects({ clientId }: { clientId: string }) {
     setError(null)
     try {
       const created = await projectService.create({ name: trimmed, clientId })
+      toast.success('Projeto criado')
       router.push(`/projetos/${created.id}`)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Falha ao criar projeto.')
@@ -383,7 +386,11 @@ function ClientProjects({ clientId }: { clientId: string }) {
 
       <div className="mt-3">
         {projects.loading ? (
-          <LoadingState label="Carregando projetos…" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <Skeleton key={i} className="h-[60px] w-full" />
+            ))}
+          </div>
         ) : projects.error ? (
           <ErrorState message={projects.error} onRetry={projects.refetch} />
         ) : (projects.data ?? []).length === 0 ? (

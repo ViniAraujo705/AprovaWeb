@@ -23,6 +23,7 @@ import { ApprovedCelebration } from '@/components/approved-celebration'
 import { VideoStage, type VideoStageHandle, type StageMarker } from '@/components/video-stage'
 import { AgencyReplyItem, ClientCommentItem } from '@/components/comment-items'
 import { VideoTitleField } from '@/components/video-title-field'
+import { toast } from '@/lib/toast'
 
 /** Decisão já registrada (se houver) a partir do status atual do vídeo. */
 function decisionFromStatus(status: VideoStatus): VideoStatus | null {
@@ -211,6 +212,7 @@ export function ClientReview({
       setDraft('')
       // Confirmação visual rápida (não bloqueia a tela).
       setCommentSent(true)
+      toast.success('Comentário adicionado')
       setTimeout(() => setCommentSent(false), 1800)
     } catch (err) {
       setCommentError(err instanceof ApiError ? err.message : 'Não foi possível enviar.')

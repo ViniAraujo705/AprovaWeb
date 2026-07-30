@@ -26,6 +26,7 @@ import { VideoStage, type VideoStageHandle, type StageMarker } from '@/component
 import { RoleBadge } from '@/components/comment-items'
 import { DeadlineBadge, DeadlineField } from '@/components/deadline-badge'
 import { VideoTitleField } from '@/components/video-title-field'
+import { toast } from '@/lib/toast'
 
 interface InternalData {
   video: Video
@@ -235,6 +236,7 @@ function InternalComposer({
       onCreated(created)
       setDraft('')
       setSent(true)
+      toast.success('Comentário adicionado')
       setTimeout(() => setSent(false), 1800)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível enviar.')
@@ -400,6 +402,7 @@ function ReplyComposer({
     try {
       const created = await internalCommentService.add(videoId, { text, timestamp, parentId })
       onCreated(created)
+      toast.success('Resposta enviada')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível responder.')
       setPosting(false)

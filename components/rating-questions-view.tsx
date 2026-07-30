@@ -24,6 +24,7 @@ import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { cn } from '@/lib/utils'
+import { toast } from '@/lib/toast'
 
 export function RatingQuestionsView() {
   const { data, loading, error, refetch, setData } = useQuery<RatingQuestion[]>(
@@ -138,6 +139,7 @@ function NewQuestionForm({
       const created = await ratingQuestionService.create(value)
       onCreated({ ...created, order: created.order || order })
       setText('')
+      toast.success('Pergunta adicionada')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível criar a pergunta.')
     } finally {
@@ -232,6 +234,7 @@ function QuestionRow({
     try {
       await ratingQuestionService.remove(question.id)
       onRemoved()
+      toast.success('Pergunta removida')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Falha ao excluir.')
       setBusy(false)

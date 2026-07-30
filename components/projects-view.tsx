@@ -10,6 +10,7 @@ import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { StaggerList, staggerItem, motion } from '@/components/motion'
+import { toast } from '@/lib/toast'
 
 const ALL_CLIENTS = 'Todos os clientes'
 
@@ -76,6 +77,7 @@ export function ProjectsView() {
     setCreateError(null)
     try {
       const created = await projectService.create({ name, clientId: projectClientId })
+      toast.success('Projeto criado')
       router.push(`/projetos/${created.id}`)
     } catch (err) {
       setCreateError(err instanceof ApiError ? err.message : 'Falha ao criar projeto.')

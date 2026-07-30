@@ -67,6 +67,7 @@ export const demoUser: User = {
   email: 'demo@aprova.app',
   role: 'admin',
   teamRole: 'owner',
+  photoUrl: null,
 }
 
 /** Pequeno atraso para simular latência de rede e exercitar os loaders. */
@@ -350,10 +351,10 @@ export function demoProjectGallery(link: string): ProjectGallery {
 }
 
 export const demoAdminUsers: AdminUser[] = [
-  { id: 'demo-user', name: 'Você (demo)', email: 'demo@aprova.app', role: 'admin', teamRole: 'owner', status: 'active', createdAt: iso(240) },
-  { id: 'u2', name: 'Marina Alves', email: 'marina@agencia.com', role: 'user', teamRole: 'editor', status: 'active', createdAt: iso(200) },
-  { id: 'u3', name: 'Rafael Souza', email: 'rafael@agencia.com', role: 'user', teamRole: 'editor', status: 'suspended', createdAt: iso(120) },
-  { id: 'u4', name: 'Bruno Lima', email: 'bruno@agencia.com', role: 'user', teamRole: 'editor', status: 'inactive', createdAt: iso(60) },
+  { id: 'demo-user', name: 'Você (demo)', email: 'demo@aprova.app', role: 'admin', teamRole: 'owner', photoUrl: null, status: 'active', createdAt: iso(240) },
+  { id: 'u2', name: 'Marina Alves', email: 'marina@agencia.com', role: 'user', teamRole: 'editor', photoUrl: null, status: 'active', createdAt: iso(200) },
+  { id: 'u3', name: 'Rafael Souza', email: 'rafael@agencia.com', role: 'user', teamRole: 'editor', photoUrl: null, status: 'suspended', createdAt: iso(120) },
+  { id: 'u4', name: 'Bruno Lima', email: 'bruno@agencia.com', role: 'user', teamRole: 'editor', photoUrl: null, status: 'inactive', createdAt: iso(60) },
 ]
 
 export const demoMetrics: AdminMetrics = {

@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function LoginView() {
-  const { login } = useAuth()
+  const { login, loginDemo } = useAuth()
   const router = useRouter()
   const params = useSearchParams()
 
@@ -26,6 +26,11 @@ export function LoginView() {
   const justInvited = params.get('invited') === '1'
   // Vindo da tela de redefinir senha: senha alterada com sucesso.
   const justReset = params.get('reset') === '1'
+
+  function handleDemo() {
+    loginDemo()
+    router.replace('/dashboard')
+  }
 
   function validate() {
     const next: { email?: string; password?: string } = {}
@@ -166,6 +171,13 @@ export function LoginView() {
           </Link>
         </p>
 
+        <button
+          type="button"
+          onClick={handleDemo}
+          className="mt-3 w-full text-center text-sm font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+        >
+          Entrar como demo
+        </button>
       </div>
     </div>
   )

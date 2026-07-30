@@ -8,6 +8,7 @@ import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { toast } from '@/lib/toast'
 
 const statusLabel: Record<UserStatus, string> = {
   active: 'Ativo',
@@ -81,7 +82,11 @@ export function AdminView() {
         ) : users.error ? (
           <ErrorState message={users.error} onRetry={users.refetch} />
         ) : (users.data ?? []).length === 0 ? (
-          <EmptyState title="Nenhum usuário cadastrado" />
+          <EmptyState
+            icon={<Users className="size-7" />}
+            title="Nenhum usuário cadastrado"
+            description="Novas contas criadas na plataforma vão aparecer aqui."
+          />
         ) : (
           <div className="overflow-x-auto rounded-xl border border-border">
             <table className="w-full min-w-[560px] text-sm">
@@ -132,6 +137,7 @@ function UserRow({
     try {
       const updated = await adminService.updateUserStatus(user.id, status)
       onChanged(updated)
+      toast.success(status === 'suspended' ? 'Usuário suspenso' : 'Usuário reativado')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Falha ao atualizar.')
     } finally {

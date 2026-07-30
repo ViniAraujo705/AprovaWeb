@@ -19,6 +19,7 @@ import {
   Users,
   Play,
   Search,
+  Link2,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
 import { dashboardService, sampleDataService, videoService } from '@/lib/services'
@@ -30,6 +31,7 @@ import { ApiError } from '@/lib/api'
 import { formatDuration, formatSentAt } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
+import { toast } from '@/lib/toast'
 
 const filters: { key: 'todos' | VideoStatus; label: string }[] = [
   { key: 'todos', label: 'Todos' },
@@ -39,6 +41,14 @@ const filters: { key: 'todos' | VideoStatus; label: string }[] = [
 ]
 
 const ALL_CLIENTS = 'Todos os clientes'
+
+/** Passos do fluxo completo, mostrados no checklist do banner de onboarding. */
+const onboardingSteps: { icon: typeof Film; label: string }[] = [
+  { icon: Film, label: 'Envie um vídeo' },
+  { icon: Link2, label: 'Compartilhe o link com o cliente' },
+  { icon: MessageSquare, label: 'O cliente comenta ou aprova' },
+  { icon: Users, label: 'Revise internamente com sua equipe' },
+]
 
 export function DashboardView() {
   const [client, setClient] = useState(ALL_CLIENTS)
@@ -68,6 +78,7 @@ export function DashboardView() {
       await sampleDataService.remove()
       refetch()
       insights.refetch()
+      toast.success('Dados de exemplo excluídos')
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível excluir os exemplos.')
     } finally {
@@ -396,6 +407,22 @@ function OnboardingBanner({
           )}
         </div>
       </div>
+
+      {/* Checklist do fluxo completo: enviar → compartilhar → cliente decide → revisão interna. */}
+      <ol className="mt-4 grid gap-2 border-t border-primary/20 pt-3 sm:grid-cols-2 lg:grid-cols-4">
+        {onboardingSteps.map((step, i) => (
+          <li key={step.label} className="flex items-start gap-2 text-xs text-muted-foreground">
+            <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
+              {i + 1}
+            </span>
+            <span>
+              <step.icon className="mb-0.5 mr-1 inline size-3.5 text-primary" />
+              {step.label}
+            </span>
+          </li>
+        ))}
+      </ol>
+
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
     </motion.div>
   )

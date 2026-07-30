@@ -11,6 +11,7 @@ import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { StaggerList, staggerItem, motion } from '@/components/motion'
+import { toast } from '@/lib/toast'
 
 /**
  * Lista de clientes (rota /clientes) — cada card leva ao detalhe do cliente
@@ -45,6 +46,7 @@ export function ClientsView() {
       const created = await clientService.create({ name: trimmed })
       clients.setData((prev) => [...(prev ?? []), created])
       setCreating(false)
+      toast.success('Cliente criado')
       router.push(`/clientes/${created.id}`)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Falha ao criar cliente.')

@@ -13,6 +13,7 @@ import { LoadingState, ErrorState } from '@/components/states'
 import { FadeIn, motion, AnimatePresence } from '@/components/motion'
 import { VideoStage, type VideoStageHandle, type StageMarker } from '@/components/video-stage'
 import { AgencyReplyItem, DraggableClientCommentItem } from '@/components/comment-items'
+import { toast } from '@/lib/toast'
 
 export function ClientChannelView({ videoId }: { videoId: string }) {
   const stageRef = useRef<VideoStageHandle>(null)
@@ -343,6 +344,7 @@ function ReplyComposer({
       onCreated(created)
       setDraft('')
       setSent(true)
+      toast.success('Resposta enviada ao cliente')
       setTimeout(() => setSent(false), 1800)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível enviar a resposta.')

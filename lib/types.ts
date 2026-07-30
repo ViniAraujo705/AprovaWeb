@@ -27,6 +27,8 @@ export interface User {
   role: Role
   /** Papel na conta/agência (owner/editor). Default: owner. */
   teamRole: TeamRole
+  /** Foto de perfil do usuário (avatar), quando configurada. */
+  photoUrl: string | null
   /** Marca própria da agência (logo/nome), quando configurada. */
   branding?: Branding | null
 }

@@ -13,6 +13,7 @@ import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { toast } from '@/lib/toast'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -152,6 +153,7 @@ function InviteForm({ onInvited }: { onInvited: (m: TeamMember) => void }) {
     try {
       await teamService.sendInviteEmail(inviteId)
       setEmailSent(true)
+      toast.success('Convite enviado', 'O editor vai receber o e-mail em instantes.')
     } catch (err) {
       setEmailError(err instanceof ApiError ? err.message : 'Não foi possível enviar o e-mail.')
     } finally {
@@ -262,6 +264,7 @@ function MemberRow({
     try {
       const updated = await teamService.updateStatus(member.id, status)
       onChanged(updated)
+      toast.success(status === 'suspended' ? 'Membro suspenso' : 'Membro reativado')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Falha ao atualizar.')
     } finally {
@@ -275,6 +278,7 @@ function MemberRow({
     try {
       await teamService.cancelInvite(member.id)
       onRemoved(member.id)
+      toast.success('Convite cancelado')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Falha ao cancelar convite.')
       setBusy(false)
@@ -287,6 +291,7 @@ function MemberRow({
     try {
       const updated = await teamService.promoteToOwner(member.id)
       onChanged(updated)
+      toast.success('Membro promovido a owner')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Falha ao promover a owner.')
     } finally {

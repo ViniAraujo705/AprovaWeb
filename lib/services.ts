@@ -132,6 +132,7 @@ function mapUser(raw: Raw): User {
     email: pick(raw, ['email'], ''),
     role: roleSource === 'admin' ? 'admin' : 'user',
     teamRole: normalizeTeamRole(roleSource),
+    photoUrl: pick<string | null>(raw, ['fotoUrl', 'foto_url', 'photoUrl', 'avatarUrl'], null),
     branding: mapBranding(pick<Raw | null>(raw, ['branding'], null)),
   }
 }
@@ -1009,6 +1010,57 @@ export const notificationService = {
 /* ----------------------------- user / branding --------------------------- */
 
 export const userService = {
+  /**
+   * Atualiza o perfil pessoal do usuário logado (nome, e-mail, foto).
+   * `PATCH /users/me` ainda não existe no backend documentado em API.md —
+   * precisa ser adicionado lá (aceitando `{ nome?, email?, fotoUrl? }` e
+   * devolvendo o `User` atualizado) antes disso funcionar fora do demo.
+   */
+  async updateProfile(input: {
+    name?: string
+    email?: string
+    photoUrl?: string | null
+  }): Promise<User> {
+    if (isDemo()) {
+      const current = demoMe()
+      return {
+        ...current,
+        name: input.name ?? current.name,
+        email: input.email ?? current.email,
+        photoUrl: input.photoUrl !== undefined ? input.photoUrl : current.photoUrl,
+      }
+    }
+    const res = await api.patch<Raw>('/users/me', {
+      nome: input.name,
+      email: input.email,
+      fotoUrl: input.photoUrl,
+    })
+    return mapUser(res)
+  },
+
+  /**
+   * Presigned URL para subir a foto de perfil (avatar) ao R2. Mesmo fluxo de
+   * 3 passos do logo da agência, mas para o próprio usuário — endpoint
+   * ainda não existe no backend documentado em API.md, precisa ser
+   * adicionado lá (`POST /users/me/photo-upload-url`) antes disso funcionar
+   * fora do demo.
+   */
+  async getProfileUploadUrl(input: {
+    fileName: string
+    contentType: string
+  }): Promise<{ uploadUrl: string; key: string; publicUrl: string | null; headers?: Record<string, string> }> {
+    const res = await api.post<Raw>('/users/me/photo-upload-url', {
+      nomeArquivo: input.fileName,
+      contentType: input.contentType,
+    })
+    return {
+      uploadUrl: pick(res, ['uploadUrl'], ''),
+      key: pick(res, ['key'], ''),
+      publicUrl: pick<string | null>(res, ['publicUrl'], null),
+      headers: pick<Record<string, string> | undefined>(res, ['headers'], undefined),
+    }
+  },
+
   /**
    * Passo 1: presigned URL para subir o logo da agência ao R2.
    * Path e body seguem `POST /users/me/branding/logo-upload-url`.

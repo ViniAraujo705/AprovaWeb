@@ -25,6 +25,8 @@ interface AuthContextValue {
   register: (name: string, email: string, password: string) => Promise<User>
   loginDemo: () => void
   logout: () => void
+  /** Atualiza campos do usuário logado em memória + sessão (após editar o perfil). */
+  updateUser: (patch: Partial<User>) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -75,9 +77,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') window.location.href = '/login'
   }, [])
 
+  const updateUser = useCallback((patch: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return prev
+      const next = { ...prev, ...patch }
+      const token = getToken()
+      if (token) setSession(token, next)
+      return next
+    })
+  }, [])
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, loading, isAuthenticated: !!user, login, register, loginDemo, logout }),
-    [user, loading, login, register, loginDemo, logout],
+    () => ({
+      user,
+      loading,
+      isAuthenticated: !!user,
+      login,
+      register,
+      loginDemo,
+      logout,
+      updateUser,
+    }),
+    [user, loading, login, register, loginDemo, logout, updateUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
