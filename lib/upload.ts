@@ -37,28 +37,6 @@ export function validateImageFile(file: File): string | null {
   return null
 }
 
-/** Lê a duração do vídeo (segundos) no client, sem subir nada. */
-export function readVideoDuration(file: File): Promise<number> {
-  return new Promise((resolve) => {
-    try {
-      const url = URL.createObjectURL(file)
-      const el = document.createElement('video')
-      el.preload = 'metadata'
-      el.onloadedmetadata = () => {
-        URL.revokeObjectURL(url)
-        resolve(Number.isFinite(el.duration) ? Math.round(el.duration) : 0)
-      }
-      el.onerror = () => {
-        URL.revokeObjectURL(url)
-        resolve(0)
-      }
-      el.src = url
-    } catch {
-      resolve(0)
-    }
-  })
-}
-
 interface UploadOptions {
   url: string
   file: File
