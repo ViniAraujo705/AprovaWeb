@@ -106,11 +106,14 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
           </span>
         </div>
         <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
               {video.type} · {video.clientName || 'Cliente'}
             </p>
-            <h1 className="mt-1 font-display text-4xl leading-none tracking-wide sm:text-5xl">
+            <h1
+              className="mt-1 truncate text-3xl font-bold leading-tight tracking-tight sm:text-4xl"
+              title={video.title}
+            >
               {video.title}
             </h1>
           </div>
@@ -292,7 +295,9 @@ function MoveCommentModal({
                       disabled={movingId !== null}
                       className="flex w-full items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-left text-sm hover:border-primary hover:bg-primary/5 disabled:opacity-50"
                     >
-                      <span className="min-w-0 truncate">{v.title}</span>
+                      <span className="min-w-0 truncate" title={v.title}>
+                        {v.title}
+                      </span>
                       <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
                         {editorName}
                         {movingId === v.id && <Loader2 className="size-3.5 animate-spin text-primary" />}

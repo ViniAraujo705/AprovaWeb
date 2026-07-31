@@ -47,12 +47,14 @@ export function ClientDetailView({ id }: { id: string }) {
         <ErrorState message={client.error} onRetry={client.refetch} />
       ) : client.data ? (
         <>
-          <div className="flex items-center gap-3">
-            <h1 className="font-display text-4xl tracking-wide sm:text-5xl">{client.data.name}</h1>
+          <div className="flex min-w-0 items-center gap-3">
+            <h1 className="truncate text-3xl font-bold tracking-tight sm:text-4xl" title={client.data.name}>
+              {client.data.name}
+            </h1>
             {client.data.isExample && (
               <span
                 title="Cliente de exemplo — explore e delete quando quiser."
-                className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary"
+                className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary"
               >
                 <Sparkles className="size-3.5" /> Exemplo
               </span>
@@ -408,7 +410,9 @@ function ClientProjects({ clientId }: { clientId: string }) {
                   className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"
                 >
                   <FolderOpen className="size-5 shrink-0 text-primary" />
-                  <span className="truncate font-medium text-foreground">{p.name}</span>
+                  <span className="min-w-0 truncate font-medium text-foreground" title={p.name}>
+                    {p.name}
+                  </span>
                 </Link>
               </motion.div>
             ))}

@@ -128,7 +128,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
           </span>
         </div>
         <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
               {video.type} · {video.clientName || 'Cliente'}
             </p>
@@ -139,10 +139,13 @@ export function InternalReview({ videoId }: { videoId: string }) {
                   const updated = await videoService.updateTitle(videoId, title)
                   updateTitle(updated.title)
                 }}
-                className="mt-1 font-display text-4xl leading-none tracking-wide sm:text-5xl"
+                className="mt-1 text-3xl font-bold leading-tight tracking-tight sm:text-4xl"
               />
             ) : (
-              <h1 className="mt-1 font-display text-4xl leading-none tracking-wide sm:text-5xl">
+              <h1
+                className="mt-1 truncate text-3xl font-bold leading-tight tracking-tight sm:text-4xl"
+                title={video.title}
+              >
                 {video.title}
               </h1>
             )}

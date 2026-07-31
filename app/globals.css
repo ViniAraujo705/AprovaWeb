@@ -159,6 +159,15 @@
  * telas. Aplicado uma única vez no root layout (app/layout.tsx) — não deve
  * ser reincluído por página/rota.
  */
+/* Esconde a scrollbar em carrosséis horizontais (ex.: pills de filtro no mobile). */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 .aurora-bg {
   position: fixed;
   inset: 0;

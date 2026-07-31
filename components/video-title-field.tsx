@@ -70,7 +70,7 @@ export function VideoTitleField({
     <button
       type="button"
       onClick={() => setEditing(true)}
-      title="Clique para renomear o vídeo"
+      title={title}
       className={cn('group flex min-w-0 items-center gap-2 text-left', className)}
     >
       <span className="truncate">{title}</span>

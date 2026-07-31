@@ -139,7 +139,10 @@ function PerformanceRow({ row }: { row: EditorPerformance }) {
       </span>
 
       {/* Nome */}
-      <span className="w-24 shrink-0 truncate text-sm font-medium text-foreground sm:w-32">
+      <span
+        className="w-24 shrink-0 truncate text-sm font-medium text-foreground sm:w-32"
+        title={row.name || 'Sem nome'}
+      >
         {row.name || 'Sem nome'}
       </span>
 

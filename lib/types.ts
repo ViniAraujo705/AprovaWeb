@@ -264,6 +264,26 @@ export interface TeamMember {
   createdAt: string | null
 }
 
+/* ------------------------------- sessões ----------------------------------- */
+
+/** Tipo de dispositivo (define o ícone exibido), inferido do user-agent no backend. */
+export type SessionDeviceType = 'desktop' | 'mobile' | 'tablet' | 'unknown'
+
+/** Uma sessão autenticada ativa da conta (GET /account/sessions). */
+export interface Session {
+  id: string
+  /** Ex.: "Chrome · macOS". */
+  device: string
+  deviceType: SessionDeviceType
+  /** Cidade/região aproximada por IP, quando o backend resolve geolocalização. */
+  location: string | null
+  ip: string | null
+  createdAt: string | null
+  lastActiveAt: string | null
+  /** true só para a sessão do navegador que fez a própria requisição. */
+  current: boolean
+}
+
 /* --------------------------- desempenho da equipe ------------------------- */
 
 /** Faixa de desempenho do editor, conforme a nota média (0-10). */

@@ -33,6 +33,20 @@ export function formatDeadline(iso: string | null): string {
   return date.toLocaleDateString('pt-BR')
 }
 
+/** Tempo relativo curto em pt-BR ("agora", "há 5min", "há 2h", "há 3d") a partir de um ISO string. */
+export function timeAgo(iso: string | null): string {
+  if (!iso) return ''
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const diffMs = Date.now() - date.getTime()
+  const min = Math.floor(diffMs / 60_000)
+  if (min < 1) return 'agora'
+  if (min < 60) return `há ${min}min`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `há ${h}h`
+  return `há ${Math.floor(h / 24)}d`
+}
+
 export type DeadlineUrgency = 'overdue' | 'soon' | 'ok'
 
 /** Urgência do prazo: vencido, próximo (<= 2 dias) ou tranquilo. */

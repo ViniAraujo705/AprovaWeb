@@ -93,6 +93,16 @@ export function UploadView() {
     return () => el.removeEventListener('cancel', onCancel)
   }, [])
 
+  // Nem todo browser dispara 'cancel' de forma confiável (Safari em especial),
+  // e o próprio click() do input pode falhar em abrir o seletor silenciosamente
+  // (ex.: gesto de clique "consumido" logo após fechar o menu lateral). Sem uma
+  // saída de emergência esse estado trava pra sempre — só um reload resolvia.
+  useEffect(() => {
+    if (!selecting) return
+    const timeout = setTimeout(() => setSelecting(false), 15000)
+    return () => clearTimeout(timeout)
+  }, [selecting])
+
   function addFiles(fileList: FileList | File[] | null | undefined) {
     setSelecting(false)
     if (!fileList) return
@@ -338,7 +348,9 @@ export function UploadView() {
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">{item.file.name}</p>
+                  <p className="truncate text-sm font-medium text-foreground" title={item.file.name}>
+                    {item.file.name}
+                  </p>
                   {item.error && <p className="text-xs text-destructive">{item.error}</p>}
                 </div>
               </li>
@@ -437,6 +449,16 @@ export function UploadView() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   Isso pode levar alguns segundos com vídeos grandes ou salvos no iCloud.
                 </p>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setSelecting(false)
+                  }}
+                  className="mt-3 text-sm text-muted-foreground underline hover:text-foreground"
+                >
+                  Cancelar
+                </button>
               </>
             ) : items.length === 0 ? (
               <>
@@ -492,7 +514,7 @@ export function UploadView() {
                     )}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">
+                    <p className="truncate text-sm font-medium text-foreground" title={item.file.name}>
                       {item.file.name}
                     </p>
                     {item.status === 'error' ? (

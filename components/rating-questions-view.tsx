@@ -314,6 +314,7 @@ function QuestionRow({
                 'flex min-w-0 items-center gap-1.5 truncate text-left text-sm font-medium hover:text-primary',
                 !question.active && 'text-muted-foreground line-through',
               )}
+              title={question.text}
             >
               <Pencil className="size-3 shrink-0 opacity-50" />
               <span className="truncate">{question.text}</span>

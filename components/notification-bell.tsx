@@ -198,7 +198,10 @@ export function NotificationBell({
                               <span className="font-medium">{n.video.clientName || 'Cliente'}</span>{' '}
                               {TYPE_LABEL[n.type]}
                             </p>
-                            <p className="truncate text-xs text-muted-foreground">
+                            <p
+                              className="truncate text-xs text-muted-foreground"
+                              title={n.video.projectName || n.video.title}
+                            >
                               {n.video.projectName || n.video.title}
                             </p>
                             <p className="mt-0.5 text-[11px] text-muted-foreground">

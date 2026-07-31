@@ -18,12 +18,14 @@ import {
   demoInsights,
   demoInternalComments,
   demoMe,
+  demoMemberSessions,
   demoMetrics,
   demoNotifications,
   demoProjectGallery,
   demoProjects,
   demoPublicVideo,
   demoRatingQuestions,
+  demoSessions,
   demoTeamMembers,
   demoTeamPerformance,
   demoVideos,
@@ -53,6 +55,8 @@ import type {
   QueueVideoItem,
   Rating,
   RatingQuestion,
+  Session,
+  SessionDeviceType,
   TeamMember,
   TeamRole,
   User,
@@ -269,6 +273,37 @@ function mapTeamMember(raw: Raw): TeamMember {
   }
 }
 
+
+function normalizeSessionDeviceType(raw: unknown): SessionDeviceType {
+  const s = String(raw ?? '').toLowerCase()
+  if (['mobile', 'celular', 'phone', 'smartphone'].includes(s)) return 'mobile'
+  if (['tablet'].includes(s)) return 'tablet'
+  if (['desktop', 'computer', 'pc', 'notebook'].includes(s)) return 'desktop'
+  return 'unknown'
+}
+
+function mapSession(raw: Raw): Session {
+  return {
+    id: String(pick(raw, ['id', '_id', 'sessionId'], '')),
+    device: pick(
+      raw,
+      ['dispositivo', 'device', 'userAgent', 'user_agent'],
+      'Dispositivo desconhecido',
+    ),
+    deviceType: normalizeSessionDeviceType(
+      pick(raw, ['tipoDispositivo', 'tipo_dispositivo', 'deviceType', 'device_type'], null),
+    ),
+    location: pick<string | null>(raw, ['localizacao', 'localizacao_aproximada', 'location'], null),
+    ip: pick<string | null>(raw, ['ip', 'ipAddress', 'ip_address'], null),
+    createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
+    lastActiveAt: pick<string | null>(
+      raw,
+      ['ultimoAcessoEm', 'ultimo_acesso_em', 'lastActiveAt', 'last_active_at'],
+      null,
+    ),
+    current: Boolean(pick(raw, ['atual', 'current', 'isCurrent', 'is_current'], false)),
+  }
+}
 
 function mapRating(raw: Raw): Rating {
   return {
@@ -1105,6 +1140,29 @@ export const userService = {
   },
 }
 
+/* ------------------------------- sessões ----------------------------------- */
+
+/** Sessões ativas (dispositivos logados) da própria conta. */
+export const sessionService = {
+  async list(signal?: AbortSignal): Promise<Session[]> {
+    if (isDemo()) return delay(demoSessions())
+    const res = await api.get('/account/sessions', { signal })
+    return asArray(res).map(mapSession)
+  },
+
+  /** Encerra uma sessão específica (ex.: notebook perdido de um colaborador). */
+  async revoke(id: string): Promise<void> {
+    if (isDemo()) return void (await delay(null, 300))
+    await api.delete(`/account/sessions/${id}`)
+  },
+
+  /** Encerra todas as sessões da conta, exceto a que fez a própria requisição. */
+  async revokeAllOthers(): Promise<void> {
+    if (isDemo()) return void (await delay(null, 400))
+    await api.delete('/account/sessions')
+  },
+}
+
 /* ------------------------------- relatório ------------------------------- */
 
 export const reportService = {
@@ -1272,6 +1330,26 @@ export const teamService = {
     }
     const res = await api.patch<Raw>(`/account/members/${id}/role`, { teamRole: 'owner' })
     return mapTeamMember(res)
+  },
+
+  /**
+   * Sessões ativas de UM MEMBRO da equipe, na visão do owner (ex.: derrubar o
+   * notebook de um editor que saiu, sem precisar suspender a conta inteira).
+   */
+  async memberSessions(memberId: string, signal?: AbortSignal): Promise<Session[]> {
+    if (isDemo()) return delay(demoMemberSessions(memberId))
+    const res = await api.get(`/account/members/${memberId}/sessions`, { signal })
+    return asArray(res).map(mapSession)
+  },
+
+  async revokeMemberSession(memberId: string, sessionId: string): Promise<void> {
+    if (isDemo()) return void (await delay(null, 300))
+    await api.delete(`/account/members/${memberId}/sessions/${sessionId}`)
+  },
+
+  async revokeAllMemberSessions(memberId: string): Promise<void> {
+    if (isDemo()) return void (await delay(null, 400))
+    await api.delete(`/account/members/${memberId}/sessions`)
   },
 }
 

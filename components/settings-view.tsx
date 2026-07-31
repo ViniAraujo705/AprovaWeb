@@ -12,9 +12,10 @@ import {
   Camera,
   Mail,
   Lock,
+  Monitor,
 } from 'lucide-react'
-import { authService, userService } from '@/lib/services'
-import type { User } from '@/lib/types'
+import { authService, sessionService, userService } from '@/lib/services'
+import type { Session, User } from '@/lib/types'
 import { ApiError } from '@/lib/api'
 import { validateImageFile, uploadToPresignedUrl, UploadError } from '@/lib/upload'
 import { isDemo } from '@/lib/demo'
@@ -22,6 +23,9 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/components/auth-provider'
 import { FadeIn, AnimatePresence, motion } from '@/components/motion'
 import { toast } from '@/lib/toast'
+import { useQuery } from '@/lib/use-query'
+import { ErrorState, Skeleton } from '@/components/states'
+import { SessionRow, RevokeAllSessionsButton } from '@/components/session-row'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -51,6 +55,7 @@ export function SettingsView() {
         <>
           <ProfileForm user={user} />
           <SecurityForm user={user} />
+          <SessionsSection />
           {/* Branding é exclusivo do owner — gate inline, não na rota, pois
               editores também acessam esta tela para editar o próprio perfil. */}
           {user.teamRole === 'owner' && <BrandingForm user={user} />}
@@ -329,6 +334,66 @@ function SecurityForm({ user }: { user: User }) {
             <AlertTriangle className="size-4 shrink-0" /> {error}
           </p>
         )}
+      </div>
+    </FadeIn>
+  )
+}
+
+function SessionsSection() {
+  const { data, loading, error, refetch, setData } = useQuery<Session[]>(
+    (signal) => sessionService.list(signal),
+    [],
+  )
+  const sessions = data ?? []
+  const otherCount = sessions.filter((s) => !s.current).length
+
+  return (
+    <FadeIn className="mt-8" y={6}>
+      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Monitor className="size-4 text-primary" />
+              Sessões ativas
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Dispositivos onde sua conta está logada agora. Encerre remotamente qualquer um deles.
+            </p>
+          </div>
+          {!loading && !error && otherCount > 0 && (
+            <RevokeAllSessionsButton
+              onRevokeAll={async () => {
+                await sessionService.revokeAllOthers()
+                setData((prev) => (prev ?? []).filter((s) => s.current))
+              }}
+            />
+          )}
+        </div>
+
+        <div className="mt-4">
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : error ? (
+            <ErrorState message={error} onRetry={refetch} className="py-8" />
+          ) : (
+            <div className="divide-y divide-border">
+              {sessions.map((s) => (
+                <SessionRow
+                  key={s.id}
+                  session={s}
+                  onRevoke={async (id) => {
+                    await sessionService.revoke(id)
+                    setData((prev) => (prev ?? []).filter((item) => item.id !== id))
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </FadeIn>
   )

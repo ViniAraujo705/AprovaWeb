@@ -1,15 +1,29 @@
 'use client'
 
 import { useState } from 'react'
-import { UserPlus, Mail, Loader2, Check, Copy, Link2, Send, Trash2 } from 'lucide-react'
+import {
+  UserPlus,
+  Mail,
+  Loader2,
+  Check,
+  Copy,
+  Link2,
+  Send,
+  Trash2,
+  Monitor,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react'
 import { teamService } from '@/lib/services'
 import {
   memberStatusLabel,
   teamRoleLabel,
   type MemberStatus,
+  type Session,
   type TeamMember,
 } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
+import { SessionRow, RevokeAllSessionsButton } from '@/components/session-row'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -300,11 +314,15 @@ function MemberRow({
     }
   }
 
+  const [sessionsOpen, setSessionsOpen] = useState(false)
+
   const isOwner = member.teamRole === 'owner'
   const isPendingInvite = member.status === 'invited'
+  const canShowSessions = !isOwner && !isPendingInvite
   const target: MemberStatus = member.status === 'suspended' ? 'active' : 'suspended'
 
   return (
+    <>
     <tr className="text-foreground">
       <td className="px-4 py-3 font-medium">{member.name || '—'}</td>
       <td className="px-4 py-3 text-muted-foreground">{member.email}</td>
@@ -329,6 +347,18 @@ function MemberRow({
         </span>
       </td>
       <td className="px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+        {canShowSessions && (
+          <button
+            type="button"
+            onClick={() => setSessionsOpen((v) => !v)}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70"
+          >
+            <Monitor className="size-3.5" />
+            Sessões
+            {sessionsOpen ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+          </button>
+        )}
         {isOwner ? (
           <span className="text-xs text-muted-foreground">—</span>
         ) : isPendingInvite ? (
@@ -414,7 +444,67 @@ function MemberRow({
             {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
           </>
         )}
+        </div>
       </td>
     </tr>
+    {sessionsOpen && canShowSessions && (
+      <tr>
+        <td colSpan={5} className="bg-secondary/20 px-4 py-4">
+          <MemberSessionsPanel memberId={member.id} memberName={member.name || member.email} />
+        </td>
+      </tr>
+    )}
+    </>
+  )
+}
+
+function MemberSessionsPanel({ memberId, memberName }: { memberId: string; memberName: string }) {
+  const { data, loading, error, refetch, setData } = useQuery<Session[]>(
+    (signal) => teamService.memberSessions(memberId, signal),
+    [memberId],
+  )
+  const sessions = data ?? []
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-medium text-muted-foreground">
+          Dispositivos onde {memberName} está logado(a).
+        </p>
+        {!loading && !error && sessions.length > 0 && (
+          <RevokeAllSessionsButton
+            label="Encerrar todas"
+            successMessage="Sessões encerradas"
+            onRevokeAll={async () => {
+              await teamService.revokeAllMemberSessions(memberId)
+              setData([])
+            }}
+          />
+        )}
+      </div>
+
+      <div className="mt-2">
+        {loading ? (
+          <Skeleton className="h-14 w-full" />
+        ) : error ? (
+          <ErrorState message={error} onRetry={refetch} className="py-6" />
+        ) : sessions.length === 0 ? (
+          <p className="py-2 text-xs text-muted-foreground">Nenhuma sessão ativa.</p>
+        ) : (
+          <div className="divide-y divide-border">
+            {sessions.map((s) => (
+              <SessionRow
+                key={s.id}
+                session={s}
+                onRevoke={async (id) => {
+                  await teamService.revokeMemberSession(memberId, id)
+                  setData((prev) => (prev ?? []).filter((item) => item.id !== id))
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

@@ -152,7 +152,10 @@ export function ProjectGalleryView({
         <AgencyLogo branding={gallery.branding} />
         <div className="flex shrink-0 items-center gap-2">
           {gallery.clientName && (
-            <span className="min-w-0 shrink truncate rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
+            <span
+              className="min-w-0 shrink truncate rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground"
+              title={gallery.clientName}
+            >
               {gallery.clientName}
             </span>
           )}
@@ -299,7 +302,9 @@ export function ProjectGalleryView({
                     )}
                   </div>
                   <div className="p-3">
-                    <h3 className="truncate text-sm font-medium text-foreground">{v.title}</h3>
+                    <h3 className="truncate text-sm font-medium text-foreground" title={v.title}>
+                      {v.title}
+                    </h3>
                   </div>
                 </motion.div>
               ))}

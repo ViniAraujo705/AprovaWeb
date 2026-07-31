@@ -14,6 +14,7 @@ enviar e o que esperar de volta. Gerado a partir do código-fonte em
 - [Vídeos](#vídeos-videos)
 - [Comentários (canais autenticados)](#comentários-canais-autenticados)
 - [Conta / equipe (convites e membros)](#conta--equipe-account)
+- [Sessões ativas](#sessões-ativas-accountsessions-accountmembersidsessions)
 - [Branding / white label](#branding--white-label-users)
 - [Dashboard](#dashboard)
 - [Relatório do projeto (PDF)](#relatório-do-projeto-pdf)
@@ -334,6 +335,47 @@ mensagem original do cliente, que vem via
 >    quebrar o fluxo de `invite` existente — o botão de copiar link
 >    continua funcionando como fallback caso o e-mail falhe ou caia em
 >    spam.
+
+---
+
+## Sessões ativas (`/account/sessions`, `/account/members/:id/sessions`)
+
+Login/autenticação deixou de ser 100% stateless: `/auth/login`,
+`/auth/register`, `/auth/google`, `/auth/apple` e o aceite de convite agora
+criam uma sessão no banco a cada login, e o `access_token` passa a carregar o
+`id` dela — por isso dá pra listar dispositivos logados e revogar um token
+específico antes dele expirar.
+
+| Método | Rota | Auth | Retorno |
+|---|---|---|---|
+| `GET` | `/account/sessions` | qualquer role | `Session[]` (só do usuário logado) |
+| `DELETE` | `/account/sessions/:id` | qualquer role | `204` |
+| `DELETE` | `/account/sessions` | qualquer role | `204` |
+| `GET` | `/account/members/:id/sessions` | `owner` | `Session[]` |
+| `DELETE` | `/account/members/:id/sessions/:sessionId` | `owner` | `204` |
+| `DELETE` | `/account/members/:id/sessions` | `owner` | `204` |
+
+- `GET/DELETE /account/sessions[/:id]`: sobre as próprias sessões. `404` se
+  `:id` não existir ou não pertencer ao usuário autenticado. Funciona mesmo
+  se `:id` for a sessão que fez a própria chamada. `DELETE /account/sessions`
+  (sem `:id`) encerra todas, **exceto** a que fez a própria requisição.
+- `GET/DELETE /account/members/:id/sessions[...]`: owner vendo/encerrando
+  sessão de um membro da equipe. `404` se `:id` não for membro da mesma
+  conta do owner autenticado. `DELETE .../sessions` (sem `:sessionId`)
+  encerra todas as sessões daquele membro, sem exceção.
+- `Session`: `{ id, dispositivo, tipoDispositivo, localizacao, ip, criadoEm, ultimoAcessoEm, atual }`.
+  `dispositivo`/`tipoDispositivo` (`"desktop" | "mobile" | "tablet"`) são
+  derivados do `User-Agent` na hora da resposta. `localizacao` sempre `null`
+  por enquanto (sem geolocalização por IP ainda). `atual` só é calculado nas
+  rotas de sessão própria; nas rotas de `/account/members/:id/sessions`
+  sempre vem `false`.
+
+> **Nota de deploy**: como o token antigo não carrega `id` de sessão,
+> qualquer sessão de navegador já logada antes desse deploy recebe `401` no
+> primeiro request seguinte e precisa logar de novo — esperado, acontece só
+> uma vez. O frontend já trata `401` redirecionando pro `/login`
+> (`handleUnauthorized` em `lib/api.ts`), então não precisa de nenhum tratamento
+> especial do lado do cliente.
 
 ---
 

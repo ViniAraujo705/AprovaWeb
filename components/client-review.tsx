@@ -259,7 +259,10 @@ export function ClientReview({
       >
         <AgencyLogo branding={data.branding} />
         <div className="flex shrink-0 items-center gap-2">
-          <span className="min-w-0 shrink truncate rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
+          <span
+            className="min-w-0 shrink truncate rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground"
+            title={video.clientName || 'Cliente'}
+          >
             {video.clientName || 'Cliente'}
           </span>
           <ThemeToggle />
@@ -280,7 +283,7 @@ export function ClientReview({
                   const updated = await publicService.updateTitle(activeLink, title)
                   setData((prev) => ({ ...prev, video: { ...prev.video, title: updated.title } }))
                 }}
-                className="mt-1 font-display text-3xl leading-none tracking-wide sm:text-4xl"
+                className="mt-1 text-2xl font-bold leading-tight tracking-tight sm:text-3xl"
               />
             </div>
             {(video.originalUrl || video.url) && (

@@ -145,7 +145,7 @@ export function DashboardView() {
 
       {/* Filters */}
       <div className="mt-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap gap-2">
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
           {filters.map((f) => {
             const count = f.key === 'todos' ? videos.length : videos.filter((v) => v.status === f.key).length
             const active = status === f.key
@@ -155,7 +155,7 @@ export function DashboardView() {
                 type="button"
                 onClick={() => setStatus(f.key)}
                 className={cn(
-                  'inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors',
+                  'inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors',
                   active
                     ? 'bg-foreground text-background'
                     : 'bg-secondary text-muted-foreground hover:text-foreground',
@@ -302,9 +302,13 @@ function VideoCard({ video: v }: { video: Video }) {
         <span className="w-fit rounded bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           {v.type}
         </span>
-        <h3 className="truncate font-medium text-foreground">{v.title}</h3>
+        <h3 className="truncate font-medium text-foreground" title={v.title}>
+          {v.title}
+        </h3>
         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span className="truncate font-semibold text-primary">{v.clientName}</span>
+          <span className="truncate font-semibold text-primary" title={v.clientName}>
+            {v.clientName}
+          </span>
           <span className="inline-flex shrink-0 items-center gap-1">
             <Clock className="size-3.5" />
             {formatSentAt(v.createdAt)}

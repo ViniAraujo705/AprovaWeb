@@ -58,7 +58,7 @@ export function ClientsView() {
   const allClients = clients.data ?? []
 
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+    <div className="flex flex-1 flex-col px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-display text-4xl tracking-wide sm:text-5xl">CLIENTES</h1>
@@ -109,17 +109,18 @@ export function ClientsView() {
         </div>
       )}
 
-      <div className="mt-6">
+      <div className="mt-6 flex flex-1 flex-col">
         {clients.loading ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="m-auto grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-28 w-full rounded-xl" />
             ))}
           </div>
         ) : clients.error ? (
-          <ErrorState message={clients.error} onRetry={clients.refetch} />
+          <ErrorState className="m-auto w-full" message={clients.error} onRetry={clients.refetch} />
         ) : allClients.length === 0 ? (
           <EmptyState
+            className="m-auto w-full"
             icon={<Contact className="size-7" />}
             title="Nenhum cliente ainda"
             description="Crie um cliente para depois organizar os projetos e vídeos dele."
@@ -134,7 +135,7 @@ export function ClientsView() {
             }
           />
         ) : (
-          <StaggerList className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <StaggerList className="m-auto grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {allClients.map((c) => (
               <ClientCard key={c.id} client={c} />
             ))}
@@ -167,7 +168,9 @@ function ClientCard({ client }: { client: Client }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <h3 className="truncate font-display text-xl tracking-wide">{client.name}</h3>
+          <h3 className="truncate text-lg font-bold tracking-tight" title={client.name}>
+            {client.name}
+          </h3>
           {client.isExample && (
             <span
               title="Cliente de exemplo — explore e delete quando quiser."

@@ -24,6 +24,7 @@ import type {
   PublicVideo,
   QueueVideoItem,
   RatingQuestion,
+  Session,
   TeamMember,
   User,
   Video,
@@ -424,6 +425,64 @@ export function demoClientChannel(_videoId: string): PublicVideo {
     parentId: null,
   }
   return { ...base, comments: [...base.comments, agencyReply] }
+}
+
+/** Sessões ativas para /configuracoes — a sessão atual (este navegador) + duas outras. */
+export function demoSessions(): Session[] {
+  return [
+    {
+      id: 'demo-session-current',
+      device: 'Chrome · macOS',
+      deviceType: 'desktop',
+      location: 'São Paulo, BR',
+      ip: '187.54.12.201',
+      createdAt: iso(240),
+      lastActiveAt: iso(0),
+      current: true,
+    },
+    {
+      id: 'demo-session-2',
+      device: 'Safari · iPhone',
+      deviceType: 'mobile',
+      location: 'São Paulo, BR',
+      ip: '191.32.88.4',
+      createdAt: iso(72),
+      lastActiveAt: iso(5),
+      current: false,
+    },
+    {
+      id: 'demo-session-3',
+      device: 'Chrome · Windows',
+      deviceType: 'desktop',
+      location: 'Rio de Janeiro, BR',
+      ip: '201.9.44.170',
+      createdAt: iso(500),
+      lastActiveAt: iso(96),
+      current: false,
+    },
+  ]
+}
+
+/**
+ * Sessões de UM MEMBRO da equipe, na visão do owner (/configuracoes/equipe).
+ * Nunca marca `current: true` — é sempre a sessão de outra pessoa.
+ */
+export function demoMemberSessions(memberId: string): Session[] {
+  // Rafael Souza está suspenso — acesso já revogado, sem sessão ativa.
+  if (memberId === 'm3') return []
+  const isMarina = memberId === 'm2'
+  return [
+    {
+      id: `${memberId}-session-1`,
+      device: isMarina ? 'Chrome · Windows' : 'Safari · macOS',
+      deviceType: 'desktop',
+      location: isMarina ? 'Belo Horizonte, BR' : 'São Paulo, BR',
+      ip: isMarina ? '189.45.6.23' : '177.20.14.90',
+      createdAt: iso(300),
+      lastActiveAt: iso(3),
+      current: false,
+    },
+  ]
 }
 
 /** Membros da conta/agência para /configuracoes/equipe. */

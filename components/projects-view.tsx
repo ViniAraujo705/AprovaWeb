@@ -106,7 +106,7 @@ export function ProjectsView() {
   )
 
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+    <div className="flex flex-1 flex-col px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-display text-4xl tracking-wide sm:text-5xl">PROJETOS</h1>
@@ -233,17 +233,18 @@ export function ProjectsView() {
         </div>
       )}
 
-      <div className="mt-6">
+      <div className="mt-6 flex flex-1 flex-col">
         {projects.loading ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="m-auto grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-36 w-full rounded-xl" />
             ))}
           </div>
         ) : projects.error ? (
-          <ErrorState message={projects.error} onRetry={projects.refetch} />
+          <ErrorState className="m-auto w-full" message={projects.error} onRetry={projects.refetch} />
         ) : allProjects.length === 0 ? (
           <EmptyState
+            className="m-auto w-full"
             icon={<FolderOpen className="size-7" />}
             title="Nenhum projeto ainda"
             description="Crie um projeto para um cliente, ou envie o primeiro vídeo direto."
@@ -267,11 +268,12 @@ export function ProjectsView() {
           />
         ) : filtered.length === 0 ? (
           <EmptyState
+            className="m-auto w-full"
             title="Nenhum projeto encontrado"
             description="Esse cliente não tem nenhum projeto."
           />
         ) : (
-          <StaggerList className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <StaggerList className="m-auto grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((p) => (
               <ProjectCard key={p.id} project={p} videoCount={countByProject.get(p.id) ?? 0} />
             ))}
@@ -316,10 +318,12 @@ function ProjectCard({ project, videoCount }: { project: Project; videoCount: nu
       */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-xs text-muted-foreground">
+          <p className="truncate text-xs text-muted-foreground" title={project.client?.name ?? 'Cliente'}>
             {project.client?.name ?? 'Cliente'}
           </p>
-          <h3 className="mt-0.5 truncate font-display text-xl tracking-wide">{project.name}</h3>
+          <h3 className="mt-0.5 truncate text-lg font-bold tracking-tight" title={project.name}>
+            {project.name}
+          </h3>
         </div>
         {project.isExample && (
           <span

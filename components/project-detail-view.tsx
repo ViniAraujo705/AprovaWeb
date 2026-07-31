@@ -178,18 +178,21 @@ export function ProjectDetailView({ id }: { id: string }) {
         ) : project.error ? (
           <ErrorState message={project.error} onRetry={project.refetch} />
         ) : (
-          <div>
+          <div className="min-w-0">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
               {project.data?.client?.name ?? 'Projeto'}
             </p>
-            <div className="mt-1 flex items-center gap-3">
-              <h1 className="font-display text-4xl tracking-wide sm:text-5xl">
+            <div className="mt-1 flex min-w-0 items-center gap-3">
+              <h1
+                className="truncate text-3xl font-bold tracking-tight sm:text-4xl"
+                title={project.data?.name ?? 'Projeto'}
+              >
                 {project.data?.name ?? 'Projeto'}
               </h1>
               {project.data?.isExample && (
                 <span
                   title="Projeto de exemplo — explore e delete quando quiser."
-                  className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary"
                 >
                   <Sparkles className="size-3.5" /> Exemplo
                 </span>
@@ -364,7 +367,9 @@ export function ProjectDetailView({ id }: { id: string }) {
                       </span>
                       <StatusBadge status={v.status} />
                     </div>
-                    <h3 className="mt-1.5 truncate font-medium text-foreground">{v.title}</h3>
+                    <h3 className="mt-1.5 truncate font-medium text-foreground" title={v.title}>
+                      {v.title}
+                    </h3>
                     <div className="mt-1.5 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
                         <Clock className="size-3.5" />

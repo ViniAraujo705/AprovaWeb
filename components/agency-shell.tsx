@@ -182,7 +182,7 @@ function UserFooter({ collapsed }: { collapsed?: boolean }) {
         </span>
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
-            <p className="truncate text-sm font-medium text-foreground">
+            <p className="truncate text-sm font-medium text-foreground" title={user?.name || 'Usuário'}>
               {user?.name || 'Usuário'}
             </p>
             {user && (
@@ -198,7 +198,9 @@ function UserFooter({ collapsed }: { collapsed?: boolean }) {
               </span>
             )}
           </div>
-          <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+          <p className="truncate text-xs text-muted-foreground" title={user?.email}>
+            {user?.email}
+          </p>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
@@ -219,8 +221,22 @@ function UserFooter({ collapsed }: { collapsed?: boolean }) {
 
 export function AgencyShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
+  // Fica true do momento em que o drawer abre até a animação de saída
+  // terminar (via onExitComplete). Evita que um clique durante o fechamento
+  // "vaze" para um elemento por trás do overlay (ex.: abrir o menu, tocar em
+  // um item e sem querer acionar um botão de um card no dashboard).
+  const [overlayBlocking, setOverlayBlocking] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const reduce = useReducedMotion()
+
+  function openMenu() {
+    setOverlayBlocking(true)
+    setOpen(true)
+  }
+
+  function closeMenu() {
+    setOpen(false)
+  }
 
   useEffect(() => {
     setCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1')
@@ -293,7 +309,7 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
           <ThemeToggle />
           <button
             type="button"
-            onClick={() => setOpen(true)}
+            onClick={openMenu}
             aria-label="Abrir menu"
             className="grid size-11 place-items-center rounded-lg text-foreground hover:bg-secondary"
           >
@@ -303,12 +319,12 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Mobile drawer */}
-      <AnimatePresence>
+      <AnimatePresence onExitComplete={() => setOverlayBlocking(false)}>
         {open && (
           <div className="fixed inset-0 z-50 lg:hidden">
             <motion.div
               className="absolute inset-0 bg-black/70"
-              onClick={() => setOpen(false)}
+              onClick={closeMenu}
               aria-hidden="true"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -326,7 +342,7 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
                 <Logo />
                 <button
                   type="button"
-                  onClick={() => setOpen(false)}
+                  onClick={closeMenu}
                   aria-label="Fechar menu"
                   className="grid size-11 place-items-center rounded-lg text-foreground hover:bg-secondary"
                 >
@@ -334,7 +350,7 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
               <div className="mt-8 flex-1">
-                <NavLinks onNavigate={() => setOpen(false)} />
+                <NavLinks onNavigate={closeMenu} />
               </div>
               <UserFooter />
             </motion.div>
@@ -342,7 +358,14 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
         )}
       </AnimatePresence>
 
-      <main className="min-w-0">
+      {/*
+        inert (não só pointer-events-none) enquanto o drawer está aberto OU
+        ainda fechando: garante que nenhum clique "vaze" para um elemento
+        atrás do overlay durante a animação de saída, independente de
+        qualquer race de timing entre o clique que fecha o menu e o
+        commit visual do fechamento.
+      */}
+      <main className="flex min-w-0 flex-col" inert={overlayBlocking || undefined}>
         <div className="px-4 pt-4 sm:px-6 lg:px-10 lg:pt-6">
           <BackButton />
         </div>
