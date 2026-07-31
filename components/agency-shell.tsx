@@ -220,6 +220,7 @@ function UserFooter({ collapsed }: { collapsed?: boolean }) {
 }
 
 export function AgencyShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   // Fica true do momento em que o drawer abre até a animação de saída
   // terminar (via onExitComplete). Evita que um clique durante o fechamento
@@ -366,9 +367,11 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
         commit visual do fechamento.
       */}
       <main className="flex min-w-0 flex-col" inert={overlayBlocking || undefined}>
-        <div className="px-4 pt-4 sm:px-6 lg:px-10 lg:pt-6">
-          <BackButton />
-        </div>
+        {pathname !== '/dashboard' && (
+          <div className="px-4 pt-4 sm:px-6 lg:px-10 lg:pt-6">
+            <BackButton />
+          </div>
+        )}
         {children}
       </main>
     </div>

@@ -2,8 +2,8 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useState } from 'react'
-import { Loader2, Film, Download, AlertTriangle, Share2, Check } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Loader2, Film, Download, AlertTriangle, Share2, Check, X } from 'lucide-react'
 import type { ProjectGallery } from '@/lib/types'
 import { publicService } from '@/lib/services'
 import { triggerDownload } from '@/lib/download'
@@ -56,6 +56,51 @@ export function ProjectGalleryView({
     setSelected((prev) =>
       prev.size === gallery.videos.length ? new Set() : new Set(gallery.videos.map((v) => v.link)),
     )
+  }
+
+  function clearSelection() {
+    setSelected(new Set())
+  }
+
+  // Segurar um card entra no "modo seleção" (como galeria de fotos no
+  // celular): evita que um toque impreciso no checkbox minúsculo abra o
+  // vídeo por engano. Um único timer/ref bastam pois só um dedo pressiona
+  // por vez. Depois que há algo selecionado, um toque simples em qualquer
+  // card alterna a seleção em vez de navegar (ver handleCardClick).
+  const LONG_PRESS_MS = 450
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressTriggered = useRef(false)
+
+  function handlePressStart(videoLink: string) {
+    longPressTriggered.current = false
+    longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(15)
+      }
+      toggleSelected(videoLink)
+    }, LONG_PRESS_MS)
+  }
+
+  function handlePressEnd() {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
+
+  function handleCardClick(e: React.MouseEvent, videoLink: string) {
+    if (longPressTriggered.current) {
+      // O "clique" que o navegador dispara ao soltar depois do long-press
+      // não deve navegar nem re-alternar a seleção que o timer já fez.
+      e.preventDefault()
+      longPressTriggered.current = false
+      return
+    }
+    if (selected.size > 0) {
+      e.preventDefault()
+      toggleSelected(videoLink)
+    }
   }
 
   /** Baixa os vídeos selecionados um a um, na maior qualidade disponível (arquivo original). */
@@ -235,6 +280,15 @@ export function ProjectGalleryView({
                     )}
                     Baixar selecionados ({selected.size})
                   </button>
+                  <button
+                    type="button"
+                    onClick={clearSelection}
+                    aria-label="Cancelar seleção"
+                    title="Cancelar seleção"
+                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  >
+                    <X className="size-4" />
+                  </button>
                 </>
               )}
             </div>
@@ -259,17 +313,31 @@ export function ProjectGalleryView({
                 <motion.div
                   key={v.link}
                   variants={staggerItem}
-                  className="group relative overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/50"
+                  className={`group relative overflow-hidden rounded-xl border bg-card transition-colors ${
+                    selected.has(v.link)
+                      ? 'border-primary ring-2 ring-primary/50'
+                      : 'border-border hover:border-primary/50'
+                  }`}
                 >
                   {/*
                     Link "esticado": cobre o card inteiro por baixo. O checkbox
                     fica acima dele (z-index maior) — não pode ficar aninhado
                     DENTRO do <a>, senão o clique nele também aciona a navegação.
+                    Segurar (long-press) alterna a seleção em vez de navegar —
+                    evita que um toque impreciso no checkbox minúsculo abra o
+                    vídeo errado no celular. `touch-callout`/`user-select` none
+                    e o preventDefault no context menu evitam que o long-press
+                    dispare o menu nativo de "abrir link" do navegador mobile.
                   */}
                   <Link
                     href={`/v/${v.link}?g=${encodeURIComponent(link)}`}
                     aria-label={`Abrir ${v.title}`}
-                    className="absolute inset-0 z-[1]"
+                    className="absolute inset-0 z-[1] select-none [-webkit-touch-callout:none]"
+                    onClick={(e) => handleCardClick(e, v.link)}
+                    onTouchStart={() => handlePressStart(v.link)}
+                    onTouchEnd={handlePressEnd}
+                    onTouchMove={handlePressEnd}
+                    onContextMenu={(e) => e.preventDefault()}
                   />
                   <div className="relative aspect-video w-full overflow-hidden bg-secondary">
                     <Image
