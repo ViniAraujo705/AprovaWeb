@@ -201,7 +201,9 @@ function mapVideo(raw: Raw, extra?: { clientName?: string | null }): Video {
     title: pick(raw, ['nomeArquivo', 'nome_arquivo', 'title', 'name'], 'Sem título'),
     type: pick(raw, ['type', 'format', 'tipo'], 'Vídeo'),
     status: normalizeStatus(pick(raw, ['status'], 'pendente')),
-    duration: Number(pick(raw, ['duration', 'duracao', 'durationSeconds'], 0)) || 0,
+    duration:
+      Number(pick(raw, ['duracaoSegundos', 'duracao_segundos', 'duration', 'duracao', 'durationSeconds'], 0)) ||
+      0,
     url: pick<string | null>(raw, ['urlOtimizada', 'url_otimizada'], null) ?? originalUrl,
     originalUrl,
     posterUrl: pick<string | null>(raw, ['thumbnailUrl', 'thumbnail_url', 'posterUrl', 'poster'], null),
