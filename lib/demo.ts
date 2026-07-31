@@ -134,6 +134,9 @@ export const demoVideos: Video[] = [
     isExample: true,
     deadline: futureIso(30), // prazo próximo (< 2 dias)
     editorId: 'm2',
+    version: 1,
+    videoPaiId: null,
+    latestVersionId: 'rv-01',
   },
   {
     id: 'rv-02',
@@ -153,6 +156,9 @@ export const demoVideos: Video[] = [
     isExample: false,
     deadline: iso(8), // prazo vencido
     editorId: 'm3',
+    version: 1,
+    videoPaiId: null,
+    latestVersionId: 'rv-02',
   },
   {
     id: 'rv-03',
@@ -172,6 +178,9 @@ export const demoVideos: Video[] = [
     isExample: false,
     deadline: null, // já aprovado, sem prazo definido
     editorId: 'm2',
+    version: 1,
+    videoPaiId: null,
+    latestVersionId: 'rv-03',
   },
   {
     id: 'rv-04',
@@ -191,6 +200,9 @@ export const demoVideos: Video[] = [
     isExample: true,
     deadline: futureIso(96), // prazo tranquilo
     editorId: null,
+    version: 1,
+    videoPaiId: null,
+    latestVersionId: 'rv-04',
   },
   {
     id: 'rv-05',
@@ -210,11 +222,39 @@ export const demoVideos: Video[] = [
     isExample: false,
     deadline: futureIso(240),
     editorId: 'm3',
+    version: 1,
+    videoPaiId: null,
+    latestVersionId: 'rv-05',
   },
 ]
 
 export function demoVideosForProject(projectId: string): Video[] {
   return demoVideos.filter((v) => v.projectId === projectId)
+}
+
+/**
+ * Simula `POST /videos/:id/new-version` em modo demo: cria uma versão nova
+ * vinculada ao vídeo original (videoPaiId) e a empurra pra dentro de
+ * `demoVideos` — não persiste entre reloads, só dura a sessão do navegador
+ * (mesmo comportamento efêmero de outras mutações em modo demo).
+ */
+export function demoNewVersion(videoId: string, nomeArquivo: string): Video {
+  const original = demoVideos.find((v) => v.id === videoId) ?? demoVideos[0]
+  const id = `${original.id}-v${original.version + 1}`
+  const created: Video = {
+    ...original,
+    id,
+    title: nomeArquivo.replace(/\.[^.]+$/, ''),
+    status: 'pendente',
+    publicLink: `${original.publicLink}-v${original.version + 1}`,
+    commentsCount: 0,
+    createdAt: new Date().toISOString(),
+    version: original.version + 1,
+    videoPaiId: original.id,
+    latestVersionId: id,
+  }
+  demoVideos.push(created)
+  return created
 }
 
 /** Notificações de exemplo (sininho no topo do app) a partir dos vídeos de exemplo. */
@@ -341,6 +381,7 @@ export function demoProjectGallery(link: string): ProjectGallery {
     status: v.status,
     processingStatus: v.processingStatus,
     version: 1,
+    createdAt: v.createdAt,
   }))
   return {
     projectName: project.name,

@@ -109,6 +109,18 @@ export interface Video {
    * owner. Alimenta o cálculo de desempenho do editor.
    */
   editorId: string | null
+  /** Número da versão (versao). 1 para o upload original. */
+  version: number
+  /** Id do vídeo que esta versão substitui, se houver (videoPai.id). */
+  videoPaiId: string | null
+  /**
+   * Computado no frontend (não vem da API): id da versão mais recente da
+   * cadeia de versões deste vídeo. Igual ao próprio id quando já é a mais
+   * recente. Backend não expõe relação pai→filho, só filho→pai, então isso
+   * é resolvido percorrendo a lista completa — ver `resolveLatestVersions`
+   * em lib/services.ts.
+   */
+  latestVersionId: string
 }
 
 /**
@@ -210,6 +222,7 @@ export interface GalleryVideoItem {
   status: VideoStatus
   processingStatus: VideoProcessingStatus
   version: number
+  createdAt: string | null
 }
 
 /** Galeria pública de um projeto: um link só para todos os vídeos da entrega. */

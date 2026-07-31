@@ -42,6 +42,10 @@ export function ProjectDetailView({ id }: { id: string }) {
   const isOwner = user?.teamRole === 'owner'
   const project = useQuery<Project>((signal) => projectService.get(id, signal), [id])
   const videos = useQuery<Video[]>((signal) => videoService.list(id, signal), [id])
+  // Esconde versões antigas (substituídas por um reenvio via "Enviar nova
+  // versão" na tela de revisão) — só a mais recente de cada cadeia aparece
+  // aqui. A antiga continua acessível por link direto, só não polui a lista.
+  const currentVideos = (videos.data ?? []).filter((v) => v.latestVersionId === v.id)
   // Buscado para todo mundo: o editor precisa ver o nome do responsável, mesmo sem poder editar.
   const members = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
   const assignableMembers = (members.data ?? []).filter((m) => m.status === 'active')
@@ -99,7 +103,7 @@ export function ProjectDetailView({ id }: { id: string }) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkDownloading, setBulkDownloading] = useState(false)
   const [bulkError, setBulkError] = useState<string | null>(null)
-  const downloadableVideos = (videos.data ?? []).filter((v) => !!v.url || !!v.publicLink)
+  const downloadableVideos = currentVideos.filter((v) => !!v.url || !!v.publicLink)
 
   function toggleSelected(videoId: string) {
     setSelected((prev) => {
@@ -130,7 +134,7 @@ export function ProjectDetailView({ id }: { id: string }) {
     setArchived(isProjectArchived(id))
   }, [id])
 
-  const hasVideos = (videos.data ?? []).length > 0
+  const hasVideos = currentVideos.length > 0
 
   /** Só chamada quando o projeto não tem vídeo — aí sim é seguro excluir de verdade. */
   async function removeProject() {
@@ -422,7 +426,7 @@ export function ProjectDetailView({ id }: { id: string }) {
           </div>
         ) : videos.error ? (
           <ErrorState message={videos.error} onRetry={videos.refetch} />
-        ) : (videos.data ?? []).length === 0 ? (
+        ) : currentVideos.length === 0 ? (
           <EmptyState
             icon={<Film className="size-7" />}
             title="Nenhum vídeo neste projeto"
@@ -438,7 +442,7 @@ export function ProjectDetailView({ id }: { id: string }) {
           />
         ) : (
           <div className="grid gap-3">
-            {(videos.data ?? []).map((v) => {
+            {currentVideos.map((v) => {
               const publicHref = v.publicLink
                 ? project.data?.publicLink
                   ? `/v/${v.publicLink}?g=${encodeURIComponent(project.data.publicLink)}`
@@ -491,6 +495,11 @@ export function ProjectDetailView({ id }: { id: string }) {
                         {v.type}
                       </span>
                       <StatusBadge status={v.status} />
+                      {v.version > 1 && (
+                        <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                          v{v.version}
+                        </span>
+                      )}
                     </div>
                     <h3 className="mt-1.5 truncate font-medium text-foreground" title={v.title}>
                       {v.title}

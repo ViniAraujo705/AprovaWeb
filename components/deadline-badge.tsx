@@ -4,7 +4,7 @@
  * Prazo de entrega do vídeo — visível apenas para a equipe da agência
  * (owner/editor). Nunca deve ser renderizado nas telas do cliente.
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CalendarClock, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDeadline, getDeadlineUrgency, type DeadlineUrgency } from '@/lib/format'
@@ -72,6 +72,20 @@ export function DeadlineField({
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // autoFocus sozinho só coloca o cursor no campo — não abre o calendário
+  // nativo. showPicker() precisa ser chamado depois que o input já está
+  // montado, daí o efeito em vez de fazer isso direto no onClick do botão.
+  useEffect(() => {
+    if (!editing) return
+    try {
+      inputRef.current?.showPicker?.()
+    } catch {
+      // Navegador sem suporte a showPicker() (ex.: Safari mais antigo) — o
+      // usuário ainda consegue abrir o calendário clicando no campo focado.
+    }
+  }, [editing])
 
   async function save(value: string) {
     setSaving(true)
@@ -98,6 +112,7 @@ export function DeadlineField({
         }}
       >
         <input
+          ref={inputRef}
           type="date"
           autoFocus
           defaultValue={deadline ? deadline.slice(0, 10) : ''}

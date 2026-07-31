@@ -65,7 +65,9 @@ export function DashboardView() {
     [],
   )
 
-  const videos = data ?? []
+  // Esconde versões antigas (substituídas por um reenvio na tela de revisão)
+  // dos contadores e da listagem — só a mais recente de cada cadeia conta.
+  const videos = (data ?? []).filter((v) => v.latestVersionId === v.id)
   const hasExamples = videos.some((v) => v.isExample)
 
   const [deletingExamples, setDeletingExamples] = useState(false)

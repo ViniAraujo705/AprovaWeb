@@ -20,6 +20,7 @@ import {
   demoMe,
   demoMemberSessions,
   demoMetrics,
+  demoNewVersion,
   demoNotifications,
   demoProjectGallery,
   demoProjects,
@@ -195,6 +196,7 @@ function mapVideo(raw: Raw, extra?: { clientName?: string | null }): Video {
   const projectRaw = pick<Raw | null>(raw, ['project', 'projeto'], null)
   const clientRaw = pick<Raw | null>(raw, ['client', 'cliente'], projectRaw?.client ?? null)
   const countRaw = pick<Raw | null>(raw, ['_count'], null)
+  const videoPaiRaw = pick<Raw | null>(raw, ['videoPai', 'video_pai'], null)
   const originalUrl = pick<string | null>(raw, ['urlStorage', 'url_storage'], null)
   return {
     id: String(pick(raw, ['id', '_id', 'videoId'], '')),
@@ -227,7 +229,29 @@ function mapVideo(raw: Raw, extra?: { clientName?: string | null }): Video {
       ['editorResponsavelId', 'editor_responsavel_id', 'editorId', 'editor_id'],
       null,
     ),
+    version: Number(pick(raw, ['versao', 'version'], 1)) || 1,
+    videoPaiId: pick<string | null>(raw, ['videoPaiId', 'video_pai_id'], videoPaiRaw?.id ?? null),
+    // Preenchido depois pelo `resolveLatestVersions`, ao id do próprio vídeo
+    // até ser recalculado com a lista completa (não dá pra saber sozinho).
+    latestVersionId: String(pick(raw, ['id', '_id', 'videoId'], '')),
   }
+}
+
+/**
+ * Recebe uma lista de vídeos já mapeados e resolve, pra cada um, o id da
+ * versão mais recente da sua cadeia (percorrendo filho→filho via videoPaiId,
+ * não só um passo — cobre reenvios em sequência v1 → v2 → v3...). O backend
+ * só expõe filho→pai, então isso precisa ser calculado no frontend com a
+ * lista inteira em mãos.
+ */
+function resolveLatestVersions(videos: Video[]): Video[] {
+  const childByParent = new Map<string, string>()
+  for (const v of videos) if (v.videoPaiId) childByParent.set(v.videoPaiId, v.id)
+  return videos.map((v) => {
+    let latest = v.id
+    while (childByParent.has(latest)) latest = childByParent.get(latest)!
+    return latest === v.id ? v : { ...v, latestVersionId: latest }
+  })
 }
 
 function normalizeCommentAuthorRole(raw: Raw): CommentAuthorRole | null {
@@ -368,6 +392,7 @@ function mapGalleryVideoItem(raw: Raw): GalleryVideoItem {
       pick(raw, ['statusProcessamento', 'status_processamento'], 'pronto'),
     ),
     version: Number(pick(raw, ['versao', 'version'], 1)) || 1,
+    createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
   }
 }
 
@@ -492,19 +517,29 @@ export const videoService = {
    * dashboard. Com `projectId`: lista só os daquele projeto.
    */
   async list(projectId?: string, signal?: AbortSignal): Promise<Video[]> {
-    if (isDemo()) return delay(projectId ? demoVideosForProject(projectId) : demoVideos)
+    if (isDemo()) {
+      return delay(
+        resolveLatestVersions(projectId ? demoVideosForProject(projectId) : demoVideos),
+      )
+    }
     if (projectId) {
       const project = await projectService.get(projectId, signal)
-      return fetchProjectVideos(project, signal)
+      return resolveLatestVersions(await fetchProjectVideos(project, signal))
     }
     const projects = await projectService.list(undefined, signal)
     const perProject = await Promise.all(projects.map((p) => fetchProjectVideos(p, signal)))
-    return perProject.flat().sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+    const sorted = perProject
+      .flat()
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+    return resolveLatestVersions(sorted)
   },
 
   /** Não existe `GET /videos/:id` no backend — resolve buscando entre todos os projetos. */
   async get(id: string, signal?: AbortSignal): Promise<Video> {
-    if (isDemo()) return delay(demoVideos.find((v) => v.id === id) ?? demoVideos[0])
+    if (isDemo()) {
+      const resolved = resolveLatestVersions(demoVideos)
+      return delay(resolved.find((v) => v.id === id) ?? resolved[0])
+    }
     const all = await videoService.list(undefined, signal)
     const found = all.find((v) => v.id === id)
     if (!found) throw new ApiError('Vídeo não encontrado.', 404)
@@ -540,6 +575,26 @@ export const videoService = {
       urlStorage: input.urlStorage,
       nomeArquivo: input.nomeArquivo,
       versao: input.versao,
+    })
+    return mapVideo(res)
+  },
+
+  /**
+   * Sobe uma nova versão vinculada a um vídeo existente (ex.: cliente pediu
+   * ajuste e o editor reenvia a correção). O backend cria uma linha nova com
+   * `videoPaiId` apontando pro vídeo atual, incrementa `versao` e gera um
+   * `linkPublico` novo e independente — o link antigo NÃO passa a redirecionar
+   * pra essa versão nova, então quem chamar isto precisa reenviar o link novo
+   * pro cliente. O status do vídeo antigo também não é alterado pelo backend.
+   */
+  async newVersion(
+    videoId: string,
+    input: { urlStorage: string; nomeArquivo: string },
+  ): Promise<Video> {
+    if (isDemo()) return delay(demoNewVersion(videoId, input.nomeArquivo), 300)
+    const res = await api.post<Raw>(`/videos/${videoId}/new-version`, {
+      urlStorage: input.urlStorage,
+      nomeArquivo: input.nomeArquivo,
     })
     return mapVideo(res)
   },
@@ -850,7 +905,10 @@ export const publicService = {
       branding: mapBranding(agenciaRaw),
       videos: asArray(pick(res, ['videos'], []))
         .map(mapGalleryVideoItem)
-        .filter((v) => v.link),
+        .filter((v) => v.link)
+        // Backend não garante ordem; sem isso o vídeo recém-enviado podia
+        // aparecer depois de vídeos antigos do mesmo projeto na galeria.
+        .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
     }
   },
 }

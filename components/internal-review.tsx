@@ -11,6 +11,9 @@ import {
   ExternalLink,
   Download,
   AlertTriangle,
+  UploadCloud,
+  Copy,
+  History,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Comment, CommentThread, Video } from '@/lib/types'
@@ -20,6 +23,8 @@ import { useAuth } from '@/components/auth-provider'
 import { ApiError } from '@/lib/api'
 import { formatDuration, formatSentAt } from '@/lib/format'
 import { triggerDownload } from '@/lib/download'
+import { validateVideoFile, uploadToPresignedUrl, UploadError } from '@/lib/upload'
+import { isDemo } from '@/lib/demo'
 import { LoadingState, ErrorState } from '@/components/states'
 import { FadeIn, motion, AnimatePresence } from '@/components/motion'
 import { VideoStage, type VideoStageHandle, type StageMarker } from '@/components/video-stage'
@@ -109,6 +114,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
   }
 
   const { video, comments } = data
+  const isSuperseded = video.latestVersionId !== video.id
   const threads = buildThreads(comments)
   const markers: StageMarker[] = comments
     .filter((c) => !c.parentId)
@@ -127,6 +133,15 @@ export function InternalReview({ videoId }: { videoId: string }) {
             Visível apenas para a equipe da agência — o cliente não vê esta tela.
           </span>
         </div>
+        {isSuperseded && (
+          <div className="mt-2 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+            <History className="size-3.5 shrink-0" />
+            Esta é uma versão antiga deste vídeo.{' '}
+            <Link href={`/videos/${video.latestVersionId}/revisao`} className="font-medium underline">
+              Ver a versão mais recente
+            </Link>
+          </div>
+        )}
         <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -160,6 +175,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <DownloadOriginalButton videoId={videoId} />
+            {!isSuperseded && <NewVersionButton videoId={videoId} />}
             {video.publicLink && (
               <Link
                 href={`/videos/${videoId}/canal-cliente`}
@@ -474,6 +490,150 @@ function DownloadOriginalButton({ videoId }: { videoId: string }) {
       >
         {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
         Baixar original
+      </button>
+      {error && (
+        <p className="flex items-center gap-1 text-xs text-destructive">
+          <AlertTriangle className="size-3 shrink-0" /> {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Sobe uma nova versão vinculada a este vídeo (ex.: correção pedida pelo
+ * cliente). O backend gera um `publicLink` novo e independente pra essa
+ * versão — não existe redirect automático do link antigo — por isso, ao
+ * concluir, mostramos o link novo pronto pra copiar e reenviar ao cliente.
+ */
+function NewVersionButton({ videoId }: { videoId: string }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [phase, setPhase] = useState<'idle' | 'uploading' | 'done'>('idle')
+  const [progress, setProgress] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const [newVideo, setNewVideo] = useState<Video | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  async function handleFile(file: File) {
+    const validationError = validateVideoFile(file)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+    setError(null)
+    setPhase('uploading')
+    setProgress(0)
+    try {
+      // Modo demo: simula o upload sem tocar no backend/R2 — getUploadUrl()
+      // e uploadToPresignedUrl() fariam uma chamada de rede real mesmo em
+      // modo demo (não têm branch de demo, ao contrário de newVersion()).
+      let urlStorage = ''
+      if (isDemo()) {
+        for (let p = 20; p <= 100; p += 20) {
+          await new Promise((r) => setTimeout(r, 80))
+          setProgress(p)
+        }
+      } else {
+        const presigned = await videoService.getUploadUrl({
+          fileName: file.name,
+          contentType: file.type || 'application/octet-stream',
+        })
+        if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
+        if (!presigned.publicUrl)
+          throw new UploadError('Servidor não retornou a URL pública do arquivo.')
+
+        await uploadToPresignedUrl({
+          url: presigned.uploadUrl,
+          file,
+          headers: presigned.headers,
+          onProgress: setProgress,
+        })
+        urlStorage = presigned.publicUrl
+      }
+
+      const created = await videoService.newVersion(videoId, {
+        urlStorage,
+        nomeArquivo: file.name,
+      })
+      setNewVideo(created)
+      setPhase('done')
+      toast.success('Nova versão enviada')
+    } catch (err) {
+      const message =
+        err instanceof UploadError
+          ? err.message
+          : err instanceof ApiError
+            ? err.message
+            : 'Falha ao enviar a nova versão.'
+      setError(message)
+      setPhase('idle')
+    }
+  }
+
+  async function copyLink(link: string) {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/v/${link}`)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  if (phase === 'done' && newVideo) {
+    return (
+      <div className="flex flex-col items-end gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2">
+        <p className="text-xs font-medium text-foreground">
+          Nova versão enviada — reenvie o link ao cliente:
+        </p>
+        <div className="flex items-center gap-1.5">
+          <code className="max-w-[220px] truncate rounded bg-background px-2 py-1 text-xs text-primary">
+            {window.location.origin}/v/{newVideo.publicLink ?? ''}
+          </code>
+          <button
+            type="button"
+            onClick={() => newVideo.publicLink && copyLink(newVideo.publicLink)}
+            className="inline-flex min-h-7 shrink-0 items-center gap-1 rounded-md bg-foreground px-2 text-xs font-medium text-background hover:opacity-90"
+          >
+            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+            {copied ? 'Copiado' : 'Copiar'}
+          </button>
+        </div>
+        <Link href={`/videos/${newVideo.id}/revisao`} className="text-xs font-medium text-primary underline">
+          Ir para a nova versão
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="video/mp4,video/quicktime,video/webm"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          e.target.value = ''
+          if (file) handleFile(file)
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={phase === 'uploading'}
+        className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+      >
+        {phase === 'uploading' ? (
+          <>
+            <Loader2 className="size-3.5 animate-spin" /> Enviando… {progress}%
+          </>
+        ) : (
+          <>
+            <UploadCloud className="size-3.5" /> Enviar nova versão
+          </>
+        )}
       </button>
       {error && (
         <p className="flex items-center gap-1 text-xs text-destructive">
