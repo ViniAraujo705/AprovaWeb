@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import {
   MessageSquare,
   Clock,
@@ -18,6 +19,8 @@ import {
   Check,
   Trash2,
   X,
+  Archive,
+  ArchiveRestore,
 } from 'lucide-react'
 import { projectService, publicService, reportService, teamService, videoService } from '@/lib/services'
 import type { Project, TeamMember, Video } from '@/lib/types'
@@ -31,8 +34,10 @@ import { ApiError } from '@/lib/api'
 import { formatDuration, formatSentAt } from '@/lib/format'
 import { triggerDownload } from '@/lib/download'
 import { toast } from '@/lib/toast'
+import { archiveProject, isProjectArchived, unarchiveProject } from '@/lib/archived-projects'
 
 export function ProjectDetailView({ id }: { id: string }) {
+  const router = useRouter()
   const { user } = useAuth()
   const isOwner = user?.teamRole === 'owner'
   const project = useQuery<Project>((signal) => projectService.get(id, signal), [id])
@@ -116,6 +121,51 @@ export function ProjectDetailView({ id }: { id: string }) {
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const [confirmingProjectDelete, setConfirmingProjectDelete] = useState(false)
+  const [deletingProject, setDeletingProject] = useState(false)
+  const [projectDeleteError, setProjectDeleteError] = useState<string | null>(null)
+  const [archived, setArchived] = useState(false)
+  useEffect(() => {
+    setArchived(isProjectArchived(id))
+  }, [id])
+
+  const hasVideos = (videos.data ?? []).length > 0
+
+  /** Só chamada quando o projeto não tem vídeo — aí sim é seguro excluir de verdade. */
+  async function removeProject() {
+    setDeletingProject(true)
+    setProjectDeleteError(null)
+    try {
+      await projectService.remove(id)
+      toast.success('Projeto excluído')
+      router.push('/projetos')
+    } catch (err) {
+      setProjectDeleteError(
+        err instanceof ApiError ? err.message : 'Não foi possível excluir o projeto.',
+      )
+      setDeletingProject(false)
+      setConfirmingProjectDelete(false)
+    }
+  }
+
+  /**
+   * Projeto com vídeo dentro não é excluído de verdade — só arquivado (some
+   * da lista principal). Evita risco de perder vídeo do cliente enquanto o
+   * backend não decide o comportamento de cascade delete.
+   */
+  function toggleArchived() {
+    if (archived) {
+      unarchiveProject(id)
+      setArchived(false)
+      toast.success('Projeto desarquivado')
+    } else {
+      archiveProject(id)
+      setArchived(true)
+      toast.success('Projeto arquivado', 'Ele some da lista principal, mas nada foi apagado.')
+      router.push('/projetos')
+    }
+  }
 
   async function removeVideo(id: string) {
     setDeletingId(id)
@@ -202,24 +252,99 @@ export function ProjectDetailView({ id }: { id: string }) {
         )}
 
         {!project.error && (
-          <button
-            type="button"
-            onClick={exportReport}
-            disabled={exporting}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-50"
-          >
-            {exporting ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <FileDown className="size-4" />
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={exportReport}
+              disabled={exporting}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-50"
+            >
+              {exporting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <FileDown className="size-4" />
+              )}
+              Exportar relatório
+            </button>
+            {isOwner && archived && (
+              <button
+                type="button"
+                onClick={toggleArchived}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-primary/40 px-4 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
+              >
+                <ArchiveRestore className="size-4" />
+                Desarquivar projeto
+              </button>
             )}
-            Exportar relatório
-          </button>
+            {isOwner && !archived && videos.loading && (
+              <button
+                type="button"
+                disabled
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-muted-foreground opacity-50"
+              >
+                <Loader2 className="size-4 animate-spin" />
+                Excluir projeto
+              </button>
+            )}
+            {isOwner &&
+              !archived &&
+              !videos.loading &&
+              (hasVideos ? (
+                <button
+                  type="button"
+                  onClick={toggleArchived}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                  title="Projeto tem vídeos — é arquivado em vez de excluído, pra não perder nada do cliente."
+                >
+                  <Archive className="size-4" />
+                  Arquivar projeto
+                </button>
+              ) : confirmingProjectDelete ? (
+                <div className="flex items-center gap-1.5 rounded-lg bg-card p-1 ring-1 ring-border">
+                  <button
+                    type="button"
+                    onClick={removeProject}
+                    disabled={deletingProject}
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-destructive px-3 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {deletingProject ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="size-4" />
+                    )}
+                    Confirmar exclusão
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingProjectDelete(false)}
+                    disabled={deletingProject}
+                    aria-label="Cancelar exclusão do projeto"
+                    className="grid size-9 place-items-center rounded-lg bg-secondary text-foreground disabled:opacity-50"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingProjectDelete(true)}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive"
+                >
+                  <Trash2 className="size-4" />
+                  Excluir projeto
+                </button>
+              ))}
+          </div>
         )}
       </div>
       {exportError && (
         <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
           <AlertTriangle className="size-4" /> {exportError}
+        </p>
+      )}
+      {projectDeleteError && (
+        <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
+          <AlertTriangle className="size-4" /> {projectDeleteError}
         </p>
       )}
 

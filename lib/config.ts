@@ -13,6 +13,8 @@ export const TOKEN_STORAGE_KEY = 'aprova_token'
 export const USER_STORAGE_KEY = 'aprova_user'
 // Flag do modo demo (navegação sem backend).
 export const DEMO_FLAG_KEY = 'aprova_demo'
+// Ids de projetos arquivados (ver lib/archived-projects.ts).
+export const ARCHIVED_PROJECTS_KEY = 'aprova_archived_projects'
 
 // Limites de upload (espelham as regras do backend/R2).
 export const UPLOAD_MAX_BYTES = 500 * 1024 * 1024 // 500MB

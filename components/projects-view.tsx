@@ -2,8 +2,19 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
-import { FolderOpen, Film, Copy, Check, Sparkles, Plus, X, Loader2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  FolderOpen,
+  Film,
+  Copy,
+  Check,
+  Sparkles,
+  Plus,
+  X,
+  Loader2,
+  Archive,
+  ArchiveRestore,
+} from 'lucide-react'
 import { clientService, projectService, videoService } from '@/lib/services'
 import type { Client, Project, Video } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
@@ -11,6 +22,7 @@ import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { StaggerList, staggerItem, motion } from '@/components/motion'
 import { toast } from '@/lib/toast'
+import { getArchivedProjectIds, unarchiveProject } from '@/lib/archived-projects'
 
 const ALL_CLIENTS = 'Todos os clientes'
 
@@ -29,6 +41,19 @@ export function ProjectsView() {
   const clients = useQuery<Client[]>((signal) => clientService.list(signal), [])
 
   const [client, setClient] = useState(ALL_CLIENTS)
+
+  // Arquivamento é só local (localStorage) — ver lib/archived-projects.ts.
+  const [archivedIds, setArchivedIds] = useState<string[]>([])
+  const [showArchived, setShowArchived] = useState(false)
+  useEffect(() => {
+    setArchivedIds(getArchivedProjectIds())
+  }, [])
+
+  function handleUnarchive(id: string) {
+    unarchiveProject(id)
+    setArchivedIds((prev) => prev.filter((x) => x !== id))
+    toast.success('Projeto desarquivado')
+  }
 
   // Criação de projeto direto por aqui, sem precisar enviar um vídeo primeiro.
   const [creatingProject, setCreatingProject] = useState(false)
@@ -101,7 +126,12 @@ export function ProjectsView() {
     return [ALL_CLIENTS, ...Array.from(set).sort()]
   }, [allProjects])
 
-  const filtered = allProjects.filter(
+  const archivedCount = allProjects.filter((p) => archivedIds.includes(p.id)).length
+  const visibleProjects = allProjects.filter((p) =>
+    showArchived ? archivedIds.includes(p.id) : !archivedIds.includes(p.id),
+  )
+
+  const filtered = visibleProjects.filter(
     (p) => client === ALL_CLIENTS || p.client?.name === client,
   )
 
@@ -131,6 +161,20 @@ export function ProjectsView() {
                 ))}
               </select>
             </label>
+          )}
+          {archivedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowArchived((v) => !v)}
+              className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors ${
+                showArchived
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border bg-secondary text-foreground hover:bg-secondary/70'
+              }`}
+            >
+              <Archive className="size-4" />
+              {showArchived ? 'Ver ativos' : `Arquivados (${archivedCount})`}
+            </button>
           )}
           {!creatingProject && (
             <button
@@ -269,13 +313,23 @@ export function ProjectsView() {
         ) : filtered.length === 0 ? (
           <EmptyState
             className="m-auto w-full"
-            title="Nenhum projeto encontrado"
-            description="Esse cliente não tem nenhum projeto."
+            title={showArchived ? 'Nenhum projeto arquivado' : 'Nenhum projeto encontrado'}
+            description={
+              showArchived
+                ? 'Esse cliente não tem projeto arquivado.'
+                : 'Esse cliente não tem nenhum projeto.'
+            }
           />
         ) : (
           <StaggerList className="m-auto grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((p) => (
-              <ProjectCard key={p.id} project={p} videoCount={countByProject.get(p.id) ?? 0} />
+              <ProjectCard
+                key={p.id}
+                project={p}
+                videoCount={countByProject.get(p.id) ?? 0}
+                archived={showArchived}
+                onUnarchive={() => handleUnarchive(p.id)}
+              />
             ))}
           </StaggerList>
         )}
@@ -284,7 +338,17 @@ export function ProjectsView() {
   )
 }
 
-function ProjectCard({ project, videoCount }: { project: Project; videoCount: number }) {
+function ProjectCard({
+  project,
+  videoCount,
+  archived,
+  onUnarchive,
+}: {
+  project: Project
+  videoCount: number
+  archived: boolean
+  onUnarchive: () => void
+}) {
   const [copied, setCopied] = useState(false)
   const galleryPath = project.publicLink ? `/g/${project.publicLink}` : null
 
@@ -340,16 +404,28 @@ function ProjectCard({ project, videoCount }: { project: Project; videoCount: nu
         {videoCount} {videoCount === 1 ? 'vídeo' : 'vídeos'}
       </span>
 
-      {galleryPath && (
-        <button
-          type="button"
-          onClick={copyGalleryLink}
-          className="relative z-[2] mt-1 inline-flex min-h-9 w-fit items-center justify-center gap-2 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground transition-colors hover:bg-secondary/70"
-        >
-          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-          {copied ? 'Copiado' : 'Copiar link da galeria'}
-        </button>
-      )}
+      <div className="mt-1 flex flex-wrap items-center gap-2">
+        {galleryPath && (
+          <button
+            type="button"
+            onClick={copyGalleryLink}
+            className="relative z-[2] inline-flex min-h-9 w-fit items-center justify-center gap-2 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground transition-colors hover:bg-secondary/70"
+          >
+            {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+            {copied ? 'Copiado' : 'Copiar link da galeria'}
+          </button>
+        )}
+        {archived && (
+          <button
+            type="button"
+            onClick={onUnarchive}
+            className="relative z-[2] inline-flex min-h-9 w-fit items-center justify-center gap-2 rounded-lg border border-primary/40 px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+          >
+            <ArchiveRestore className="size-3.5" />
+            Desarquivar
+          </button>
+        )}
+      </div>
     </motion.div>
   )
 }
