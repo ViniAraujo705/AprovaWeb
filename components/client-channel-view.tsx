@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Reply, Users, Loader2, Check, Lock, FolderInput } from 'lucide-react'
-import type { Comment, PublicVideo, TeamMember, Video } from '@/lib/types'
+import type { Comment, PublicVideo, TeamMember } from '@/lib/types'
 import { isAgencyAuthor } from '@/lib/types'
-import { clientChannelService, teamService, videoService } from '@/lib/services'
+import { clientChannelService, teamService } from '@/lib/services'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { formatDuration } from '@/lib/format'
@@ -151,7 +151,7 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
             CONVERSA COM O CLIENTE ({sorted.length})
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Arraste um comentário do cliente para o lado para movê-lo à revisão interna de outro
+            Arraste um comentário do cliente para o lado para movê-lo à revisão interna deste
             vídeo ou excluí-lo.
           </p>
           {actionError && <p className="mt-2 text-xs text-destructive">{actionError}</p>}
@@ -185,8 +185,8 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
         {movingComment && (
           <MoveCommentModal
             comment={movingComment}
-            currentVideoId={videoId}
-            currentClientName={video.clientName}
+            videoId={videoId}
+            editorId={video.editorId}
             onClose={() => setMovingComment(null)}
             onMoved={handleMoved}
           />
@@ -196,59 +196,54 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
   )
 }
 
-/** Seletor do vídeo (do editor) para onde um comentário do cliente será movido. */
+/** Confirmação para mover um comentário do cliente à revisão interna DESTE MESMO vídeo. */
 function MoveCommentModal({
   comment,
-  currentVideoId,
-  currentClientName,
+  videoId,
+  editorId,
   onClose,
   onMoved,
 }: {
   comment: Comment
-  currentVideoId: string
-  currentClientName: string
+  videoId: string
+  editorId: string | null
   onClose: () => void
   onMoved: (commentId: string) => void
 }) {
-  const [videos, setVideos] = useState<Video[] | null>(null)
-  const [members, setMembers] = useState<TeamMember[]>([])
+  const [members, setMembers] = useState<TeamMember[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [movingId, setMovingId] = useState<string | null>(null)
+  const [moving, setMoving] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([videoService.list(), teamService.members()])
-      .then(([allVideos, allMembers]) => {
-        if (cancelled) return
-        setVideos(
-          allVideos.filter(
-            (v) => v.id !== currentVideoId && v.editorId && v.clientName === currentClientName,
-          ),
-        )
-        setMembers(allMembers)
+    teamService
+      .members()
+      .then((allMembers) => {
+        if (!cancelled) setMembers(allMembers)
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(
-            err instanceof ApiError ? err.message : 'Não foi possível carregar os vídeos.',
-          )
-          setVideos([])
+          setError(err instanceof ApiError ? err.message : 'Não foi possível carregar a equipe.')
+          setMembers([])
         }
       })
     return () => {
       cancelled = true
     }
-  }, [currentVideoId, currentClientName])
+  }, [])
 
-  async function move(target: Video) {
-    setMovingId(target.id)
+  const editorName = editorId ? members?.find((m) => m.id === editorId)?.name : null
+
+  async function move() {
+    setMoving(true)
     setError(null)
     try {
-      await clientChannelService.moveToInternal(currentVideoId, comment, target.id)
+      // Mesmo vídeo como origem e destino: só troca o canal (cliente → interno).
+      await clientChannelService.moveToInternal(videoId, comment, videoId)
       onMoved(comment.id)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível mover o comentário.')
-      setMovingId(null)
+      setMoving(false)
     }
   }
 
@@ -275,65 +270,42 @@ function MoveCommentModal({
           Mover comentário para a revisão interna
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Escolha o editor que vai receber este comentário.
+          {!members ? (
+            'Carregando…'
+          ) : editorName ? (
+            <>
+              Vai aparecer para <strong className="text-foreground">{editorName}</strong> na
+              revisão interna deste vídeo.
+            </>
+          ) : (
+            'Este vídeo ainda não tem um editor responsável definido — o comentário vai aparecer na revisão interna mesmo assim.'
+          )}
         </p>
         <p className="mt-3 truncate rounded-lg bg-secondary p-2 text-xs text-muted-foreground">
           &ldquo;{comment.text}&rdquo;
         </p>
 
-        <div className="mt-3 max-h-64 overflow-y-auto">
-          {!videos ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 className="size-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : videos.length === 0 ? (
-            <p className="py-4 text-center text-xs text-muted-foreground">
-              Nenhum outro vídeo deste cliente com editor responsável encontrado.
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-1.5">
-              {videos.map((v) => {
-                const editorName = members.find((m) => m.id === v.editorId)?.name || 'Editor'
-                // Mesmo editor pode ter mais de um vídeo deste cliente: só nesse
-                // caso mostramos o título como desambiguador secundário.
-                const ambiguous = videos.filter((o) => o.editorId === v.editorId).length > 1
-                return (
-                  <li key={v.id}>
-                    <button
-                      type="button"
-                      onClick={() => move(v)}
-                      disabled={movingId !== null}
-                      className="flex w-full items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-left text-sm hover:border-primary hover:bg-primary/5 disabled:opacity-50"
-                    >
-                      <span className="min-w-0 truncate">
-                        {editorName}
-                        {ambiguous && (
-                          <span className="block truncate text-xs text-muted-foreground" title={v.title}>
-                            {v.title}
-                          </span>
-                        )}
-                      </span>
-                      {movingId === v.id && (
-                        <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
-                      )}
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </div>
-
         {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
 
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={movingId !== null}
-          className="mt-4 inline-flex min-h-9 w-full items-center justify-center rounded-lg bg-secondary text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
-        >
-          Cancelar
-        </button>
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={moving}
+            className="inline-flex min-h-9 flex-1 items-center justify-center rounded-lg bg-secondary text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={move}
+            disabled={moving || !members}
+            className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {moving && <Loader2 className="size-3.5 animate-spin" />}
+            Mover
+          </button>
+        </div>
       </motion.div>
     </div>
   )

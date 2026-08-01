@@ -1053,9 +1053,10 @@ export const clientChannelService = {
   },
 
   /**
-   * Move um comentário do cliente para a discussão interna de outro vídeo
-   * (tipicamente o vídeo do editor responsável), onde passa a aparecer na
-   * revisão interna. O comentário original some do canal do cliente.
+   * Move um comentário do cliente para a discussão interna do mesmo vídeo
+   * (`targetVideoId` normalmente é o próprio `videoId`), onde passa a
+   * aparecer na revisão interna. O comentário original some do canal do
+   * cliente.
    */
   async moveToInternal(
     videoId: string,
