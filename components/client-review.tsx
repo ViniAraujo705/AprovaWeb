@@ -24,21 +24,11 @@ import { VideoStage, type VideoStageHandle, type StageMarker } from '@/component
 import { AgencyReplyItem, ClientCommentItem } from '@/components/comment-items'
 import { VideoTitleField } from '@/components/video-title-field'
 import { toast } from '@/lib/toast'
+import { playApproveSound } from '@/lib/sound'
 
 /** Decisão já registrada (se houver) a partir do status atual do vídeo. */
 function decisionFromStatus(status: VideoStatus): VideoStatus | null {
   return status === 'aprovado' || status === 'ajuste' ? status : null
-}
-
-/** Som curto tocado quando o cliente aprova o vídeo. Falha silenciosa se o navegador bloquear autoplay. */
-function playApproveSound() {
-  try {
-    const audio = new Audio('/sounds/approve.mp3')
-    audio.volume = 0.6
-    void audio.play().catch(() => {})
-  } catch {
-    // ambiente sem suporte a Audio — ignora.
-  }
 }
 
 /** Nome do cliente (sem login) persistido no navegador — pedido uma vez, reusado depois. */
@@ -106,6 +96,11 @@ export function ClientReview({
   const [decision, setDecision] = useState<VideoStatus | null>(decisionFromStatus(video.status))
   const [decisionBusy, setDecisionBusy] = useState<VideoStatus | null>(null)
   const [decisionError, setDecisionError] = useState<string | null>(null)
+  // Marca pra qual `activeLink` o som de aprovado já tocou, pra não repetir o
+  // som do clique em `decide()` (que já toca na hora, pro gesto do usuário
+  // não se perder) e ainda assim tocar toda vez que o cliente abrir/deslizar
+  // pra um vídeo que já está aprovado.
+  const playedApprovedForRef = useRef<string | null>(null)
 
   // Fila usada no swipe: a do projeto (galeria), quando veio uma; senão cai
   // para a fila por cliente que a API pública devolve.
@@ -191,6 +186,17 @@ export function ClientReview({
     stageRef.current?.seek(t)
   }
 
+  // Toca o som de aprovado toda vez que o cliente entra numa tela que já
+  // está aprovada — no load inicial (link reaberto) e ao deslizar pra outro
+  // vídeo já aprovado na fila. O clique em "Aprovar" já tem seu próprio som
+  // (ver `decide`), então esse efeito é pulado nesse caso via `playedApprovedForRef`.
+  useEffect(() => {
+    if (decision === 'aprovado' && playedApprovedForRef.current !== activeLink) {
+      playApproveSound()
+      playedApprovedForRef.current = activeLink
+    }
+  }, [decision, activeLink])
+
   async function addComment() {
     const text = draft.trim()
     const name = authorName.trim()
@@ -236,7 +242,10 @@ export function ClientReview({
     setDecisionError(null)
     // Toca já no clique (não após o await) para não perder o gesto do usuário — alguns
     // navegadores (Safari/iOS) bloqueiam áudio iniciado fora do handler de interação direto.
-    if (kind === 'aprovado') playApproveSound()
+    if (kind === 'aprovado') {
+      playApproveSound()
+      playedApprovedForRef.current = activeLink
+    }
     try {
       if (kind === 'aprovado') await publicService.approve(activeLink, overallRating || undefined)
       else await publicService.requestChanges(activeLink)

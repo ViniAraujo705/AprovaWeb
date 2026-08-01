@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Reply, Users, Loader2, Check, Lock, FolderInput } from 'lucide-react'
+import { Reply, Users, Loader2, Check, Lock, FolderInput, PartyPopper } from 'lucide-react'
 import type { Comment, PublicVideo, TeamMember } from '@/lib/types'
 import { isAgencyAuthor } from '@/lib/types'
 import { clientChannelService, teamService } from '@/lib/services'
@@ -14,6 +14,7 @@ import { FadeIn, motion, AnimatePresence } from '@/components/motion'
 import { VideoStage, type VideoStageHandle, type StageMarker } from '@/components/video-stage'
 import { AgencyReplyItem, DraggableClientCommentItem } from '@/components/comment-items'
 import { toast } from '@/lib/toast'
+import { playApproveSound } from '@/lib/sound'
 
 export function ClientChannelView({ videoId }: { videoId: string }) {
   const stageRef = useRef<VideoStageHandle>(null)
@@ -27,6 +28,16 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
   const [movingComment, setMovingComment] = useState<Comment | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+
+  // Toca o som de aprovado toda vez que a agência entra neste canal e o
+  // vídeo já está aprovado pelo cliente — uma vez por visita a esta tela.
+  const playedApprovedRef = useRef(false)
+  useEffect(() => {
+    if (data?.video.status === 'aprovado' && !playedApprovedRef.current) {
+      playApproveSound()
+      playedApprovedRef.current = true
+    }
+  }, [data?.video.status])
 
   const comments = data?.comments ?? []
   const sorted = useMemo(
@@ -126,6 +137,13 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
           </Link>
         </div>
       </div>
+
+      {video.status === 'aprovado' && (
+        <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-500/15 p-3 text-sm font-medium text-emerald-400 ring-1 ring-emerald-500/30">
+          <PartyPopper className="size-4 shrink-0" />
+          Vídeo aprovado pelo cliente!
+        </div>
+      )}
 
       <FadeIn className="mt-6 lg:grid lg:grid-cols-[1fr_420px] lg:gap-6">
         <div className="lg:min-w-0">
