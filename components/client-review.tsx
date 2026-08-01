@@ -8,6 +8,8 @@ import {
   RotateCcw,
   Loader2,
   Download,
+  Info,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Comment, PublicVideo, QueueVideoItem, VideoStatus } from '@/lib/types'
@@ -40,6 +42,18 @@ function readStoredClientName(): string {
     return window.localStorage.getItem(CLIENT_NAME_KEY) ?? ''
   } catch {
     return ''
+  }
+}
+
+/** Card explicando como usar a tela, mostrado só na primeira visita do navegador. */
+const ONBOARDING_SEEN_KEY = 'aprova_client_onboarding_seen'
+
+function readOnboardingSeen(): boolean {
+  if (typeof window === 'undefined') return true
+  try {
+    return window.localStorage.getItem(ONBOARDING_SEEN_KEY) === '1'
+  } catch {
+    return true
   }
 }
 
@@ -80,6 +94,16 @@ export function ClientReview({
   const [comments, setComments] = useState<Comment[]>(initial.comments)
   const [draft, setDraft] = useState('')
   const [authorName, setAuthorName] = useState(() => readStoredClientName())
+  const [showOnboarding, setShowOnboarding] = useState(() => !readOnboardingSeen())
+
+  function dismissOnboarding() {
+    setShowOnboarding(false)
+    try {
+      window.localStorage.setItem(ONBOARDING_SEEN_KEY, '1')
+    } catch {
+      // localStorage indisponível (ex.: modo privado) — só não persiste a dispensa.
+    }
+  }
   const [postingComment, setPostingComment] = useState(false)
   const [commentError, setCommentError] = useState<string | null>(null)
   const [commentSent, setCommentSent] = useState(false)
@@ -277,6 +301,39 @@ export function ClientReview({
           <ThemeToggle />
         </div>
       </motion.header>
+
+      {/* Instruções rápidas de como usar a tela — some após a primeira dispensa. */}
+      <AnimatePresence>
+        {showOnboarding && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="mx-auto flex max-w-6xl items-start gap-3 px-4 pt-4 lg:px-6">
+              <div className="flex flex-1 items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                <Info className="mt-0.5 size-4 shrink-0 text-primary" />
+                <p className="flex-1 text-xs text-muted-foreground sm:text-sm">
+                  <span className="font-medium text-foreground">Como funciona: </span>
+                  assista o vídeo e toque em qualquer ponto da linha do tempo pra comentar
+                  ali. Dê sua nota com as estrelas e, quando estiver tudo certo, aprove ou
+                  peça ajustes lá embaixo.
+                </p>
+                <button
+                  type="button"
+                  onClick={dismissOnboarding}
+                  aria-label="Fechar instruções"
+                  className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <FadeIn className="mx-auto max-w-6xl lg:grid lg:grid-cols-[1fr_400px] lg:gap-6 lg:px-6 lg:py-6">
         {/* LEFT: player / reels */}
