@@ -14,6 +14,7 @@ import {
   Loader2,
   Archive,
   ArchiveRestore,
+  Search,
 } from 'lucide-react'
 import { clientService, projectService, videoService } from '@/lib/services'
 import type { Client, Project, Video } from '@/lib/types'
@@ -23,8 +24,16 @@ import { ApiError } from '@/lib/api'
 import { StaggerList, staggerItem, motion } from '@/components/motion'
 import { toast } from '@/lib/toast'
 import { getArchivedProjectIds, unarchiveProject } from '@/lib/archived-projects'
+import { ClientAvatar } from '@/components/client-avatar'
 
 const ALL_CLIENTS = 'Todos os clientes'
+
+function normalize(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
 
 /**
  * Lista de projetos (rota /projetos) — cada card leva ao detalhe do projeto
@@ -41,6 +50,7 @@ export function ProjectsView() {
   const clients = useQuery<Client[]>((signal) => clientService.list(signal), [])
 
   const [client, setClient] = useState(ALL_CLIENTS)
+  const [search, setSearch] = useState('')
 
   // Arquivamento é só local (localStorage) — ver lib/archived-projects.ts.
   const [archivedIds, setArchivedIds] = useState<string[]>([])
@@ -135,6 +145,29 @@ export function ProjectsView() {
     (p) => client === ALL_CLIENTS || p.client?.name === client,
   )
 
+  const searched = useMemo(() => {
+    const q = normalize(search.trim())
+    if (!q) return filtered
+    return filtered.filter(
+      (p) => normalize(p.name).includes(q) || normalize(p.client?.name ?? '').includes(q),
+    )
+  }, [filtered, search])
+
+  // Só agrupa por cliente quando o filtro está em "Todos os clientes" — com
+  // um cliente específico selecionado a lista já é de um só cliente.
+  const groups = useMemo(() => {
+    if (client !== ALL_CLIENTS) return null
+    const map = new Map<string, { client: Client | undefined; clientId: string; projects: Project[] }>()
+    for (const p of searched) {
+      const key = p.clientId || 'sem-cliente'
+      if (!map.has(key)) map.set(key, { client: p.client, clientId: key, projects: [] })
+      map.get(key)!.projects.push(p)
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      (a.client?.name ?? 'Sem cliente').localeCompare(b.client?.name ?? 'Sem cliente', 'pt-BR'),
+    )
+  }, [searched, client])
+
   return (
     <div className="flex flex-1 flex-col px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -145,22 +178,33 @@ export function ProjectsView() {
             todos de uma vez.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
           {allProjects.length > 0 && (
-            <label className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Cliente:</span>
-              <select
-                value={client}
-                onChange={(e) => setClient(e.target.value)}
-                className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
-              >
-                {clientNames.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar projeto ou cliente..."
+                  className="min-h-11 w-56 rounded-lg border border-border bg-secondary py-2 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Cliente:</span>
+                <select
+                  value={client}
+                  onChange={(e) => setClient(e.target.value)}
+                  className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+                >
+                  {clientNames.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
           )}
           {archivedCount > 0 && (
             <button
@@ -310,19 +354,53 @@ export function ProjectsView() {
               </div>
             }
           />
-        ) : filtered.length === 0 ? (
+        ) : searched.length === 0 ? (
           <EmptyState
             className="m-auto w-full"
             title={showArchived ? 'Nenhum projeto arquivado' : 'Nenhum projeto encontrado'}
             description={
               showArchived
                 ? 'Esse cliente não tem projeto arquivado.'
-                : 'Esse cliente não tem nenhum projeto.'
+                : search.trim()
+                  ? `Nada encontrado para "${search.trim()}".`
+                  : 'Esse cliente não tem nenhum projeto.'
             }
           />
+        ) : groups ? (
+          <div className="mx-auto flex w-full flex-col gap-6">
+            {groups.map((g) => (
+              <section key={g.clientId}>
+                <div className="mb-3 flex items-center gap-2.5">
+                  <ClientAvatar
+                    name={g.client?.name ?? 'Sem cliente'}
+                    photoUrl={g.client?.photoUrl}
+                    seed={g.clientId}
+                    size="sm"
+                  />
+                  <h2 className="text-sm font-semibold text-foreground">
+                    {g.client?.name ?? 'Sem cliente'}
+                  </h2>
+                  <span className="text-xs text-muted-foreground">
+                    {g.projects.length} {g.projects.length === 1 ? 'projeto' : 'projetos'}
+                  </span>
+                </div>
+                <StaggerList className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {g.projects.map((p) => (
+                    <ProjectCard
+                      key={p.id}
+                      project={p}
+                      videoCount={countByProject.get(p.id) ?? 0}
+                      archived={showArchived}
+                      onUnarchive={() => handleUnarchive(p.id)}
+                    />
+                  ))}
+                </StaggerList>
+              </section>
+            ))}
+          </div>
         ) : (
           <StaggerList className="m-auto grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((p) => (
+            {searched.map((p) => (
               <ProjectCard
                 key={p.id}
                 project={p}
@@ -381,13 +459,20 @@ function ProjectCard({
         pra deixar o clique passar direto pro link por baixo.
       */}
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-xs text-muted-foreground" title={project.client?.name ?? 'Cliente'}>
-            {project.client?.name ?? 'Cliente'}
-          </p>
-          <h3 className="mt-0.5 truncate text-lg font-bold tracking-tight" title={project.name}>
-            {project.name}
-          </h3>
+        <div className="flex min-w-0 items-start gap-3">
+          <ClientAvatar
+            name={project.client?.name ?? 'Cliente'}
+            photoUrl={project.client?.photoUrl}
+            seed={project.clientId}
+          />
+          <div className="min-w-0">
+            <p className="truncate text-xs text-muted-foreground" title={project.client?.name ?? 'Cliente'}>
+              {project.client?.name ?? 'Cliente'}
+            </p>
+            <h3 className="mt-0.5 truncate text-lg font-bold tracking-tight" title={project.name}>
+              {project.name}
+            </h3>
+          </div>
         </div>
         {project.isExample && (
           <span
