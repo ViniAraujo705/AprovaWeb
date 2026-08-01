@@ -186,6 +186,7 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
           <MoveCommentModal
             comment={movingComment}
             currentVideoId={videoId}
+            currentClientName={video.clientName}
             onClose={() => setMovingComment(null)}
             onMoved={handleMoved}
           />
@@ -199,11 +200,13 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
 function MoveCommentModal({
   comment,
   currentVideoId,
+  currentClientName,
   onClose,
   onMoved,
 }: {
   comment: Comment
   currentVideoId: string
+  currentClientName: string
   onClose: () => void
   onMoved: (commentId: string) => void
 }) {
@@ -217,7 +220,11 @@ function MoveCommentModal({
     Promise.all([videoService.list(), teamService.members()])
       .then(([allVideos, allMembers]) => {
         if (cancelled) return
-        setVideos(allVideos.filter((v) => v.id !== currentVideoId && v.editorId))
+        setVideos(
+          allVideos.filter(
+            (v) => v.id !== currentVideoId && v.editorId && v.clientName === currentClientName,
+          ),
+        )
         setMembers(allMembers)
       })
       .catch((err) => {
@@ -231,7 +238,7 @@ function MoveCommentModal({
     return () => {
       cancelled = true
     }
-  }, [currentVideoId])
+  }, [currentVideoId, currentClientName])
 
   async function move(target: Video) {
     setMovingId(target.id)
@@ -268,7 +275,7 @@ function MoveCommentModal({
           Mover comentário para a revisão interna
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Escolha o vídeo do editor onde este comentário deve aparecer.
+          Escolha o editor que vai receber este comentário.
         </p>
         <p className="mt-3 truncate rounded-lg bg-secondary p-2 text-xs text-muted-foreground">
           &ldquo;{comment.text}&rdquo;
@@ -281,12 +288,15 @@ function MoveCommentModal({
             </div>
           ) : videos.length === 0 ? (
             <p className="py-4 text-center text-xs text-muted-foreground">
-              Nenhum outro vídeo com editor responsável encontrado.
+              Nenhum outro vídeo deste cliente com editor responsável encontrado.
             </p>
           ) : (
             <ul className="flex flex-col gap-1.5">
               {videos.map((v) => {
                 const editorName = members.find((m) => m.id === v.editorId)?.name || 'Editor'
+                // Mesmo editor pode ter mais de um vídeo deste cliente: só nesse
+                // caso mostramos o título como desambiguador secundário.
+                const ambiguous = videos.filter((o) => o.editorId === v.editorId).length > 1
                 return (
                   <li key={v.id}>
                     <button
@@ -295,13 +305,17 @@ function MoveCommentModal({
                       disabled={movingId !== null}
                       className="flex w-full items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-left text-sm hover:border-primary hover:bg-primary/5 disabled:opacity-50"
                     >
-                      <span className="min-w-0 truncate" title={v.title}>
-                        {v.title}
-                      </span>
-                      <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="min-w-0 truncate">
                         {editorName}
-                        {movingId === v.id && <Loader2 className="size-3.5 animate-spin text-primary" />}
+                        {ambiguous && (
+                          <span className="block truncate text-xs text-muted-foreground" title={v.title}>
+                            {v.title}
+                          </span>
+                        )}
                       </span>
+                      {movingId === v.id && (
+                        <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
+                      )}
                     </button>
                   </li>
                 )
