@@ -40,15 +40,18 @@ interface InternalData {
 
 /** Agrupa comentários em threads: raízes (parentId null) + suas respostas. */
 function buildThreads(comments: Comment[]): CommentThread[] {
-  const roots = comments
-    .filter((c) => !c.parentId)
-    .sort((a, b) => a.timestamp - b.timestamp)
+  const ids = new Set(comments.map((c) => c.id))
+  // Um parentId que não existe nesta lista (ex: comentário movido de outro
+  // vídeo, cujo pai ficou para trás) não pode formar uma resposta órfã —
+  // tratamos como raiz pra garantir que o comentário sempre apareça.
+  const isRoot = (c: Comment) => !c.parentId || !ids.has(c.parentId)
+  const roots = comments.filter(isRoot).sort((a, b) => a.timestamp - b.timestamp)
   const byParent = new Map<string, Comment[]>()
   for (const c of comments) {
-    if (!c.parentId) continue
-    const arr = byParent.get(c.parentId) ?? []
+    if (isRoot(c)) continue
+    const arr = byParent.get(c.parentId!) ?? []
     arr.push(c)
-    byParent.set(c.parentId, arr)
+    byParent.set(c.parentId!, arr)
   }
   return roots.map((comment) => ({
     comment,
