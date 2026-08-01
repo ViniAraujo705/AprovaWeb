@@ -510,11 +510,47 @@ async function fetchProjectVideos(project: Project, signal?: AbortSignal): Promi
   return asArray(res).map((v) => mapVideo(v, { clientName: project.client?.name ?? null }))
 }
 
+/**
+ * Agrega "todos os vídeos" da conta numa única chamada (`GET /videos` sem
+ * `project_id`). O item retornado não vem com o nome do cliente embutido
+ * (mesmo formato de `GET /videos?project_id=`), então busca a lista de
+ * projetos em paralelo só pra resolver `projectId -> clientName`. Dashboard,
+ * projetos e canal do cliente chamam `list()` sem `projectId`
+ * independentemente; um cache curto evita repetir as 2 chamadas em
+ * navegações próximas no tempo. Não é passado `signal` porque a mesma
+ * promise é compartilhada entre chamadores independentes.
+ */
+const ALL_VIDEOS_CACHE_TTL_MS = 8000
+let allVideosCache: { promise: Promise<Video[]>; expiresAt: number } | null = null
+
+function invalidateAllVideosCache() {
+  allVideosCache = null
+}
+
+function fetchAllVideosCached(): Promise<Video[]> {
+  const now = Date.now()
+  if (allVideosCache && allVideosCache.expiresAt > now) return allVideosCache.promise
+
+  const promise = (async () => {
+    const [projects, res] = await Promise.all([projectService.list(), api.get('/videos')])
+    const clientNameByProjectId = new Map(projects.map((p) => [p.id, p.client?.name ?? '']))
+    const videos = asArray(res).map((v) => {
+      const projectId = pick<string | null>(v, ['projectId', 'project_id'], null)
+      return mapVideo(v, { clientName: (projectId && clientNameByProjectId.get(projectId)) ?? '' })
+    })
+    return videos.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+  })()
+  promise.catch(() => invalidateAllVideosCache())
+  allVideosCache = { promise, expiresAt: now + ALL_VIDEOS_CACHE_TTL_MS }
+  return promise
+}
+
 export const videoService = {
   /**
    * Sem `projectId`: agrega os vídeos de TODOS os projetos da conta (o
    * backend só lista por projeto — `GET /videos?project_id=`), usado pelo
-   * dashboard. Com `projectId`: lista só os daquele projeto.
+   * dashboard, via cache curto (ver `fetchAllVideosCached`). Com `projectId`:
+   * lista só os daquele projeto.
    */
   async list(projectId?: string, signal?: AbortSignal): Promise<Video[]> {
     if (isDemo()) {
@@ -526,12 +562,7 @@ export const videoService = {
       const project = await projectService.get(projectId, signal)
       return resolveLatestVersions(await fetchProjectVideos(project, signal))
     }
-    const projects = await projectService.list(undefined, signal)
-    const perProject = await Promise.all(projects.map((p) => fetchProjectVideos(p, signal)))
-    const sorted = perProject
-      .flat()
-      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
-    return resolveLatestVersions(sorted)
+    return resolveLatestVersions(await fetchAllVideosCached())
   },
 
   /** Não existe `GET /videos/:id` no backend — resolve buscando entre todos os projetos. */
@@ -576,6 +607,7 @@ export const videoService = {
       nomeArquivo: input.nomeArquivo,
       versao: input.versao,
     })
+    invalidateAllVideosCache()
     return mapVideo(res)
   },
 
@@ -596,6 +628,7 @@ export const videoService = {
       urlStorage: input.urlStorage,
       nomeArquivo: input.nomeArquivo,
     })
+    invalidateAllVideosCache()
     return mapVideo(res)
   },
 
@@ -609,6 +642,7 @@ export const videoService = {
       return delay({ ...(found ?? demoVideos[0]), id, deadline }, 300)
     }
     const res = await api.patch<Raw>(`/videos/${id}/deadline`, { deadline })
+    invalidateAllVideosCache()
     return mapVideo(res)
   },
 
@@ -621,6 +655,7 @@ export const videoService = {
       return delay(found, 300)
     }
     const res = await api.patch<Raw>(`/videos/${id}/titulo`, { nomeArquivo: title })
+    invalidateAllVideosCache()
     return mapVideo(res)
   },
 
@@ -631,6 +666,7 @@ export const videoService = {
       return delay({ ...(found ?? demoVideos[0]), id, editorId }, 300)
     }
     const res = await api.patch<Raw>(`/videos/${id}/editor-responsavel`, { editorId })
+    invalidateAllVideosCache()
     return mapVideo(res)
   },
 
@@ -658,6 +694,7 @@ export const videoService = {
       return void (await delay(null, 300))
     }
     await api.delete(`/videos/${id}`)
+    invalidateAllVideosCache()
   },
 }
 
@@ -1261,6 +1298,7 @@ export const sampleDataService = {
     const clients = await clientService.list()
     const examples = clients.filter((c) => c.isExample)
     await Promise.all(examples.map((c) => clientService.remove(c.id)))
+    invalidateAllVideosCache()
   },
 }
 
