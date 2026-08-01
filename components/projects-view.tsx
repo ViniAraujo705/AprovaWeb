@@ -129,7 +129,17 @@ export function ProjectsView() {
     return map
   }, [videos.data])
 
-  const allProjects = projects.data ?? []
+  // O endpoint /projects nem sempre embute o `client` completo (com
+  // photoUrl) — quando não vier, resolve pelo /clients já buscado pra essa
+  // tela, em vez de depender do back mudar o formato da resposta.
+  const allProjects = useMemo(() => {
+    const rawProjects = projects.data ?? []
+    const clientById = new Map((clients.data ?? []).map((c) => [c.id, c]))
+    return rawProjects.map((p) =>
+      p.client ? p : { ...p, client: clientById.get(p.clientId) },
+    )
+  }, [projects.data, clients.data])
+
   const clientNames = useMemo(() => {
     const set = new Set<string>()
     allProjects.forEach((p) => p.client?.name && set.add(p.client.name))
