@@ -25,6 +25,24 @@ export function formatSentAt(iso: string | null): string {
   return `Enviado em ${date.toLocaleDateString('pt-BR')}`
 }
 
+/** Data relativa curta em pt-BR pra coluna "Enviado" de listas compactas (ex.: "hoje, 13:39", "2 dias, 09:10"). */
+export function formatSentAtCompact(iso: string | null): string {
+  if (!iso) return ''
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const now = new Date()
+  const day = 24 * 60 * 60 * 1000
+  const sameDay = date.toDateString() === now.toDateString()
+  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+
+  if (sameDay) return `hoje, ${time}`
+  const yesterday = new Date(now.getTime() - day)
+  if (date.toDateString() === yesterday.toDateString()) return `ontem, ${time}`
+  const days = Math.floor((now.getTime() - date.getTime()) / day)
+  if (days < 7) return `${days} dias, ${time}`
+  return date.toLocaleDateString('pt-BR')
+}
+
 /** Data curta em pt-BR a partir de um ISO string (ex.: "10/07/2026"). */
 export function formatDeadline(iso: string | null): string {
   if (!iso) return ''

@@ -1,12 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import {
   Plus,
   MessageSquare,
-  Clock,
   Film,
   AlarmClock,
   Zap,
@@ -20,15 +19,16 @@ import {
   Play,
   Search,
   Link2,
+  MoreVertical,
+  ExternalLink,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
 import { dashboardService, sampleDataService, videoService } from '@/lib/services'
-import type { DashboardInsights, Video, VideoStatus } from '@/lib/types'
-import { StatusBadge } from '@/components/status-badge'
+import { statusLabel, type DashboardInsights, type Video, type VideoStatus } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
-import { formatDuration, formatSentAt } from '@/lib/format'
+import { formatDuration, formatSentAtCompact } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
 import { toast } from '@/lib/toast'
@@ -204,13 +204,13 @@ export function DashboardView() {
       {/* Video list */}
       <div className="mt-6">
         {loading ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="flex flex-col gap-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="overflow-hidden rounded-xl border border-border bg-card">
-                <Skeleton className="aspect-video w-full" />
-                <div className="space-y-2 p-3">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-1/2" />
+              <div key={i} className="flex items-center gap-4 rounded-2xl border border-border bg-card p-3">
+                <Skeleton className="aspect-video w-28 shrink-0 rounded-lg" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-4 w-1/3" />
+                  <Skeleton className="h-3 w-1/4" />
                 </div>
               </div>
             ))}
@@ -239,108 +239,191 @@ export function DashboardView() {
             />
           )
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((v) => (
-              <VideoCard key={v.id} video={v} />
-            ))}
-          </div>
+          <CompactVideoList videos={filtered} />
         )}
       </div>
     </div>
   )
 }
 
-function VideoCard({ video: v }: { video: Video }) {
+/** Colunas alinhadas entre o cabeçalho e cada linha da lista compacta. */
+const LIST_GRID_COLS =
+  'grid-cols-[64px_minmax(0,1.4fr)_minmax(0,1fr)_auto_40px_auto_28px] sm:grid-cols-[96px_minmax(0,1.4fr)_minmax(0,1fr)_auto_40px_auto_28px]'
+
+function CompactVideoList({ videos }: { videos: Video[] }) {
+  return (
+    <div>
+      <div
+        className={cn(
+          'hidden items-center gap-4 px-4 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid',
+          LIST_GRID_COLS,
+        )}
+      >
+        <span>Vídeo</span>
+        <span>Arquivo</span>
+        <span>Cliente</span>
+        <span>Status</span>
+        <span className="flex justify-center">
+          <MessageSquare className="size-3.5" />
+        </span>
+        <span>Enviado</span>
+        <span />
+      </div>
+      <div className="flex flex-col gap-2.5">
+        {videos.map((v) => (
+          <CompactVideoRow key={v.id} video={v} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const compactStatusStyles: Record<VideoStatus, string> = {
+  pendente: 'bg-secondary text-foreground',
+  aprovado: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  ajuste: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  erro: 'bg-destructive/15 text-destructive',
+}
+
+function CompactVideoRow({ video: v }: { video: Video }) {
   const { user } = useAuth()
   const isOwner = user?.teamRole === 'owner'
-  // Link principal (o card inteiro) leva à tela pública do cliente. As ações da
-  // agência ficam acima com z-index maior (padrão "stretched link", sem aninhar
-  // âncoras dentro de âncoras).
-  const publicHref = v.publicLink ? `/v/${v.publicLink}` : null
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/50">
-      {publicHref && (
-        <Link
-          href={publicHref}
-          aria-label={`Abrir link do cliente de ${v.title}`}
-          className="absolute inset-0 z-[1]"
-        />
+    <div
+      className={cn(
+        'group relative grid items-center gap-4 rounded-2xl border border-border bg-card p-3 transition-colors hover:border-primary/50',
+        LIST_GRID_COLS,
       )}
+    >
+      <Link
+        href={`/videos/${v.id}/revisao`}
+        aria-label={`Abrir revisão interna de ${v.title}`}
+        className="absolute inset-0 z-[1]"
+      />
 
-      <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-secondary">
+      <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-lg bg-secondary">
         <Image
           src={v.posterUrl || '/placeholder.svg'}
           alt=""
           fill
           className="object-cover"
-          sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
+          sizes="96px"
           unoptimized
         />
-        <div className="absolute inset-x-2 top-2 flex items-start justify-between gap-2">
-          <div className="rounded-full bg-black/30 backdrop-blur-sm">
-            <StatusBadge status={v.status} />
-          </div>
-          {v.isExample && (
-            <span
-              title="Este é um item de exemplo — explore e delete quando quiser."
-              className="inline-flex items-center gap-1 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground backdrop-blur-sm"
-            >
-              <Sparkles className="size-3" /> Exemplo
-            </span>
-          )}
-        </div>
         <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="grid size-11 place-items-center rounded-full bg-black/45 text-white transition-transform group-hover:scale-105">
-            <Play className="size-4.5 fill-white" />
+          <span className="grid size-6 place-items-center rounded-full bg-black/45 text-white">
+            <Play className="size-3 fill-white" />
           </span>
         </span>
-        <span className="absolute bottom-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+        <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1 py-0.5 text-[9px] font-medium text-white">
           {formatDuration(v.duration)}
         </span>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-3">
-        <span className="w-fit rounded bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {v.type}
-        </span>
-        <h3 className="truncate font-medium text-foreground" title={v.title}>
+      <div className="min-w-0">
+        <h3 className="truncate text-sm font-semibold text-foreground" title={v.title}>
           {v.title}
         </h3>
-        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span className="truncate font-semibold text-primary" title={v.clientName}>
-            {v.clientName}
-          </span>
-          <span className="inline-flex shrink-0 items-center gap-1">
-            <Clock className="size-3.5" />
-            {formatSentAt(v.createdAt)}
-          </span>
-        </div>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <MessageSquare className="size-3.5" />
-          {v.commentsCount}
-        </div>
-
-        {/* Ações da agência (acima do link do card) */}
-        <div className="relative z-[2] mt-1 flex flex-wrap gap-2">
-          <Link
-            href={`/videos/${v.id}/revisao`}
-            className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary/15 px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary/25"
-          >
-            <Lock className="size-3.5" />
-            Revisão interna
-          </Link>
-          {isOwner && (
-            <Link
-              href={`/videos/${v.id}/canal-cliente`}
-              className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground transition-colors hover:bg-secondary/70"
-            >
-              <Users className="size-3.5" />
-              Canal do cliente
-            </Link>
-          )}
-        </div>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+          {v.commentsCount} comentário{v.commentsCount === 1 ? '' : 's'}
+        </p>
       </div>
+
+      <div className="min-w-0 truncate text-sm font-medium text-foreground" title={v.clientName}>
+        {v.clientName}
+      </div>
+
+      <div>
+        <span
+          className={cn(
+            'inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+            compactStatusStyles[v.status],
+          )}
+        >
+          <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden="true" />
+          {statusLabel[v.status]}
+        </span>
+      </div>
+
+      <div className="hidden text-center text-sm text-muted-foreground sm:block">{v.commentsCount}</div>
+
+      <div className="hidden truncate text-sm text-muted-foreground sm:block">
+        {formatSentAtCompact(v.createdAt)}
+      </div>
+
+      <div className="relative z-[2] flex justify-end">
+        <RowActionsMenu video={v} isOwner={isOwner} />
+      </div>
+    </div>
+  )
+}
+
+function RowActionsMenu({ video: v, isOwner }: { video: Video; isOwner: boolean }) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const publicHref = v.publicLink ? `/v/${v.publicLink}` : null
+
+  useEffect(() => {
+    if (!open) return
+    function onClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [open])
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-label={`Mais ações para ${v.title}`}
+        className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+      >
+        <MoreVertical className="size-4" />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-2xl"
+          >
+            <Link
+              href={`/videos/${v.id}/revisao`}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+            >
+              <Lock className="size-3.5 text-muted-foreground" />
+              Revisão interna
+            </Link>
+            {isOwner && (
+              <Link
+                href={`/videos/${v.id}/canal-cliente`}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+              >
+                <Users className="size-3.5 text-muted-foreground" />
+                Canal do cliente
+              </Link>
+            )}
+            {publicHref && (
+              <Link
+                href={publicHref}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+              >
+                <ExternalLink className="size-3.5 text-muted-foreground" />
+                Link do cliente
+              </Link>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
