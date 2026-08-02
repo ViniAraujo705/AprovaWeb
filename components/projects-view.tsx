@@ -129,15 +129,17 @@ export function ProjectsView() {
     return map
   }, [videos.data])
 
-  // O endpoint /projects nem sempre embute o `client` completo (com
-  // photoUrl) — quando não vier, resolve pelo /clients já buscado pra essa
-  // tela, em vez de depender do back mudar o formato da resposta.
+  // O /projects embute `client` só com { id, nome } — sem photoUrl. Sempre
+  // sobrepõe com o registro completo já buscado em /clients pra essa tela,
+  // em vez de só cair para ele quando `p.client` vier ausente (o que nunca
+  // acontece, já que o back sempre embute o parcial).
   const allProjects = useMemo(() => {
     const rawProjects = projects.data ?? []
     const clientById = new Map((clients.data ?? []).map((c) => [c.id, c]))
-    return rawProjects.map((p) =>
-      p.client ? p : { ...p, client: clientById.get(p.clientId) },
-    )
+    return rawProjects.map((p) => {
+      const fuller = clientById.get(p.clientId)
+      return fuller ? { ...p, client: { ...p.client, ...fuller } } : p
+    })
   }, [projects.data, clients.data])
 
   const clientNames = useMemo(() => {

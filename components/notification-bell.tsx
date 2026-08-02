@@ -3,40 +3,17 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Bell, MessageSquare, Check, RotateCcw, Star, Loader2 } from 'lucide-react'
+import { Bell, Loader2 } from 'lucide-react'
 import { notificationService } from '@/lib/services'
-import type { AppNotification, NotificationType } from '@/lib/types'
+import type { AppNotification } from '@/lib/types'
 import { useQuery } from '@/lib/use-query'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from '@/components/motion'
-
-const TYPE_LABEL: Record<NotificationType, string> = {
-  comentario_cliente: 'comentou no vídeo',
-  aprovacao_cliente: 'aprovou o vídeo',
-  ajuste_solicitado: 'pediu ajuste no vídeo',
-  avaliacao_cliente: 'avaliou o vídeo',
-}
-
-const TYPE_ICON: Record<NotificationType, typeof MessageSquare> = {
-  comentario_cliente: MessageSquare,
-  aprovacao_cliente: Check,
-  ajuste_solicitado: RotateCcw,
-  avaliacao_cliente: Star,
-}
-
-/** Tempo relativo curto (ex.: "agora", "5min", "3h", "2d"), pro item da lista. */
-function timeAgo(iso: string | null): string {
-  if (!iso) return ''
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return ''
-  const diffMs = Date.now() - date.getTime()
-  const min = Math.floor(diffMs / 60_000)
-  if (min < 1) return 'agora'
-  if (min < 60) return `${min}min`
-  const h = Math.floor(min / 60)
-  if (h < 24) return `${h}h`
-  return `${Math.floor(h / 24)}d`
-}
+import {
+  NOTIFICATION_TYPE_LABEL as TYPE_LABEL,
+  NOTIFICATION_TYPE_ICON as TYPE_ICON,
+  notificationTimeAgo as timeAgo,
+} from '@/lib/notification-format'
 
 // Sem WebSocket/SSE no backend hoje — só polling simples.
 const POLL_MS = 45_000
@@ -216,6 +193,14 @@ export function NotificationBell({
                 </ul>
               )}
             </div>
+
+            <Link
+              href="/notificacoes"
+              onClick={() => setOpen(false)}
+              className="block border-t border-border px-3 py-2.5 text-center text-xs font-medium text-primary hover:underline"
+            >
+              Ver todas as notificações
+            </Link>
           </motion.div>
         )}
       </AnimatePresence>

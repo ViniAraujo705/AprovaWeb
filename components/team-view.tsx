@@ -37,6 +37,15 @@ const statusStyles: Record<MemberStatus, string> = {
   suspended: 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30',
 }
 
+/** Convite pendente cujo prazo (`expiresAt`) já passou — precisa ser reenviado. */
+function isInviteExpired(member: TeamMember): boolean {
+  return (
+    member.status === 'invited' &&
+    !!member.expiresAt &&
+    new Date(member.expiresAt).getTime() < Date.now()
+  )
+}
+
 export function TeamView() {
   const { data, loading, error, refetch, setData } = useQuery<TeamMember[]>(
     (signal) => teamService.members(signal),
@@ -271,6 +280,29 @@ function MemberRow({
   const [error, setError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [confirmingPromote, setConfirmingPromote] = useState(false)
+  const [resending, setResending] = useState(false)
+
+  async function resendInvite() {
+    setResending(true)
+    setError(null)
+    try {
+      const recreated = await teamService.invite(member.email)
+      // O reenvio cria um convite novo (id diferente) — troca a linha
+      // expirada pela nova em vez de deixar as duas listadas. A partir daqui
+      // esta linha desmonta (o id antigo some da lista), então nenhum estado
+      // local é lido depois disso.
+      onRemoved(member.id)
+      onChanged(recreated)
+      toast.success('Convite reenviado', 'Um novo prazo de aceite começou a contar.')
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setError('Cancele o convite expirado antes de reenviar.')
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Falha ao reenviar convite.')
+      }
+      setResending(false)
+    }
+  }
 
   async function setStatus(status: MemberStatus) {
     setBusy(true)
@@ -318,6 +350,7 @@ function MemberRow({
 
   const isOwner = member.teamRole === 'owner'
   const isPendingInvite = member.status === 'invited'
+  const expired = isInviteExpired(member)
   const canShowSessions = !isOwner && !isPendingInvite
   const target: MemberStatus = member.status === 'suspended' ? 'active' : 'suspended'
 
@@ -340,10 +373,12 @@ function MemberRow({
         <span
           className={cn(
             'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold',
-            statusStyles[member.status],
+            expired
+              ? 'bg-destructive/15 text-destructive ring-1 ring-destructive/30'
+              : statusStyles[member.status],
           )}
         >
-          {memberStatusLabel[member.status]}
+          {expired ? 'Convite expirado' : memberStatusLabel[member.status]}
         </span>
       </td>
       <td className="px-4 py-3">
@@ -388,13 +423,30 @@ function MemberRow({
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => setConfirming(true)}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70"
-              >
-                <Trash2 className="size-3.5" /> Cancelar convite
-              </button>
+              <div className="flex items-center gap-2">
+                {expired && (
+                  <button
+                    type="button"
+                    onClick={resendInvite}
+                    disabled={resending}
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  >
+                    {resending ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Send className="size-3.5" />
+                    )}
+                    Reenviar convite
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setConfirming(true)}
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70"
+                >
+                  <Trash2 className="size-3.5" /> Cancelar convite
+                </button>
+              </div>
             )}
             {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
           </>

@@ -529,10 +529,12 @@ export function demoMemberSessions(memberId: string): Session[] {
 /** Membros da conta/agência para /configuracoes/equipe. */
 export function demoTeamMembers(): TeamMember[] {
   return [
-    { id: 'demo-user', name: 'Você (demo)', email: 'demo@aprova.app', teamRole: 'owner', status: 'active', createdAt: iso(240) },
-    { id: 'm2', name: 'Marina Alves', email: 'marina@agencia.com', teamRole: 'editor', status: 'active', createdAt: iso(200) },
-    { id: 'm3', name: 'Rafael Souza', email: 'rafael@agencia.com', teamRole: 'editor', status: 'suspended', createdAt: iso(120) },
-    { id: 'm4', name: '', email: 'novo.editor@agencia.com', teamRole: 'editor', status: 'invited', createdAt: iso(6) },
+    { id: 'demo-user', name: 'Você (demo)', email: 'demo@aprova.app', teamRole: 'owner', status: 'active', createdAt: iso(240), expiresAt: null },
+    { id: 'm2', name: 'Marina Alves', email: 'marina@agencia.com', teamRole: 'editor', status: 'active', createdAt: iso(200), expiresAt: null },
+    { id: 'm3', name: 'Rafael Souza', email: 'rafael@agencia.com', teamRole: 'editor', status: 'suspended', createdAt: iso(120), expiresAt: null },
+    { id: 'm4', name: '', email: 'novo.editor@agencia.com', teamRole: 'editor', status: 'invited', createdAt: iso(6), expiresAt: iso(-66) },
+    // Convite enviado há mais de 3 dias e não aceito — ilustra o estado "expirado".
+    { id: 'm5', name: '', email: 'convite.antigo@agencia.com', teamRole: 'editor', status: 'invited', createdAt: iso(90), expiresAt: iso(18) },
   ]
 }
 

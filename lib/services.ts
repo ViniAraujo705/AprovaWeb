@@ -296,6 +296,11 @@ function mapTeamMember(raw: Raw): TeamMember {
     teamRole: normalizeTeamRole(pick(raw, ['teamRole', 'team_role', 'role'], 'editor')),
     status: normalizeMemberStatus(pick(raw, ['status'], 'active')),
     createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
+    expiresAt: pick<string | null>(
+      raw,
+      ['expiresAt', 'expires_at', 'expiraEm', 'expira_em', 'conviteExpiraEm'],
+      null,
+    ),
   }
 }
 
@@ -1363,6 +1368,7 @@ export const teamService = {
           teamRole: 'editor',
           status: 'invited',
           createdAt: new Date().toISOString(),
+          expiresAt: null,
           inviteUrl: `${origin}/convite/${token}`,
         },
         400,

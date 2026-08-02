@@ -13,8 +13,8 @@ import {
   X,
   RotateCcw,
 } from 'lucide-react'
-import { clientService, projectService, videoService } from '@/lib/services'
-import type { Client, Project } from '@/lib/types'
+import { clientService, projectService, teamService, videoService } from '@/lib/services'
+import type { Client, Project, TeamMember } from '@/lib/types'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { UploadError, uploadToPresignedUrl, validateVideoFile } from '@/lib/upload'
@@ -27,6 +27,8 @@ type ItemStatus = 'pending' | 'uploading' | 'done' | 'error'
 interface PendingFile {
   id: string
   file: File
+  /** Nome de exibição do vídeo, editável — pré-preenchido com o nome do arquivo sem extensão. */
+  name: string
   status: ItemStatus
   progress: number
   error?: string
@@ -37,6 +39,10 @@ type Phase = 'idle' | 'submitting' | 'done'
 
 export function UploadView() {
   const clients = useQuery<Client[]>((signal) => clientService.list(signal), [])
+  const members = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
+  const assignableMembers = (members.data ?? []).filter((m) => m.status === 'active')
+  // Editor responsável pelo lote inteiro — atribuído a cada vídeo após criado.
+  const [editorId, setEditorId] = useState('')
 
   const [dragging, setDragging] = useState(false)
   // true entre o clique que abre o seletor de arquivos e o `change` do
@@ -114,7 +120,14 @@ export function UploadView() {
     for (const f of files) {
       const err = validateVideoFile(f)
       if (err) rejected.push(`${f.name}: ${err}`)
-      else accepted.push({ id: String(nextId.current++), file: f, status: 'pending', progress: 0 })
+      else
+        accepted.push({
+          id: String(nextId.current++),
+          file: f,
+          name: f.name.replace(/\.[^.]+$/, ''),
+          status: 'pending',
+          progress: 0,
+        })
     }
     setFileError(rejected.length > 0 ? rejected.join('; ') : null)
     if (accepted.length === 0) return
@@ -184,11 +197,17 @@ export function UploadView() {
           onProgress: (p) => updateItem(item.id, { progress: p }),
         })
 
-        await videoService.create({
+        const created = await videoService.create({
           projectId: targetProjectId,
           urlStorage: presigned.publicUrl,
-          nomeArquivo: item.file.name,
+          nomeArquivo: item.name.trim() || item.file.name,
         })
+
+        if (editorId) {
+          // Falha em atribuir o editor não deve derrubar o upload em si —
+          // o vídeo já foi criado com sucesso.
+          await videoService.assignEditor(created.id, editorId).catch(() => {})
+        }
 
         updateItem(item.id, { status: 'done', progress: 100 })
       } catch (err) {
@@ -280,6 +299,7 @@ export function UploadView() {
     setClientId('')
     setProjectMode('novo')
     setProjectId('')
+    setEditorId('')
     setFieldErrors({})
     setPhase('idle')
     setSubmitError(null)
@@ -344,8 +364,8 @@ export function UploadView() {
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground" title={item.file.name}>
-                    {item.file.name}
+                  <p className="truncate text-sm font-medium text-foreground" title={item.name}>
+                    {item.name}
                   </p>
                   {item.error && <p className="text-xs text-destructive">{item.error}</p>}
                 </div>
@@ -510,9 +530,19 @@ export function UploadView() {
                     )}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground" title={item.file.name}>
-                      {item.file.name}
-                    </p>
+                    {item.status === 'pending' ? (
+                      <input
+                        value={item.name}
+                        onChange={(e) => updateItem(item.id, { name: e.target.value })}
+                        aria-label={`Nome do vídeo (${item.file.name})`}
+                        placeholder={item.file.name}
+                        className="min-h-8 w-full rounded-md border border-transparent bg-transparent px-1 -mx-1 text-sm font-medium text-foreground outline-none hover:border-border focus:border-primary focus:bg-secondary"
+                      />
+                    ) : (
+                      <p className="truncate text-sm font-medium text-foreground" title={item.name}>
+                        {item.name}
+                      </p>
+                    )}
                     {item.status === 'error' ? (
                       <p className="truncate text-xs text-destructive">{item.error}</p>
                     ) : item.status === 'uploading' ? (
@@ -708,6 +738,30 @@ export function UploadView() {
                 <span className="text-xs text-destructive">{fieldErrors.project}</span>
               )}
             </div>
+
+            {assignableMembers.length > 0 && (
+              <label className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
+                <span className="text-sm font-medium text-foreground">
+                  Editor responsável <span className="font-normal text-muted-foreground">(opcional)</span>
+                </span>
+                <select
+                  value={editorId}
+                  onChange={(e) => setEditorId(e.target.value)}
+                  disabled={busy}
+                  className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-60"
+                >
+                  <option value="">Sem editor responsável</option>
+                  {assignableMembers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name || m.email}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-xs text-muted-foreground">
+                  Atribuído a todos os vídeos deste lote.
+                </span>
+              </label>
+            )}
           </div>
 
           {/* Progresso do lote */}

@@ -21,6 +21,7 @@ import {
   ChevronRight,
   FolderOpen,
   Contact,
+  Bell,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/back-button'
@@ -49,6 +50,7 @@ const nav: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/upload', label: 'Enviar vídeo', icon: Upload },
   { href: '/projetos', label: 'Projetos', icon: FolderOpen },
+  { href: '/notificacoes', label: 'Notificações', icon: Bell },
   { href: '/clientes', label: 'Clientes', icon: Contact, teamRole: 'owner' },
   { href: '/configuracoes/equipe', label: 'Equipe', icon: Users, teamRole: 'owner' },
   { href: '/equipe/desempenho', label: 'Desempenho', icon: BarChart3, teamRole: 'owner' },

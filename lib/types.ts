@@ -275,6 +275,12 @@ export interface TeamMember {
   teamRole: TeamRole
   status: MemberStatus
   createdAt: string | null
+  /**
+   * Prazo para o convite ser aceito, se o backend enviar essa data (ainda
+   * não documentado em API.md — hoje sempre `null`). Convite com `status
+   * === 'invited'` e `expiresAt` no passado é tratado como expirado na UI.
+   */
+  expiresAt: string | null
 }
 
 /* ------------------------------- sessões ----------------------------------- */
