@@ -20,3 +20,11 @@ export const ARCHIVED_PROJECTS_KEY = 'aprova_archived_projects'
 export const UPLOAD_MAX_BYTES = 500 * 1024 * 1024 // 500MB
 export const UPLOAD_ACCEPTED_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
 export const UPLOAD_ACCEPTED_LABEL = 'MP4, MOV até 500MB'
+
+// Contato comercial para upgrade de plano (sem checkout ainda).
+export const WHATSAPP_SUPPORT_NUMBER =
+  process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT ?? '5585987984966'
+
+export function buildWhatsAppUrl(message: string): string {
+  return `https://wa.me/${WHATSAPP_SUPPORT_NUMBER}?text=${encodeURIComponent(message)}`
+}

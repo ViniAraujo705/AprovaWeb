@@ -25,6 +25,7 @@ import { ApiError } from '@/lib/api'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { cn } from '@/lib/utils'
 import { toast } from '@/lib/toast'
+import { usePlanLimit } from '@/components/plan-limit-provider'
 
 export function RatingQuestionsView() {
   const { data, loading, error, refetch, setData } = useQuery<RatingQuestion[]>(
@@ -128,6 +129,7 @@ function NewQuestionForm({
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { handlePlanLimitError, bumpUsage } = usePlanLimit()
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -138,9 +140,11 @@ function NewQuestionForm({
     try {
       const created = await ratingQuestionService.create(value)
       onCreated({ ...created, order: created.order || order })
+      bumpUsage({ ratingQuestions: 1 })
       setText('')
       toast.success('Pergunta adicionada')
     } catch (err) {
+      if (handlePlanLimitError(err)) return
       setError(err instanceof ApiError ? err.message : 'Não foi possível criar a pergunta.')
     } finally {
       setSubmitting(false)

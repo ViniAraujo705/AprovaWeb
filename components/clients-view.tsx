@@ -12,6 +12,7 @@ import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { StaggerList, staggerItem, motion } from '@/components/motion'
 import { toast } from '@/lib/toast'
+import { usePlanLimit } from '@/components/plan-limit-provider'
 
 /**
  * Lista de clientes (rota /clientes) — cada card leva ao detalhe do cliente
@@ -22,6 +23,7 @@ import { toast } from '@/lib/toast'
 export function ClientsView() {
   const router = useRouter()
   const clients = useQuery<Client[]>((signal) => clientService.list(signal), [])
+  const { handlePlanLimitError, bumpUsage } = usePlanLimit()
 
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
@@ -45,10 +47,12 @@ export function ClientsView() {
     try {
       const created = await clientService.create({ name: trimmed })
       clients.setData((prev) => [...(prev ?? []), created])
+      bumpUsage({ clients: 1 })
       setCreating(false)
       toast.success('Cliente criado')
       router.push(`/clientes/${created.id}`)
     } catch (err) {
+      if (handlePlanLimitError(err)) return
       setError(err instanceof ApiError ? err.message : 'Falha ao criar cliente.')
     } finally {
       setBusy(false)

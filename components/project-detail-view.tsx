@@ -19,6 +19,7 @@ import {
   Check,
   Trash2,
   X,
+  Lock,
   Archive,
   ArchiveRestore,
 } from 'lucide-react'
@@ -35,11 +36,13 @@ import { formatDuration, formatSentAt } from '@/lib/format'
 import { triggerDownload } from '@/lib/download'
 import { toast } from '@/lib/toast'
 import { archiveProject, isProjectArchived, unarchiveProject } from '@/lib/archived-projects'
+import { usePlanLimit } from '@/components/plan-limit-provider'
 
 export function ProjectDetailView({ id }: { id: string }) {
   const router = useRouter()
   const { user } = useAuth()
   const isOwner = user?.teamRole === 'owner'
+  const { planStatus, handlePlanLimitError, openUpgradeModal } = usePlanLimit()
   const project = useQuery<Project>((signal) => projectService.get(id, signal), [id])
   const videos = useQuery<Video[]>((signal) => videoService.list(id, signal), [id])
   // Esconde versões antigas (substituídas por um reenvio via "Enviar nova
@@ -79,7 +82,13 @@ export function ProjectDetailView({ id }: { id: string }) {
     }
   }
 
+  const pdfLocked = planStatus ? !planStatus.limits.pdfReports : false
+
   async function exportReport() {
+    if (pdfLocked) {
+      openUpgradeModal('Exportar relatório em PDF é exclusivo dos planos pagos.')
+      return
+    }
     setExporting(true)
     setExportError(null)
     try {
@@ -87,6 +96,7 @@ export function ProjectDetailView({ id }: { id: string }) {
       triggerDownload(url, filename)
       toast.success('Relatório gerado', 'O download deve começar em instantes.')
     } catch (err) {
+      if (handlePlanLimitError(err)) return
       setExportError(err instanceof ApiError ? err.message : 'Não foi possível gerar o relatório.')
     } finally {
       setExporting(false)
@@ -269,6 +279,11 @@ export function ProjectDetailView({ id }: { id: string }) {
                 <FileDown className="size-4" />
               )}
               Exportar relatório
+              {pdfLocked && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                  <Lock className="size-3" /> Pro
+                </span>
+              )}
             </button>
             {isOwner && archived && (
               <button

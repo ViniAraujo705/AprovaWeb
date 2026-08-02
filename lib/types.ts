@@ -248,6 +248,12 @@ export type UserStatus = 'active' | 'inactive' | 'suspended'
 export interface AdminUser extends User {
   status: UserStatus
   createdAt: string | null
+  /**
+   * Plano da conta (só relevante para linhas `teamRole: 'owner'`). `GET
+   * /admin/users` ainda não documenta esse campo — pode vir `undefined`, e a
+   * tela admin trata a ausência como 'free'.
+   */
+  plan?: PlanId | null
 }
 
 export interface AdminMetrics {
@@ -255,6 +261,41 @@ export interface AdminMetrics {
   totalVideos: number
   pendingVideos: number
   approvedVideos: number
+}
+
+/* --------------------------------- planos --------------------------------- */
+
+export type PlanId = 'free' | 'pro' | 'agencia'
+
+export const planLabel: Record<PlanId, string> = {
+  free: 'Free',
+  pro: 'Pro',
+  agencia: 'Agência',
+}
+
+/** `null` em qualquer campo = ilimitado (Pro e Agência não têm teto nesses eixos). */
+export interface PlanLimits {
+  maxClients: number | null
+  maxVideosPerMonth: number | null
+  maxRatingQuestions: number | null
+  maxExtraEditors: number | null
+  whiteLabel: boolean
+  pdfReports: boolean
+  priorityQueue: boolean
+  storageGb: number | null
+}
+
+export interface PlanUsage {
+  clients: number
+  extraEditors: number
+  videosThisMonth: number
+  ratingQuestions: number
+}
+
+export interface PlanStatus {
+  plan: PlanId
+  limits: PlanLimits
+  usage: PlanUsage
 }
 
 /* ------------------------------- equipe ---------------------------------- */

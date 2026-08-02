@@ -22,6 +22,7 @@ import {
   FolderOpen,
   Contact,
   Bell,
+  Gauge,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/back-button'
@@ -63,6 +64,9 @@ const nav: NavItem[] = [
   // Sem teamRole: editor também acessa para editar o próprio perfil (a
   // seção de branding dentro da tela é que fica escondida do editor).
   { href: '/configuracoes', label: 'Configurações', icon: Settings, exact: true },
+  // Sem teamRole: editor também esbarra em limites (ex: teto de vídeos/mês)
+  // e precisa entender por que uma ação foi bloqueada.
+  { href: '/configuracoes/plano', label: 'Meu Plano', icon: Gauge },
   { href: '/planos', label: 'Planos', icon: CreditCard, teamRole: 'owner' },
   { href: '/admin', label: 'Admin', icon: Shield, role: 'admin' },
 ]

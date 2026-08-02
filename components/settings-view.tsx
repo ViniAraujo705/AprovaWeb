@@ -26,6 +26,7 @@ import { toast } from '@/lib/toast'
 import { useQuery } from '@/lib/use-query'
 import { ErrorState, Skeleton } from '@/components/states'
 import { SessionRow, RevokeAllSessionsButton } from '@/components/session-row'
+import { usePlanLimit } from '@/components/plan-limit-provider'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -409,6 +410,16 @@ function BrandingForm({ user }: { user: User }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const { handlePlanLimitError, planStatus, openUpgradeModal } = usePlanLimit()
+  // Enquanto o plano ainda não carregou, não bloqueia (o 403 real continua
+  // sendo o backstop) — evita prender a UI atrás de um estado de loading.
+  const locked = planStatus ? !planStatus.limits.whiteLabel : false
+
+  function requireUpgrade() {
+    openUpgradeModal(
+      'Marca própria (logo e nome da agência sem marca d’água) é exclusiva dos planos pagos.',
+    )
+  }
 
   function flashSaved() {
     setSaved(true)
@@ -417,6 +428,10 @@ function BrandingForm({ user }: { user: User }) {
   }
 
   async function handleFile(file: File | undefined | null) {
+    if (locked) {
+      requireUpgrade()
+      return
+    }
     if (!file) return
     const invalid = validateImageFile(file)
     if (invalid) {
@@ -453,6 +468,7 @@ function BrandingForm({ user }: { user: User }) {
       setLogoUrl(branding.logoUrl)
       flashSaved()
     } catch (err) {
+      if (handlePlanLimitError(err)) return
       if (err instanceof UploadError || err instanceof ApiError) setError(err.message)
       else setError('Falha ao enviar o logo. Tente novamente.')
     } finally {
@@ -461,6 +477,10 @@ function BrandingForm({ user }: { user: User }) {
   }
 
   async function saveName() {
+    if (locked) {
+      requireUpgrade()
+      return
+    }
     setError(null)
     setBusy(true)
     try {
@@ -471,6 +491,7 @@ function BrandingForm({ user }: { user: User }) {
       await userService.updateBranding({ agencyName: agencyName.trim() || null, logoUrl })
       flashSaved()
     } catch (err) {
+      if (handlePlanLimitError(err)) return
       setError(err instanceof ApiError ? err.message : 'Falha ao salvar. Tente novamente.')
     } finally {
       setBusy(false)
@@ -497,6 +518,11 @@ function BrandingForm({ user }: { user: User }) {
         <div className="flex items-center gap-2 text-sm font-medium">
           <Building2 className="size-4 text-primary" />
           Logo da agência
+          {locked && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+              <Lock className="size-3" /> Pro
+            </span>
+          )}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           Aparece no topo da tela de aprovação do cliente. PNG, JPG, SVG ou WEBP até 2MB.
@@ -536,15 +562,19 @@ function BrandingForm({ user }: { user: User }) {
         <div
           onDragOver={(e) => {
             e.preventDefault()
-            if (!busy) setDragging(true)
+            if (!busy && !locked) setDragging(true)
           }}
           onDragLeave={() => setDragging(false)}
           onDrop={(e) => {
             e.preventDefault()
             setDragging(false)
-            if (!busy) handleFile(e.dataTransfer.files?.[0])
+            if (locked) requireUpgrade()
+            else if (!busy) handleFile(e.dataTransfer.files?.[0])
           }}
-          onClick={() => !busy && inputRef.current?.click()}
+          onClick={() => {
+            if (locked) requireUpgrade()
+            else if (!busy) inputRef.current?.click()
+          }}
           className={cn(
             'mt-4 flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition-colors',
             busy ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',

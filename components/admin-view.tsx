@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Users, Film, Clock, CheckCircle2, Loader2 } from 'lucide-react'
 import { adminService } from '@/lib/services'
-import type { AdminMetrics, AdminUser, UserStatus } from '@/lib/types'
+import { planLabel, type AdminMetrics, type AdminUser, type PlanId, type UserStatus } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
@@ -89,7 +89,7 @@ export function AdminView() {
           />
         ) : (
           <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="w-full min-w-[680px] text-sm">
               <thead className="bg-secondary/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Nome</th>
@@ -129,6 +129,11 @@ function UserRow({
 }) {
   const [busy, setBusy] = useState<UserStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Plano só existe por conta (dono) — editores não têm plano próprio.
+  const currentPlan = user.plan ?? 'free'
+  const [plan, setPlan] = useState<PlanId>(currentPlan)
+  const [savingPlan, setSavingPlan] = useState(false)
+  const [planError, setPlanError] = useState<string | null>(null)
 
   async function setStatus(status: UserStatus) {
     if (status === user.status) return
@@ -142,6 +147,22 @@ function UserRow({
       setError(err instanceof ApiError ? err.message : 'Falha ao atualizar.')
     } finally {
       setBusy(null)
+    }
+  }
+
+  // Único jeito hoje de ativar um plano pago — não há checkout ainda.
+  async function savePlan() {
+    if (plan === currentPlan) return
+    setSavingPlan(true)
+    setPlanError(null)
+    try {
+      await adminService.updatePlan(user.id, plan)
+      onChanged({ ...user, plan })
+      toast.success('Plano atualizado')
+    } catch (err) {
+      setPlanError(err instanceof ApiError ? err.message : 'Falha ao atualizar o plano.')
+    } finally {
+      setSavingPlan(false)
     }
   }
 
@@ -168,16 +189,45 @@ function UserRow({
         </span>
       </td>
       <td className="px-4 py-3">
-        <button
-          type="button"
-          onClick={() => setStatus(target)}
-          disabled={busy !== null}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
-        >
-          {busy !== null && <Loader2 className="size-3.5 animate-spin" />}
-          {target === 'suspended' ? 'Suspender' : 'Reativar'}
-        </button>
+        <div className="flex flex-col items-start gap-2">
+          <button
+            type="button"
+            onClick={() => setStatus(target)}
+            disabled={busy !== null}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+          >
+            {busy !== null && <Loader2 className="size-3.5 animate-spin" />}
+            {target === 'suspended' ? 'Suspender' : 'Reativar'}
+          </button>
+
+          {user.teamRole === 'owner' && (
+            <div className="flex items-center gap-1.5">
+              <select
+                value={plan}
+                onChange={(e) => setPlan(e.target.value as PlanId)}
+                disabled={savingPlan}
+                className="min-h-8 rounded-lg border border-border bg-secondary px-2 text-xs text-foreground outline-none disabled:opacity-50"
+              >
+                {(['free', 'pro', 'agencia'] satisfies PlanId[]).map((p) => (
+                  <option key={p} value={p}>
+                    {planLabel[p]}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={savePlan}
+                disabled={savingPlan || plan === currentPlan}
+                className="inline-flex min-h-8 items-center gap-1 rounded-lg bg-primary px-2.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+              >
+                {savingPlan && <Loader2 className="size-3 animate-spin" />}
+                Salvar plano
+              </button>
+            </div>
+          )}
+        </div>
         {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+        {planError && <p className="mt-1 text-xs text-destructive">{planError}</p>}
       </td>
     </tr>
   )

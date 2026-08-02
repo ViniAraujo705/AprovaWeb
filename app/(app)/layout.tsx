@@ -1,5 +1,6 @@
 import { AgencyShell } from '@/components/agency-shell'
 import { RequireAuth } from '@/components/require-auth'
+import { PlanLimitProvider } from '@/components/plan-limit-provider'
 
 /**
  * Layout das rotas protegidas do profissional de marketing.
@@ -8,7 +9,9 @@ import { RequireAuth } from '@/components/require-auth'
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <RequireAuth>
-      <AgencyShell>{children}</AgencyShell>
+      <PlanLimitProvider>
+        <AgencyShell>{children}</AgencyShell>
+      </PlanLimitProvider>
     </RequireAuth>
   )
 }

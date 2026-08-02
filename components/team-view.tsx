@@ -28,6 +28,7 @@ import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { toast } from '@/lib/toast'
+import { usePlanLimit } from '@/components/plan-limit-provider'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -127,6 +128,7 @@ function InviteForm({ onInvited }: { onInvited: (m: TeamMember) => void }) {
   const [sendingEmail, setSendingEmail] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
+  const { handlePlanLimitError, refetch: refetchPlan } = usePlanLimit()
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -140,6 +142,10 @@ function InviteForm({ onInvited }: { onInvited: (m: TeamMember) => void }) {
     try {
       const created = await teamService.invite(value)
       onInvited(created)
+      // O back decide se este convite específico conta como "editor extra"
+      // (depende de quantos já estão inclusos no plano) — recarrega em vez
+      // de tentar adivinhar o delta no front.
+      refetchPlan()
       setEmail('')
       setInviteId(created.id)
       setInviteUrl(created.inviteUrl ?? null)
@@ -150,6 +156,8 @@ function InviteForm({ onInvited }: { onInvited: (m: TeamMember) => void }) {
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setError('Esse e-mail já faz parte da equipe.')
+      } else if (handlePlanLimitError(err)) {
+        // modal de paywall já cobre o feedback
       } else {
         setError(err instanceof ApiError ? err.message : 'Não foi possível enviar o convite.')
       }

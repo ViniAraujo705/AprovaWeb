@@ -22,6 +22,7 @@ import {
   demoMetrics,
   demoNewVersion,
   demoNotifications,
+  demoPlanStatus,
   demoProjectGallery,
   demoProjects,
   demoPublicVideo,
@@ -50,6 +51,8 @@ import type {
   MemberStatus,
   NotificationType,
   PerformanceTier,
+  PlanId,
+  PlanStatus,
   Project,
   ProjectGallery,
   PublicVideo,
@@ -409,6 +412,7 @@ function mapAdminUser(raw: Raw): AdminUser {
     ...base,
     status,
     createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
+    plan: pick<PlanId | null>(raw, ['plan', 'plano'], null),
   }
 }
 
@@ -1338,6 +1342,50 @@ export const adminService = {
       status: status === 'suspended' ? 'suspenso' : 'ativo',
     })
     return mapAdminUser(res)
+  },
+  /**
+   * Único jeito hoje de ativar um plano pago (não existe checkout). O
+   * formato de resposta ainda não está documentado, então a tela admin
+   * atualiza a linha localmente após o PATCH resolver, em vez de depender
+   * do corpo devolvido.
+   */
+  async updatePlan(accountId: string, plan: PlanId): Promise<void> {
+    if (isDemo()) return void (await delay(null, 300))
+    await api.patch(`/admin/accounts/${accountId}/plan`, { plan })
+  },
+}
+
+/* -------------------------------- planos ---------------------------------- */
+
+function mapPlanStatus(raw: Raw): PlanStatus {
+  const limitsRaw = pick<Raw>(raw, ['limits', 'limites'], {})
+  const usageRaw = pick<Raw>(raw, ['usage', 'uso'], {})
+  return {
+    plan: (pick(raw, ['plan', 'plano'], 'free') as PlanId) ?? 'free',
+    limits: {
+      maxClients: pick<number | null>(limitsRaw, ['maxClients'], null),
+      maxVideosPerMonth: pick<number | null>(limitsRaw, ['maxVideosPerMonth'], null),
+      maxRatingQuestions: pick<number | null>(limitsRaw, ['maxRatingQuestions'], null),
+      maxExtraEditors: pick<number | null>(limitsRaw, ['maxExtraEditors'], null),
+      whiteLabel: Boolean(pick(limitsRaw, ['whiteLabel'], false)),
+      pdfReports: Boolean(pick(limitsRaw, ['pdfReports'], false)),
+      priorityQueue: Boolean(pick(limitsRaw, ['priorityQueue'], false)),
+      storageGb: pick<number | null>(limitsRaw, ['storageGb'], null),
+    },
+    usage: {
+      clients: Number(pick(usageRaw, ['clients'], 0)) || 0,
+      extraEditors: Number(pick(usageRaw, ['extraEditors'], 0)) || 0,
+      videosThisMonth: Number(pick(usageRaw, ['videosThisMonth'], 0)) || 0,
+      ratingQuestions: Number(pick(usageRaw, ['ratingQuestions'], 0)) || 0,
+    },
+  }
+}
+
+export const planService = {
+  async me(signal?: AbortSignal): Promise<PlanStatus> {
+    if (isDemo()) return delay(demoPlanStatus())
+    const res = await api.get<Raw>('/plans/me', { signal })
+    return mapPlanStatus(res)
   },
 }
 

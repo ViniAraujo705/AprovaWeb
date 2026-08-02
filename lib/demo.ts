@@ -19,6 +19,7 @@ import type {
   DashboardInsights,
   EditorPerformance,
   GalleryVideoItem,
+  PlanStatus,
   Project,
   ProjectGallery,
   PublicVideo,
@@ -393,7 +394,7 @@ export function demoProjectGallery(link: string): ProjectGallery {
 }
 
 export const demoAdminUsers: AdminUser[] = [
-  { id: 'demo-user', name: 'Você (demo)', email: 'demo@aprova.app', role: 'admin', teamRole: 'owner', photoUrl: null, status: 'active', createdAt: iso(240) },
+  { id: 'demo-user', name: 'Você (demo)', email: 'demo@aprova.app', role: 'admin', teamRole: 'owner', photoUrl: null, status: 'active', createdAt: iso(240), plan: 'agencia' },
   { id: 'u2', name: 'Marina Alves', email: 'marina@agencia.com', role: 'user', teamRole: 'editor', photoUrl: null, status: 'active', createdAt: iso(200) },
   { id: 'u3', name: 'Rafael Souza', email: 'rafael@agencia.com', role: 'user', teamRole: 'editor', photoUrl: null, status: 'suspended', createdAt: iso(120) },
   { id: 'u4', name: 'Bruno Lima', email: 'bruno@agencia.com', role: 'user', teamRole: 'editor', photoUrl: null, status: 'inactive', createdAt: iso(60) },
@@ -409,6 +410,37 @@ export const demoMetrics: AdminMetrics = {
 /** Usuário demo + branding (para /configuracoes). Sem logo por padrão. */
 export function demoMe(): User {
   return { ...demoUser, branding: null }
+}
+
+/**
+ * Conta demo simula o plano Agência plenamente liberado — os fixtures já têm
+ * 4 clientes, várias perguntas e 2 editores ativos, então um plano Free
+ * (limite de 3 clientes) deixaria o tour quebrado antes de qualquer ação do
+ * usuário. Uso é calculado a partir dos arrays de demo só por realismo nas
+ * barras de "Meu Plano" — não há enforcement de limite simulado aqui.
+ */
+export function demoPlanStatus(): PlanStatus {
+  return {
+    plan: 'agencia',
+    limits: {
+      maxClients: null,
+      maxVideosPerMonth: null,
+      maxRatingQuestions: null,
+      maxExtraEditors: 5,
+      whiteLabel: true,
+      pdfReports: true,
+      priorityQueue: true,
+      storageGb: 200,
+    },
+    usage: {
+      clients: demoClients.length,
+      extraEditors: demoTeamMembers().filter(
+        (m) => m.teamRole === 'editor' && m.status === 'active',
+      ).length,
+      videosThisMonth: demoVideos.length,
+      ratingQuestions: demoRatingQuestions().filter((q) => q.active).length,
+    },
+  }
 }
 
 /* ----------------------- canais interno / cliente ------------------------ */

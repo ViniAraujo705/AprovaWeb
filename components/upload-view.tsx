@@ -21,6 +21,7 @@ import { UploadError, uploadToPresignedUrl, validateVideoFile } from '@/lib/uplo
 import { UPLOAD_ACCEPTED_LABEL } from '@/lib/config'
 import { DEMO_LINK, isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
+import { usePlanLimit } from '@/components/plan-limit-provider'
 
 type ItemStatus = 'pending' | 'uploading' | 'done' | 'error'
 
@@ -40,6 +41,7 @@ type Phase = 'idle' | 'submitting' | 'done'
 export function UploadView() {
   const clients = useQuery<Client[]>((signal) => clientService.list(signal), [])
   const members = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
+  const { handlePlanLimitError, bumpUsage } = usePlanLimit()
   const assignableMembers = (members.data ?? []).filter((m) => m.status === 'active')
   // Editor responsável pelo lote inteiro — atribuído a cada vídeo após criado.
   const [editorId, setEditorId] = useState('')
@@ -151,12 +153,14 @@ export function UploadView() {
     try {
       const created = await clientService.create({ name })
       clients.setData((prev) => [...(prev ?? []), created])
+      bumpUsage({ clients: 1 })
       setClientId(created.id)
       // Cliente recém-criado não tem nenhum projeto ainda.
       setProjectMode('novo')
       setProjectId('')
       setNewClient(null)
     } catch (err) {
+      if (handlePlanLimitError(err)) return
       setSubmitError(err instanceof ApiError ? err.message : 'Falha ao criar cliente.')
     } finally {
       setCreatingClient(false)
@@ -202,6 +206,7 @@ export function UploadView() {
           urlStorage: presigned.publicUrl,
           nomeArquivo: item.name.trim() || item.file.name,
         })
+        bumpUsage({ videosThisMonth: 1 })
 
         if (editorId) {
           // Falha em atribuir o editor não deve derrubar o upload em si —
@@ -220,6 +225,9 @@ export function UploadView() {
                 ? 'Upload cancelado.'
                 : 'Falha inesperada no envio.'
         updateItem(item.id, { status: 'error', error: message })
+        // Teto mensal de vídeos atingido: não adianta tentar os arquivos
+        // seguintes do mesmo lote, o limite não muda entre um e outro.
+        if (handlePlanLimitError(err)) break
       }
     }
   }
