@@ -286,20 +286,14 @@ function MemberRow({
     setResending(true)
     setError(null)
     try {
-      const recreated = await teamService.invite(member.email)
-      // O reenvio cria um convite novo (id diferente) — troca a linha
-      // expirada pela nova em vez de deixar as duas listadas. A partir daqui
-      // esta linha desmonta (o id antigo some da lista), então nenhum estado
-      // local é lido depois disso.
-      onRemoved(member.id)
-      onChanged(recreated)
+      // Mesmo id do convite — o backend renova expiresAt e reenvia o
+      // e-mail, então basta atualizar a linha em vez de trocá-la.
+      const renewed = await teamService.sendInviteEmail(member.id)
+      onChanged(renewed)
       toast.success('Convite reenviado', 'Um novo prazo de aceite começou a contar.')
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        setError('Cancele o convite expirado antes de reenviar.')
-      } else {
-        setError(err instanceof ApiError ? err.message : 'Falha ao reenviar convite.')
-      }
+      setError(err instanceof ApiError ? err.message : 'Falha ao reenviar convite.')
+    } finally {
       setResending(false)
     }
   }

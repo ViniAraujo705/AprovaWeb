@@ -1352,9 +1352,12 @@ export const teamService = {
   },
 
   /**
-   * Convida um novo editor por e-mail. O envio de e-mail é simulado pelo
-   * backend — a resposta traz `inviteUrl`, que o owner precisa repassar
-   * manualmente (ver `TeamMember.inviteUrl` no retorno).
+   * Convida um novo editor por e-mail — expira em 3 dias (`expiresAt` no
+   * retorno). A resposta traz `inviteUrl`, que o owner pode repassar
+   * manualmente, além de disparar o envio real via `sendInviteEmail`. Se já
+   * existir um convite anterior para esse e-mail mas ele tiver expirado, o
+   * backend cancela o antigo e cria este automaticamente (sem 409) — o 409
+   * só ocorre para usuário ativo ou convite ainda válido.
    */
   async invite(email: string): Promise<TeamMember & { inviteUrl?: string | null }> {
     if (isDemo()) {
@@ -1394,11 +1397,7 @@ export const teamService = {
     return mapTeamMember(res)
   },
 
-  /**
-   * Cancela/exclui um convite pendente (membro ainda com status "invited").
-   * `DELETE /account/invite/:id` ainda não existe no backend documentado em
-   * API.md — precisa ser adicionado lá antes disso funcionar fora do demo.
-   */
+  /** Cancela/exclui um convite pendente (membro ainda com status "invited"). */
   async cancelInvite(id: string): Promise<void> {
     if (isDemo()) {
       await delay(null, 300)
@@ -1408,17 +1407,21 @@ export const teamService = {
   },
 
   /**
-   * Dispara o envio real (via provedor transacional) do e-mail de convite
-   * para o editor. `POST /account/invite/:id/send-email` ainda não existe
-   * no backend documentado em API.md — precisa ser adicionado lá antes
-   * disso funcionar fora do demo.
+   * Reenvia o e-mail do convite (mesmo `inviteUrl`) e renova `expiresAt`
+   * para +3 dias a partir de agora — funciona mesmo se o convite já tinha
+   * expirado, então o retorno atualizado substitui a linha expirada no
+   * lugar em vez de criar uma nova (ver uso em `components/team-view.tsx`).
    */
-  async sendInviteEmail(id: string): Promise<void> {
+  async sendInviteEmail(id: string): Promise<TeamMember> {
     if (isDemo()) {
-      await delay(null, 500)
-      return
+      const found = demoTeamMembers().find((m) => m.id === id)
+      return delay(
+        { ...(found ?? demoTeamMembers()[0]), id, expiresAt: new Date(Date.now() + 3 * 86_400_000).toISOString() },
+        500,
+      )
     }
-    await api.post(`/account/invite/${id}/send-email`)
+    const res = await api.post<Raw>(`/account/invite/${id}/send-email`)
+    return mapTeamMember(res)
   },
 
   /**

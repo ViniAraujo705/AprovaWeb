@@ -293,48 +293,50 @@ mensagem original do cliente, que vem via
 
 | Método | Rota | Auth | Body | Retorno |
 |---|---|---|---|---|
-| `POST` | `/account/invite` | `owner` | `{ email }` | `{ id, email, status, criadoEm, inviteUrl }` |
-| `POST` | `/account/invite/:id/send-email` | `owner` | — | `204` / `{ sent: true }` |
+| `POST` | `/account/invite` | `owner` | `{ email }` | `{ id, email, status, criadoEm, expiresAt, inviteUrl }` |
+| `POST` | `/account/invite/:id/send-email` | `owner` | — | `{ id, email, status, criadoEm, expiresAt, sent: true }` |
+| `DELETE` | `/account/invite/:id` | `owner` | — | `204` |
 | `POST` | `/account/invite/:token/accept` | **sem autenticação** | `{ nome, senha }` | `{ user, access_token }` |
 | `GET` | `/account/members` | `owner` | — | `Member[]` |
 | `PATCH` | `/account/members/:id/status` | `owner` | `{ status: "ativo" \| "suspenso" }` | `Member` atualizado |
 
-- `invite`: cria convite pendente para um editor. `inviteUrl` é o link
-  completo (`<CORS_ORIGIN>/convite/:token`). `409` se já existe usuário ou
-  convite pendente para o email.
-- `send-email` **(pendente de implementação — ver abaixo)**: dispara o
-  envio real do e-mail de convite para o `:id` retornado por `invite`.
+- `invite`: cria convite pendente para um editor, com `expiresAt` = agora +
+  3 dias. `inviteUrl` é o link completo (`<CORS_ORIGIN>/convite/:token`).
+  `409` se já existe usuário ativo ou convite **ainda válido** (não
+  expirado) pendente para o email. Se o convite anterior para esse email já
+  tiver expirado, o backend cancela o antigo automaticamente e cria um novo
+  — sem `409`.
+- `send-email`: reenvia o e-mail do convite `:id` (mesmo `inviteUrl`) **e
+  renova `expiresAt` para +3 dias a partir de agora**, inclusive quando o
+  convite já estava expirado — não retorna mais `409`/erro nesse caso.
+  `404` se `:id` não existir ou não pertencer à conta do owner autenticado;
+  `409`/`400` se o convite já foi aceito (`status !== 'invited'`).
+- `DELETE /account/invite/:id`: cancela/exclui um convite pendente. `404`
+  se `:id` não existir ou não pertencer à conta do owner autenticado.
 - `accept`: fluxo público (tela `/convite/:token` no frontend). `:token` é
   o UUID do convite. Cria o usuário `editor` e retorna token de sessão já
-  logado, igual ao login. `404` se o convite já foi usado/não existe.
-- `members`: lista `owner` + `editores` da conta.
-  `Member`: `{ id, nome, email, teamRole, status, criadoEm }`.
+  logado, igual ao login. `404` se o convite já foi usado/não existe/foi
+  cancelado; **`410 Gone`** se o convite existe mas `expiresAt` já passou.
+- `members`: lista `owner` + `editores` da conta **e também os convites
+  pendentes** (`status: "invited"`), não só usuários já criados.
+  `Member`: `{ id, nome, email, teamRole, status, criadoEm, expiresAt }` —
+  `expiresAt` só vem preenchido em itens com `status: "invited"` (`null`
+  para os demais). Para um item `invited`, `id` é o id do convite — o mesmo
+  usado em `DELETE /account/invite/:id` e `POST
+  /account/invite/:id/send-email`. `nome` vem `null` até o convite ser
+  aceito.
 - `setMemberStatus`: só afeta `editor` (não dá pra suspender um `owner`,
   `400` se tentar). `suspenso` efetivamente remove o acesso (login/token
   passam a responder `403`).
 
-> **Pendente no backend — `POST /account/invite/:id/send-email`**
+> **Sem estado "expirado" no backend.** Um convite vencido continua com
+> `status: "invited"` para sempre — é o consumidor da API quem decide se
+> mostra "pendente" ou "expirado" comparando `expiresAt` com a hora atual
+> (é o que o frontend já faz em `components/team-view.tsx`).
 >
-> Hoje o convite só existe como registro + `inviteUrl`; nenhum e-mail é
-> disparado de verdade (o frontend antes usava um link `mailto:` local, que
-> depende do cliente de e-mail do owner e não é confiável). O frontend já
-> foi ajustado para chamar este endpoint a partir de um botão "Enviar
-> e-mail" na tela de equipe — falta implementar no backend:
-> 1. Integrar um provedor transacional (Resend, SES, Postmark, etc.) e
->    enviar um e-mail real para o endereço do convite (`invite.email`),
->    com o `inviteUrl` e um template básico ("Você foi convidado(a) para
->    colaborar na APROVA...").
-> 2. Rota `POST /account/invite/:id/send-email`, autenticada como `owner`
->    da mesma conta do convite. `404` se `:id` não existir ou não
->    pertencer à conta do owner autenticado; `409`/`400` se o convite já
->    foi aceito (`status !== 'invited'`).
-> 3. Resposta `204` (ou `{ sent: true }`) em caso de sucesso; erro do
->    provedor de e-mail deve virar `502`/`500` com corpo de erro padrão
->    (`ApiError` no frontend já trata isso).
-> 4. Considerar rate limit por convite (evitar reenvio em loop) e não
->    quebrar o fluxo de `invite` existente — o botão de copiar link
->    continua funcionando como fallback caso o e-mail falhe ou caia em
->    spam.
+> **Pendência do backend, não bloqueia o frontend**: a migration do campo
+> `expiresAt` ainda não foi aplicada em staging/prod — só existe em dev por
+> enquanto.
 
 ---
 
