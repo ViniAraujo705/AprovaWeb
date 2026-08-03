@@ -325,7 +325,12 @@ function CompactVideoRow({ video: v }: { video: Video }) {
         <h3 className="truncate text-sm font-semibold text-foreground" title={v.title}>
           {v.title}
         </h3>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+        <p
+          className={cn(
+            'mt-0.5 truncate text-xs',
+            v.commentsCount > 0 ? 'font-medium text-foreground' : 'text-muted-foreground',
+          )}
+        >
           {v.commentsCount} comentário{v.commentsCount === 1 ? '' : 's'}
         </p>
       </div>
@@ -346,7 +351,15 @@ function CompactVideoRow({ video: v }: { video: Video }) {
         </span>
       </div>
 
-      <div className="hidden text-center text-sm text-muted-foreground sm:block">{v.commentsCount}</div>
+      <div
+        className={cn(
+          'hidden items-center justify-center gap-1 text-sm sm:flex',
+          v.commentsCount > 0 ? 'font-medium text-foreground' : 'text-muted-foreground',
+        )}
+      >
+        <MessageSquare className="size-3.5" fill={v.commentsCount > 0 ? 'currentColor' : 'none'} />
+        {v.commentsCount}
+      </div>
 
       <div className="hidden truncate text-sm text-muted-foreground sm:block">
         {formatSentAtCompact(v.createdAt)}

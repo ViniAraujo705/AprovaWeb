@@ -524,8 +524,17 @@ export function ProjectDetailView({ id }: { id: string }) {
                         <Clock className="size-3.5" />
                         {formatSentAt(v.createdAt)}
                       </span>
-                      <span className="inline-flex items-center gap-1">
-                        <MessageSquare className="size-3.5" />
+                      <span
+                        className={
+                          v.commentsCount > 0
+                            ? 'inline-flex items-center gap-1 font-medium text-foreground'
+                            : 'inline-flex items-center gap-1'
+                        }
+                      >
+                        <MessageSquare
+                          className="size-3.5"
+                          fill={v.commentsCount > 0 ? 'currentColor' : 'none'}
+                        />
                         {v.commentsCount}
                       </span>
                     </div>

@@ -12,6 +12,7 @@ import {
   Plus,
   X,
   RotateCcw,
+  Info,
 } from 'lucide-react'
 import { clientService, projectService, teamService, videoService } from '@/lib/services'
 import type { Client, Project, TeamMember } from '@/lib/types'
@@ -33,6 +34,22 @@ interface PendingFile {
   status: ItemStatus
   progress: number
   error?: string
+  /** Velocidade média (bytes/s) e ETA do envio em andamento — só enquanto `status === 'uploading'`. */
+  speedBps?: number
+  etaSeconds?: number | null
+}
+
+/** Formata bytes/s como "3,2 MB/s" (ou KB/s para uploads lentos/no início). */
+function formatSpeed(bytesPerSecond: number): string {
+  const mbps = bytesPerSecond / (1024 * 1024)
+  if (mbps >= 0.1) return `${mbps.toFixed(1)} MB/s`
+  return `${Math.max(1, Math.round(bytesPerSecond / 1024))} KB/s`
+}
+
+function formatEta(seconds: number): string {
+  if (seconds < 60) return `${Math.ceil(seconds)}s restantes`
+  const minutes = Math.ceil(seconds / 60)
+  return `${minutes} min restantes`
 }
 
 /** 'submitting' cobre tanto o upload pro R2 quanto o registro no backend de cada arquivo. */
@@ -198,7 +215,12 @@ export function UploadView() {
           url: presigned.uploadUrl,
           file: item.file,
           headers: presigned.headers,
-          onProgress: (p) => updateItem(item.id, { progress: p }),
+          onProgress: (p, info) =>
+            updateItem(item.id, {
+              progress: p,
+              speedBps: info.bytesPerSecond,
+              etaSeconds: info.etaSeconds,
+            }),
         })
 
         const created = await videoService.create({
@@ -554,12 +576,20 @@ export function UploadView() {
                     {item.status === 'error' ? (
                       <p className="truncate text-xs text-destructive">{item.error}</p>
                     ) : item.status === 'uploading' ? (
-                      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-                        <div
-                          className="h-full rounded-full bg-primary transition-[width] duration-200"
-                          style={{ width: `${item.progress}%` }}
-                        />
-                      </div>
+                      <>
+                        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                          <div
+                            className="h-full rounded-full bg-primary transition-[width] duration-200"
+                            style={{ width: `${item.progress}%` }}
+                          />
+                        </div>
+                        {!!item.speedBps && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {formatSpeed(item.speedBps)}
+                            {item.etaSeconds != null && ` · ${formatEta(item.etaSeconds)}`}
+                          </p>
+                        )}
+                      </>
                     ) : (
                       <p className="text-xs text-muted-foreground">
                         {(item.file.size / (1024 * 1024)).toFixed(1)} MB
@@ -788,6 +818,11 @@ export function UploadView() {
                   style={{ width: `${overallPercent}%` }}
                 />
               </div>
+              <p className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
+                <Info className="mt-0.5 size-3.5 shrink-0" />
+                Pode navegar para outras páginas enquanto isso — o envio continua em segundo
+                plano. Só evite fechar esta aba ou o navegador antes de terminar.
+              </p>
             </div>
           )}
 

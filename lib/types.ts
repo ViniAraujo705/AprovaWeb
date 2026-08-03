@@ -179,6 +179,8 @@ export interface Branding {
   logoUrl: string | null
   /** Nome de exibição da agência (opcional, usado como alt/label). */
   agencyName: string | null
+  /** Cor de destaque da agência em hex (ex: "#ff5a36"), null = cor padrão do sistema. */
+  accentColor: string | null
 }
 
 export interface PublicVideo {
@@ -385,4 +387,23 @@ export interface AppNotification {
     projectName: string
     clientName: string
   }
+}
+
+/* ------------------------------ calendário ---------------------------------- */
+
+/** Escala de gravação da agência (aba Calendário). */
+export interface RecordingEvent {
+  id: string
+  title: string
+  /** Data e hora de início (ISO). */
+  startAt: string
+  /** Data e hora de término (ISO), opcional — mesmo dia do início. */
+  endAt: string | null
+  clientId: string | null
+  /** Nome do cliente resolvido (pra exibir sem precisar de outra chamada). */
+  clientName: string | null
+  /** Responsável pela gravação (membro da equipe), opcional. */
+  memberId: string | null
+  memberName: string | null
+  notes: string | null
 }

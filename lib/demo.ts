@@ -25,6 +25,7 @@ import type {
   PublicVideo,
   QueueVideoItem,
   RatingQuestion,
+  RecordingEvent,
   Session,
   TeamMember,
   User,
@@ -569,6 +570,63 @@ export function demoTeamMembers(): TeamMember[] {
     { id: 'm5', name: '', email: 'convite.antigo@agencia.com', teamRole: 'editor', status: 'invited', createdAt: iso(90), expiresAt: iso(18) },
   ]
 }
+
+/** Soma horas a um ISO já calculado (fecha o horário de término de um evento). */
+function plusHours(isoString: string, hours: number): string {
+  return new Date(new Date(isoString).getTime() + hours * 3600_000).toISOString()
+}
+
+/**
+ * Escala de gravações (aba Calendário) — array mutável: `calendarService`
+ * em modo demo faz `push`/edita/remove direto aqui, igual a `demoClients`,
+ * então altura feitas na tela persistem durante a sessão (até recarregar).
+ */
+export const demoRecordingEvents: RecordingEvent[] = [
+  {
+    id: 'ev-1',
+    title: 'Gravação — Batom matte (novo lançamento)',
+    startAt: futureIso(26),
+    endAt: plusHours(futureIso(26), 2),
+    clientId: 'c1',
+    clientName: 'Bela Cosméticos',
+    memberId: 'm2',
+    memberName: 'Marina Alves',
+    notes: 'Estúdio próprio. Levar o kit de iluminação extra.',
+  },
+  {
+    id: 'ev-2',
+    title: 'Gravação externa — Bastidores da cozinha',
+    startAt: futureIso(74),
+    endAt: plusHours(futureIso(74), 3),
+    clientId: 'c2',
+    clientName: 'Burger House',
+    memberId: 'm3',
+    memberName: 'Rafael Souza',
+    notes: null,
+  },
+  {
+    id: 'ev-3',
+    title: 'Reunião de briefing — coleção verão',
+    startAt: iso(20),
+    endAt: plusHours(iso(20), 1),
+    clientId: 'c3',
+    clientName: 'Studio Moda',
+    memberId: 'demo-user',
+    memberName: 'Você (demo)',
+    notes: null,
+  },
+  {
+    id: 'ev-4',
+    title: 'Gravação — café especial (Reels)',
+    startAt: futureIso(170),
+    endAt: plusHours(futureIso(170), 2),
+    clientId: 'c4',
+    clientName: 'Café Aurora',
+    memberId: 'm2',
+    memberName: 'Marina Alves',
+    notes: 'Cliente pediu foco no processo de torra.',
+  },
+]
 
 /** Desempenho dos editores para /equipe/desempenho, calculado a partir dos vídeos de exemplo. */
 export function demoTeamPerformance(): EditorPerformance[] {

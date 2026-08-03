@@ -37,12 +37,20 @@ export function validateImageFile(file: File): string | null {
   return null
 }
 
+/** Bytes por segundo (média desde o início) e ETA em segundos, junto do percentual. */
+export interface UploadProgressInfo {
+  loaded: number
+  total: number
+  bytesPerSecond: number
+  etaSeconds: number | null
+}
+
 interface UploadOptions {
   url: string
   file: File
   method?: 'PUT' | 'POST'
   headers?: Record<string, string>
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number, info: UploadProgressInfo) => void
   signal?: AbortSignal
 }
 
@@ -62,9 +70,21 @@ export function uploadToPresignedUrl({
     const finalHeaders = headers ?? { 'Content-Type': file.type || 'application/octet-stream' }
     for (const [k, v] of Object.entries(finalHeaders)) xhr.setRequestHeader(k, v)
 
+    const startedAt = performance.now()
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {
-        onProgress(Math.round((e.loaded / e.total) * 100))
+        const elapsedSeconds = (performance.now() - startedAt) / 1000
+        // Velocidade média desde o início — mais estável que instantânea entre
+        // dois eventos `progress` (que podem vir bem espaçados ou em rajada).
+        const bytesPerSecond = elapsedSeconds > 0.2 ? e.loaded / elapsedSeconds : 0
+        const remaining = e.total - e.loaded
+        const etaSeconds = bytesPerSecond > 0 ? remaining / bytesPerSecond : null
+        onProgress(Math.round((e.loaded / e.total) * 100), {
+          loaded: e.loaded,
+          total: e.total,
+          bytesPerSecond,
+          etaSeconds,
+        })
       }
     }
 

@@ -23,6 +23,7 @@ import {
   Contact,
   Bell,
   Gauge,
+  CalendarDays,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/back-button'
@@ -31,6 +32,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { NotificationBell } from '@/components/notification-bell'
 import { teamRoleLabel, type Role, type TeamRole } from '@/lib/types'
 import { AnimatePresence, motion, useReducedMotion } from '@/components/motion'
+import { brandAccentStyle } from '@/lib/theme'
 
 const SIDEBAR_COLLAPSED_KEY = 'aprova_sidebar_collapsed'
 
@@ -51,6 +53,7 @@ const nav: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/upload', label: 'Enviar vídeo', icon: Upload },
   { href: '/projetos', label: 'Projetos', icon: FolderOpen },
+  { href: '/calendario', label: 'Calendário', icon: CalendarDays },
   { href: '/notificacoes', label: 'Notificações', icon: Bell },
   { href: '/clientes', label: 'Clientes', icon: Contact, teamRole: 'owner' },
   { href: '/configuracoes/equipe', label: 'Equipe', icon: Users, teamRole: 'owner' },
@@ -226,6 +229,7 @@ function UserFooter({ collapsed }: { collapsed?: boolean }) {
 }
 
 export function AgencyShell({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   // Fica true do momento em que o drawer abre até a animação de saída
@@ -263,6 +267,7 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
         'min-h-screen lg:grid lg:transition-[grid-template-columns] lg:duration-300 lg:ease-out',
         collapsed ? 'lg:grid-cols-[76px_1fr]' : 'lg:grid-cols-[260px_1fr]',
       )}
+      style={brandAccentStyle(user?.branding?.accentColor)}
     >
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-screen flex-col border-r border-sidebar-border bg-sidebar p-5 lg:flex">

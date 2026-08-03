@@ -400,11 +400,15 @@ function SessionsSection() {
   )
 }
 
+const DEFAULT_ACCENT_COLOR = '#0b0b0d'
+
 function BrandingForm({ user }: { user: User }) {
+  const { updateUser } = useAuth()
   const inputRef = useRef<HTMLInputElement>(null)
 
   const [logoUrl, setLogoUrl] = useState<string | null>(user.branding?.logoUrl ?? null)
   const [agencyName, setAgencyName] = useState(user.branding?.agencyName ?? '')
+  const [accentColor, setAccentColor] = useState(user.branding?.accentColor ?? DEFAULT_ACCENT_COLOR)
   const [dragging, setDragging] = useState(false)
   const [fileError, setFileError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -476,7 +480,7 @@ function BrandingForm({ user }: { user: User }) {
     }
   }
 
-  async function saveName() {
+  async function saveAppearance() {
     if (locked) {
       requireUpgrade()
       return
@@ -484,11 +488,18 @@ function BrandingForm({ user }: { user: User }) {
     setError(null)
     setBusy(true)
     try {
+      const nextAccentColor = accentColor === DEFAULT_ACCENT_COLOR ? null : accentColor
       if (isDemo()) {
+        updateUser({ branding: { logoUrl, agencyName: agencyName.trim() || null, accentColor: nextAccentColor } })
         flashSaved()
         return
       }
-      await userService.updateBranding({ agencyName: agencyName.trim() || null, logoUrl })
+      const branding = await userService.updateBranding({
+        agencyName: agencyName.trim() || null,
+        logoUrl,
+        accentColor: nextAccentColor,
+      })
+      updateUser({ branding })
       flashSaved()
     } catch (err) {
       if (handlePlanLimitError(err)) return
@@ -517,7 +528,7 @@ function BrandingForm({ user }: { user: User }) {
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex items-center gap-2 text-sm font-medium">
           <Building2 className="size-4 text-primary" />
-          Logo da agência
+          Marca da agência
           {locked && (
             <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
               <Lock className="size-3" /> Pro
@@ -525,7 +536,8 @@ function BrandingForm({ user }: { user: User }) {
           )}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Aparece no topo da tela de aprovação do cliente. PNG, JPG, SVG ou WEBP até 2MB.
+          Logo (PNG, JPG, SVG ou WEBP até 2MB), nome e cor de destaque — aparecem na tela de
+          aprovação do cliente e no seu próprio painel.
         </p>
 
         {/* Preview atual */}
@@ -608,23 +620,52 @@ function BrandingForm({ user }: { user: User }) {
         {/* Nome da agência */}
         <label className="mt-6 flex flex-col gap-1.5">
           <span className="text-sm font-medium text-foreground">Nome da agência</span>
-          <div className="flex gap-2">
+          <input
+            value={agencyName}
+            onChange={(e) => setAgencyName(e.target.value)}
+            placeholder="Ex: Estúdio Aurora"
+            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+          />
+        </label>
+
+        {/* Cor de destaque — substitui a cor primária (botões, links, ícones) em toda a tela de aprovação e no seu próprio painel. */}
+        <label className="mt-4 flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">Cor de destaque</span>
+          <div className="flex items-center gap-3">
             <input
-              value={agencyName}
-              onChange={(e) => setAgencyName(e.target.value)}
-              placeholder="Ex: Estúdio Aurora"
-              className="min-h-11 flex-1 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+              type="color"
+              value={accentColor}
+              onChange={(e) => setAccentColor(e.target.value)}
+              aria-label="Cor de destaque da agência"
+              className="size-11 cursor-pointer rounded-lg border border-border bg-secondary p-1"
             />
-            <button
-              type="button"
-              onClick={saveName}
-              disabled={busy}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-            >
-              Salvar
-            </button>
+            <input
+              value={accentColor}
+              onChange={(e) => setAccentColor(e.target.value)}
+              placeholder={DEFAULT_ACCENT_COLOR}
+              className="min-h-11 w-32 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+            />
+            {accentColor !== DEFAULT_ACCENT_COLOR && (
+              <button
+                type="button"
+                onClick={() => setAccentColor(DEFAULT_ACCENT_COLOR)}
+                className="text-xs text-muted-foreground underline hover:text-foreground"
+              >
+                Usar padrão
+              </button>
+            )}
           </div>
         </label>
+
+        <button
+          type="button"
+          onClick={saveAppearance}
+          disabled={busy}
+          className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+        >
+          {busy && <Loader2 className="size-3.5 animate-spin" />}
+          Salvar
+        </button>
 
         {error && (
           <p className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

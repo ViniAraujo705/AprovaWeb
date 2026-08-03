@@ -13,10 +13,14 @@ import { LoadingState, ErrorState } from '@/components/states'
 import { FadeIn, motion, AnimatePresence } from '@/components/motion'
 import { VideoStage, type VideoStageHandle, type StageMarker } from '@/components/video-stage'
 import { AgencyReplyItem, DraggableClientCommentItem } from '@/components/comment-items'
+import { EditorAssignField } from '@/components/editor-assign-field'
+import { useAuth } from '@/components/auth-provider'
 import { toast } from '@/lib/toast'
 import { playApproveSound } from '@/lib/sound'
 
 export function ClientChannelView({ videoId }: { videoId: string }) {
+  const { user } = useAuth()
+  const isOwner = user?.teamRole === 'owner'
   const stageRef = useRef<VideoStageHandle>(null)
   const [current, setCurrent] = useState(0)
 
@@ -83,6 +87,14 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
   function handleMoved(commentId: string) {
     removeCommentLocally(commentId)
     setMovingComment(null)
+  }
+
+  function handleEditorAssigned(newEditorId: string | null) {
+    setData((prev) =>
+      prev
+        ? { ...prev, video: { ...prev.video, editorId: newEditorId } }
+        : (prev as unknown as PublicVideo),
+    )
   }
 
   if (loading) {
@@ -205,6 +217,8 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
             comment={movingComment}
             videoId={videoId}
             editorId={video.editorId}
+            canAssignEditor={isOwner}
+            onEditorAssigned={handleEditorAssigned}
             onClose={() => setMovingComment(null)}
             onMoved={handleMoved}
           />
@@ -219,12 +233,16 @@ function MoveCommentModal({
   comment,
   videoId,
   editorId,
+  canAssignEditor,
+  onEditorAssigned,
   onClose,
   onMoved,
 }: {
   comment: Comment
   videoId: string
   editorId: string | null
+  canAssignEditor: boolean
+  onEditorAssigned: (editorId: string | null) => void
   onClose: () => void
   onMoved: (commentId: string) => void
 }) {
@@ -295,10 +313,22 @@ function MoveCommentModal({
               Vai aparecer para <strong className="text-foreground">{editorName}</strong> na
               revisão interna deste vídeo.
             </>
+          ) : canAssignEditor ? (
+            'Este vídeo ainda não tem um editor responsável definido. Você pode atribuir um agora — o comentário vai aparecer na revisão interna de qualquer forma.'
           ) : (
             'Este vídeo ainda não tem um editor responsável definido — o comentário vai aparecer na revisão interna mesmo assim.'
           )}
         </p>
+
+        {members && !editorName && canAssignEditor && (
+          <EditorAssignField
+            videoId={videoId}
+            editorId={editorId}
+            members={members.filter((m) => m.status === 'active')}
+            onUpdated={onEditorAssigned}
+            className="mt-2"
+          />
+        )}
         <p className="mt-3 truncate rounded-lg bg-secondary p-2 text-xs text-muted-foreground">
           &ldquo;{comment.text}&rdquo;
         </p>

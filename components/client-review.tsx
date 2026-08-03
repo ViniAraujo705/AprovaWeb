@@ -27,6 +27,7 @@ import { AgencyReplyItem, ClientCommentItem } from '@/components/comment-items'
 import { VideoTitleField } from '@/components/video-title-field'
 import { toast } from '@/lib/toast'
 import { playApproveSound } from '@/lib/sound'
+import { brandAccentStyle } from '@/lib/theme'
 
 /** Decisão já registrada (se houver) a partir do status atual do vídeo. */
 function decisionFromStatus(status: VideoStatus): VideoStatus | null {
@@ -282,7 +283,7 @@ export function ClientReview({
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" style={brandAccentStyle(data.branding?.accentColor)}>
       {/* Top bar — logo da agência (branding) com fallback pro logo do sistema */}
       <motion.header
         initial={{ opacity: 0 }}

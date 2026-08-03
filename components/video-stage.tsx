@@ -26,6 +26,9 @@ import {
   ChevronUp,
   ChevronLeft,
   ChevronRight,
+  Gauge,
+  Maximize,
+  Minimize,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Video } from '@/lib/types'
@@ -120,6 +123,37 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   // entra deslizam no mesmo sentido do swipe.
   const [direction, setDirection] = useState<1 | -1>(1)
   const reduceMotion = useReducedMotion()
+
+  // Velocidade de reprodução — só a aba Player (Reels imita um feed, sem
+  // controle de velocidade). Precisa ser reaplicada a cada troca de vídeo
+  // porque o <video> remonta (fica com o `playbackRate` padrão do navegador).
+  const PLAYBACK_RATES = [1, 1.5, 2, 3] as const
+  const [playbackRate, setPlaybackRate] = useState<(typeof PLAYBACK_RATES)[number]>(1)
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.playbackRate = playbackRate
+  }, [playbackRate, video.id])
+  function cyclePlaybackRate() {
+    const next = PLAYBACK_RATES[(PLAYBACK_RATES.indexOf(playbackRate) + 1) % PLAYBACK_RATES.length]
+    setPlaybackRate(next)
+  }
+
+  // Tela cheia do Player (distinta da tela cheia estilo Reels): usa a
+  // Fullscreen API nativa do navegador em cima da própria moldura do vídeo,
+  // então o vídeo preenche a tela toda mantendo nossos controles (play,
+  // velocidade) já sobrepostos a ele.
+  const playerFrameRef = useRef<HTMLDivElement>(null)
+  const [playerFullscreen, setPlayerFullscreen] = useState(false)
+  useEffect(() => {
+    function onFullscreenChange() {
+      setPlayerFullscreen(document.fullscreenElement === playerFrameRef.current)
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }, [])
+  function togglePlayerFullscreen() {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+    else playerFrameRef.current?.requestFullscreen().catch(() => {})
+  }
 
   // Indicador de "pausado" com um pequeno atraso pra exibir: toda troca de
   // vídeo (swipe) passa por um instante pausado/sem áudio enquanto o novo
@@ -324,6 +358,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
       <div className="mt-3">
         <div className={cn('flex justify-center', tab === 'reels' ? 'px-0' : 'px-4 lg:px-0')}>
           <div
+            ref={playerFrameRef}
             // Moldura: define a largura final da caixa (incl. max-w no desktop),
             // cor de fundo, borda e cantos arredondados. A altura nasce do spacer
             // logo abaixo, não é animada com Framer Motion `layout` — o morph
@@ -445,6 +480,33 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                   <span className="grid size-16 place-items-center rounded-full bg-black/45 text-white backdrop-blur-sm">
                     <Play className="size-7 fill-current" />
                   </span>
+                </div>
+              )}
+
+              {/* Velocidade de reprodução e tela cheia — só no player */}
+              {tab === 'player' && !processing && playbackUrl && (
+                <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={cyclePlaybackRate}
+                    aria-label="Velocidade de reprodução"
+                    className="inline-flex min-h-8 items-center gap-1 rounded-full bg-black/50 px-2.5 text-xs font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                  >
+                    <Gauge className="size-3.5" />
+                    {playbackRate}x
+                  </button>
+                  <button
+                    type="button"
+                    onClick={togglePlayerFullscreen}
+                    aria-label={playerFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
+                    className="inline-flex size-8 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                  >
+                    {playerFullscreen ? (
+                      <Minimize className="size-3.5" />
+                    ) : (
+                      <Maximize className="size-3.5" />
+                    )}
+                  </button>
                 </div>
               )}
 

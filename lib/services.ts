@@ -27,6 +27,7 @@ import {
   demoProjects,
   demoPublicVideo,
   demoRatingQuestions,
+  demoRecordingEvents,
   demoSessions,
   demoTeamMembers,
   demoTeamPerformance,
@@ -59,6 +60,7 @@ import type {
   QueueVideoItem,
   Rating,
   RatingQuestion,
+  RecordingEvent,
   Session,
   SessionDeviceType,
   TeamMember,
@@ -186,8 +188,13 @@ function mapBranding(raw: Raw | null | undefined): Branding | null {
     ['nomeAgencia', 'nome', 'agencyName', 'agency_name', 'name'],
     null,
   )
-  if (!logoUrl && !agencyName) return null
-  return { logoUrl, agencyName }
+  const accentColor = pick<string | null>(
+    raw,
+    ['corDestaque', 'cor_destaque', 'accentColor', 'accent_color', 'color'],
+    null,
+  )
+  if (!logoUrl && !agencyName && !accentColor) return null
+  return { logoUrl, agencyName, accentColor }
 }
 
 /**
@@ -431,7 +438,23 @@ function normalizeNotificationType(raw: unknown): NotificationType {
 function mapNotification(raw: Raw): AppNotification {
   const videoRaw = pick<Raw | null>(raw, ['video'], null)
   const projectRaw = pick<Raw | null>(videoRaw, ['project', 'projeto'], null)
-  const clientRaw = pick<Raw | null>(projectRaw, ['client', 'cliente'], null)
+  // O cliente pode vir aninhado direto no vídeo OU dentro do projeto,
+  // dependendo do endpoint (mesma ambiguidade já resolvida em `mapVideo`) —
+  // tenta os dois antes de cair pro nome do projeto por engano (era o que
+  // acontecia antes: sem essa checagem, `clientRaw` ficava `null` sempre que
+  // o backend não aninhava `cliente` dentro de `projeto`, e a badge do
+  // cliente na notificação acabava mostrando o nome do projeto).
+  const clientRaw = pick<Raw | null>(
+    videoRaw,
+    ['client', 'cliente'],
+    pick<Raw | null>(projectRaw, ['client', 'cliente'], null),
+  )
+  const clientName =
+    pick<string>(clientRaw, ['nome', 'name'], '') ||
+    // Alguns retornos já vêm com o nome do cliente "achatado" direto no
+    // vídeo (`clienteNome`/`clientName`), sem objeto aninhado.
+    pick<string>(videoRaw, ['clienteNome', 'cliente_nome', 'clientName', 'client_name'], '')
+
   return {
     id: String(pick(raw, ['id', '_id'], cryptoId())),
     type: normalizeNotificationType(pick(raw, ['type', 'tipo'], null)),
@@ -443,7 +466,7 @@ function mapNotification(raw: Raw): AppNotification {
       posterUrl: pick<string | null>(videoRaw, ['thumbnailUrl', 'thumbnail_url', 'posterUrl'], null),
       publicLink: pick<string | null>(videoRaw, ['linkPublico', 'link_publico', 'publicLink'], null),
       projectName: pick(projectRaw, ['nome', 'name'], ''),
-      clientName: pick(clientRaw, ['nome', 'name'], ''),
+      clientName,
     },
   }
 }
@@ -1229,17 +1252,24 @@ export const userService = {
   async updateBranding(input: {
     logoUrl?: string | null
     agencyName?: string | null
+    accentColor?: string | null
   }): Promise<Branding> {
     if (isDemo())
-      return { logoUrl: input.logoUrl ?? null, agencyName: input.agencyName ?? null }
+      return {
+        logoUrl: input.logoUrl ?? null,
+        agencyName: input.agencyName ?? null,
+        accentColor: input.accentColor ?? null,
+      }
     const res = await api.patch<Raw>('/users/me/branding', {
       logoUrl: input.logoUrl,
       nome: input.agencyName,
+      corDestaque: input.accentColor,
     })
     return (
       mapBranding(res) ?? {
         logoUrl: input.logoUrl ?? null,
         agencyName: input.agencyName ?? null,
+        accentColor: input.accentColor ?? null,
       }
     )
   },
@@ -1554,6 +1584,112 @@ export const teamPerformanceService = {
     if (isDemo()) return delay(demoTeamPerformance())
     const res = await api.get('/team/performance', { signal })
     return asArray(res).map(mapEditorPerformance)
+  },
+}
+
+/* ------------------------------ calendário -------------------------------- */
+
+function mapRecordingEvent(raw: Raw): RecordingEvent {
+  return {
+    id: pick(raw, ['id', '_id'], ''),
+    title: pick(raw, ['title', 'titulo'], ''),
+    startAt: pick(raw, ['startAt', 'inicio', 'dataInicio', 'start_at'], ''),
+    endAt: pick<string | null>(raw, ['endAt', 'fim', 'dataFim', 'end_at'], null),
+    clientId: pick<string | null>(raw, ['clientId', 'clienteId', 'client_id'], null),
+    clientName: pick<string | null>(raw, ['clientName', 'clienteNome', 'client_name'], null),
+    memberId: pick<string | null>(raw, ['memberId', 'membroId', 'member_id'], null),
+    memberName: pick<string | null>(raw, ['memberName', 'membroNome', 'member_name'], null),
+    notes: pick<string | null>(raw, ['notes', 'notas', 'observacoes'], null),
+  }
+}
+
+/**
+ * Escala de gravação da agência (aba Calendário). Endpoints `/recording-events`
+ * ainda não existem no backend documentado em API.md — precisam ser
+ * adicionados lá (aceitando/devolvendo os campos mapeados acima) antes disso
+ * funcionar fora do demo.
+ */
+export const calendarService = {
+  async list(signal?: AbortSignal): Promise<RecordingEvent[]> {
+    if (isDemo()) return delay(demoRecordingEvents)
+    const res = await api.get('/recording-events', { signal })
+    return asArray(res).map(mapRecordingEvent)
+  },
+
+  async create(input: {
+    title: string
+    startAt: string
+    endAt?: string | null
+    clientId?: string | null
+    clientName?: string | null
+    memberId?: string | null
+    memberName?: string | null
+    notes?: string | null
+  }): Promise<RecordingEvent> {
+    if (isDemo()) {
+      const created: RecordingEvent = {
+        id: `ev-${Date.now()}`,
+        title: input.title,
+        startAt: input.startAt,
+        endAt: input.endAt ?? null,
+        clientId: input.clientId ?? null,
+        clientName: input.clientName ?? null,
+        memberId: input.memberId ?? null,
+        memberName: input.memberName ?? null,
+        notes: input.notes ?? null,
+      }
+      demoRecordingEvents.push(created)
+      return delay(created, 300)
+    }
+    const res = await api.post<Raw>('/recording-events', {
+      titulo: input.title,
+      dataInicio: input.startAt,
+      dataFim: input.endAt,
+      clienteId: input.clientId,
+      membroId: input.memberId,
+      observacoes: input.notes,
+    })
+    return mapRecordingEvent(res)
+  },
+
+  async update(
+    id: string,
+    input: Partial<{
+      title: string
+      startAt: string
+      endAt: string | null
+      clientId: string | null
+      clientName: string | null
+      memberId: string | null
+      memberName: string | null
+      notes: string | null
+    }>,
+  ): Promise<RecordingEvent> {
+    if (isDemo()) {
+      const found = demoRecordingEvents.find((e) => e.id === id)
+      if (!found) throw new ApiError('Evento não encontrado.', 404)
+      Object.assign(found, input)
+      return delay(found, 300)
+    }
+    const res = await api.patch<Raw>(`/recording-events/${id}`, {
+      titulo: input.title,
+      dataInicio: input.startAt,
+      dataFim: input.endAt,
+      clienteId: input.clientId,
+      membroId: input.memberId,
+      observacoes: input.notes,
+    })
+    return mapRecordingEvent(res)
+  },
+
+  async remove(id: string): Promise<void> {
+    if (isDemo()) {
+      const idx = demoRecordingEvents.findIndex((e) => e.id === id)
+      if (idx >= 0) demoRecordingEvents.splice(idx, 1)
+      await delay(null, 200)
+      return
+    }
+    await api.delete(`/recording-events/${id}`)
   },
 }
 

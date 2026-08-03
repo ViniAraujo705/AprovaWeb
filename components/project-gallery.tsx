@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRef, useState } from 'react'
-import { Loader2, Film, Download, AlertTriangle, Share2, Check, X } from 'lucide-react'
+import { Loader2, Film, Download, AlertTriangle, Share2, Check, X, Info } from 'lucide-react'
 import type { ProjectGallery } from '@/lib/types'
 import { publicService } from '@/lib/services'
 import { triggerDownload } from '@/lib/download'
@@ -11,7 +11,19 @@ import { AgencyLogo } from '@/components/agency-logo'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { StatusBadge } from '@/components/status-badge'
 import { EmptyState } from '@/components/states'
-import { FadeIn, StaggerList, staggerItem, motion } from '@/components/motion'
+import { FadeIn, StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
+import { brandAccentStyle } from '@/lib/theme'
+
+const GALLERY_ONBOARDING_SEEN_KEY = 'aprova_gallery_onboarding_seen'
+
+function readGalleryOnboardingSeen(): boolean {
+  if (typeof window === 'undefined') return true
+  try {
+    return window.localStorage.getItem(GALLERY_ONBOARDING_SEEN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
 
 /**
  * Galeria pública de um projeto (rota /g/:linkPublico) — porta de entrada única
@@ -43,6 +55,16 @@ export function ProjectGalleryView({
   const [gallerySharing, setGallerySharing] = useState(false)
   const [galleryShareCopied, setGalleryShareCopied] = useState(false)
 
+  const [showOnboarding, setShowOnboarding] = useState(() => !readGalleryOnboardingSeen())
+  function dismissOnboarding() {
+    setShowOnboarding(false)
+    try {
+      window.localStorage.setItem(GALLERY_ONBOARDING_SEEN_KEY, '1')
+    } catch {
+      // localStorage indisponível (ex.: modo privado) — só não persiste a dispensa.
+    }
+  }
+
   function toggleSelected(videoLink: string) {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -56,6 +78,11 @@ export function ProjectGalleryView({
     setSelected((prev) =>
       prev.size === gallery.videos.length ? new Set() : new Set(gallery.videos.map((v) => v.link)),
     )
+  }
+
+  const approvedVideos = gallery.videos.filter((v) => v.status === 'aprovado')
+  function selectApproved() {
+    setSelected(new Set(approvedVideos.map((v) => v.link)))
   }
 
   function clearSelection() {
@@ -187,7 +214,7 @@ export function ProjectGalleryView({
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" style={brandAccentStyle(gallery.branding?.accentColor)}>
       <motion.header
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -229,6 +256,39 @@ export function ProjectGalleryView({
         </p>
       )}
 
+      {/* Instruções rápidas de como usar a galeria — some após a primeira dispensa. */}
+      <AnimatePresence>
+        {showOnboarding && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="mx-auto flex max-w-6xl items-start gap-3 px-4 pt-4 sm:px-6">
+              <div className="flex flex-1 items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                <Info className="mt-0.5 size-4 shrink-0 text-primary" />
+                <p className="flex-1 text-xs text-muted-foreground sm:text-sm">
+                  <span className="font-medium text-foreground">Como funciona: </span>
+                  toque em um vídeo para assistir, comentar em pontos específicos, avaliar com
+                  estrelas e aprovar ou pedir ajustes. Selecione vários aqui na galeria pra
+                  baixar ou compartilhar de uma vez.
+                </p>
+                <button
+                  type="button"
+                  onClick={dismissOnboarding}
+                  aria-label="Fechar instruções"
+                  className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <FadeIn className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -250,6 +310,15 @@ export function ProjectGalleryView({
                 />
                 Selecionar todos
               </label>
+              {approvedVideos.length > 0 && (
+                <button
+                  type="button"
+                  onClick={selectApproved}
+                  className="inline-flex min-h-9 items-center justify-center rounded-lg bg-secondary px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70"
+                >
+                  Selecionar aprovados ({approvedVideos.length})
+                </button>
+              )}
               {selected.size > 0 && (
                 <>
                   <button
