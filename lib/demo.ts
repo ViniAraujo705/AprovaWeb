@@ -9,7 +9,7 @@
  * Para desativar de vez, basta não usar o botão demo — nada aqui roda quando
  * a flag está desligada.
  */
-import { DEMO_FLAG_KEY } from '@/lib/config'
+import { DEMO_FLAG_KEY, DEMO_PLAN_KEY } from '@/lib/config'
 import type {
   AdminMetrics,
   AdminUser,
@@ -19,6 +19,7 @@ import type {
   DashboardInsights,
   EditorPerformance,
   GalleryVideoItem,
+  PlanId,
   PlanStatus,
   Project,
   ProjectGallery,
@@ -62,6 +63,7 @@ export function enableDemoFlag() {
 export function clearDemoFlag() {
   if (typeof window === 'undefined') return
   window.localStorage.removeItem(DEMO_FLAG_KEY)
+  window.localStorage.removeItem(DEMO_PLAN_KEY)
 }
 
 export const demoUser: User = {
@@ -414,25 +416,75 @@ export function demoMe(): User {
 }
 
 /**
- * Conta demo simula o plano Agência plenamente liberado — os fixtures já têm
- * 4 clientes, várias perguntas e 2 editores ativos, então um plano Free
- * (limite de 3 clientes) deixaria o tour quebrado antes de qualquer ação do
- * usuário. Uso é calculado a partir dos arrays de demo só por realismo nas
- * barras de "Meu Plano" — não há enforcement de limite simulado aqui.
+ * Plano "comprado" no modo demo, persistido em localStorage (não em memória)
+ * — o checkout de verdade faz um hard navigate (`window.location.href`) pra
+ * tela de retorno, o que recarrega a página e zeraria qualquer estado só em
+ * memória. Isso permite testar o checkout/cancelamento sem backend:
+ * `billingService.checkout`/`cancel` chamam `demoSetPlan` e a tela de "Meu
+ * Plano" reage exatamente como reagiria a um `GET /plans/me` de verdade.
+ * Ausente = ainda não mexeu em nada, cai no padrão (Agência plenamente
+ * liberado, pra não deixar o tour quebrado com os fixtures existentes de
+ * 4 clientes/vários vídeos).
+ */
+function readDemoPlan(): PlanId | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(DEMO_PLAN_KEY)
+    return raw === 'free' || raw === 'pro' || raw === 'agencia' ? raw : null
+  } catch {
+    return null
+  }
+}
+
+export function demoSetPlan(plan: PlanId): void {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(DEMO_PLAN_KEY, plan)
+}
+
+const DEMO_PLAN_LIMITS: Record<PlanId, PlanStatus['limits']> = {
+  free: {
+    maxClients: 3,
+    maxVideosPerMonth: 8,
+    maxRatingQuestions: 3,
+    maxExtraEditors: 0,
+    whiteLabel: false,
+    pdfReports: false,
+    priorityQueue: false,
+    storageGb: 5,
+  },
+  pro: {
+    maxClients: null,
+    maxVideosPerMonth: null,
+    maxRatingQuestions: null,
+    maxExtraEditors: 0,
+    whiteLabel: true,
+    pdfReports: true,
+    priorityQueue: false,
+    storageGb: 50,
+  },
+  agencia: {
+    maxClients: null,
+    maxVideosPerMonth: null,
+    maxRatingQuestions: null,
+    maxExtraEditors: 5,
+    whiteLabel: true,
+    pdfReports: true,
+    priorityQueue: true,
+    storageGb: 200,
+  },
+}
+
+/**
+ * Uso calculado a partir dos arrays de demo só por realismo nas barras de
+ * "Meu Plano" — não há enforcement de limite simulado nos `create()` de
+ * demo, então usar um plano baixo (ex: Free) pode legitimamente mostrar
+ * eixos "estourados" se os fixtures já tiverem mais do que o teto.
  */
 export function demoPlanStatus(): PlanStatus {
+  const plan = readDemoPlan() ?? 'agencia'
   return {
-    plan: 'agencia',
-    limits: {
-      maxClients: null,
-      maxVideosPerMonth: null,
-      maxRatingQuestions: null,
-      maxExtraEditors: 5,
-      whiteLabel: true,
-      pdfReports: true,
-      priorityQueue: true,
-      storageGb: 200,
-    },
+    plan,
+    limits: DEMO_PLAN_LIMITS[plan],
     usage: {
       clients: demoClients.length,
       extraEditors: demoTeamMembers().filter(

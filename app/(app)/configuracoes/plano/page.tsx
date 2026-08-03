@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { PlanView } from '@/components/plan-view'
 import { RequireAuth } from '@/components/require-auth'
 
@@ -6,7 +7,11 @@ import { RequireAuth } from '@/components/require-auth'
 export default function MeuPlanoPage() {
   return (
     <RequireAuth>
-      <PlanView />
+      {/* PlanView usa useSearchParams (?status=sucesso do retorno do
+          checkout) — o App Router exige um limite de Suspense em volta. */}
+      <Suspense fallback={null}>
+        <PlanView />
+      </Suspense>
     </RequireAuth>
   )
 }

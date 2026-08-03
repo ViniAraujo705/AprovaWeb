@@ -275,6 +275,9 @@ export const planLabel: Record<PlanId, string> = {
   agencia: 'Agência',
 }
 
+/** Ciclo de cobrança da assinatura (Mercado Pago). */
+export type BillingCycle = 'MONTHLY' | 'ANNUALLY'
+
 /** `null` em qualquer campo = ilimitado (Pro e Agência não têm teto nesses eixos). */
 export interface PlanLimits {
   maxClients: number | null

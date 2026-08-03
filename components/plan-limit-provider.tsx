@@ -10,12 +10,11 @@
  */
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Lock, MessageCircle, X } from 'lucide-react'
+import { Lock, X } from 'lucide-react'
 import { planService } from '@/lib/services'
-import { planLabel, type PlanId, type PlanStatus, type PlanUsage } from '@/lib/types'
+import type { PlanStatus, PlanUsage } from '@/lib/types'
 import { ApiError } from '@/lib/api'
 import { useQuery } from '@/lib/use-query'
-import { buildWhatsAppUrl } from '@/lib/config'
 import { AnimatePresence, motion } from '@/components/motion'
 
 interface PlanLimitContextValue {
@@ -75,13 +74,7 @@ export function PlanLimitProvider({ children }: { children: React.ReactNode }) {
     <PlanLimitContext.Provider value={value}>
       {children}
       <AnimatePresence>
-        {modalReason && (
-          <PlanLimitModal
-            reason={modalReason}
-            plan={planStatus?.plan ?? null}
-            onClose={() => setModalReason(null)}
-          />
-        )}
+        {modalReason && <PlanLimitModal reason={modalReason} onClose={() => setModalReason(null)} />}
       </AnimatePresence>
     </PlanLimitContext.Provider>
   )
@@ -93,19 +86,7 @@ export function usePlanLimit(): PlanLimitContextValue {
   return ctx
 }
 
-function PlanLimitModal({
-  reason,
-  plan,
-  onClose,
-}: {
-  reason: string
-  plan: PlanId | null
-  onClose: () => void
-}) {
-  const message = `Olá! Quero saber mais sobre os planos pagos da APROVA${
-    plan ? ` (estou no plano ${planLabel[plan]} hoje)` : ''
-  }.`
-
+function PlanLimitModal({ reason, onClose }: { reason: string; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
       <motion.div
@@ -139,24 +120,13 @@ function PlanLimitModal({
         </div>
         <p className="mt-3 text-sm text-foreground">{reason}</p>
 
-        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-          <a
-            href={buildWhatsAppUrl(message)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={onClose}
-            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
-          >
-            <MessageCircle className="size-4" /> Falar no WhatsApp
-          </a>
-          <Link
-            href="/planos"
-            onClick={onClose}
-            className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70"
-          >
-            Ver planos
-          </Link>
-        </div>
+        <Link
+          href="/planos"
+          onClick={onClose}
+          className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+        >
+          Ver planos
+        </Link>
       </motion.div>
     </div>
   )

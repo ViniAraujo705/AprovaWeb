@@ -23,6 +23,7 @@ import {
   demoNewVersion,
   demoNotifications,
   demoPlanStatus,
+  demoSetPlan,
   demoProjectGallery,
   demoProjects,
   demoPublicVideo,
@@ -52,6 +53,7 @@ import type {
   MemberStatus,
   NotificationType,
   PerformanceTier,
+  BillingCycle,
   PlanId,
   PlanStatus,
   Project,
@@ -1416,6 +1418,37 @@ export const planService = {
     if (isDemo()) return delay(demoPlanStatus())
     const res = await api.get<Raw>('/plans/me', { signal })
     return mapPlanStatus(res)
+  },
+}
+
+/* -------------------------------- cobrança -------------------------------- */
+
+export const billingService = {
+  /**
+   * Inicia o checkout recorrente na Mercado Pago. A resposta é a URL da
+   * própria tela hospedada da Mercado Pago — o front deve navegar o
+   * navegador inteiro pra lá (`window.location.href`), não abrir como
+   * modal/iframe.
+   */
+  async checkout(plan: PlanId, cycle: BillingCycle): Promise<{ url: string }> {
+    if (isDemo()) {
+      // Sem gateway de verdade no demo: simula sucesso imediato navegando
+      // direto pra tela de retorno, e já troca o plano localmente.
+      demoSetPlan(plan)
+      return delay({ url: '/configuracoes/plano?status=sucesso' }, 400)
+    }
+    const res = await api.post<Raw>('/billing/checkout', { plan, cycle })
+    return { url: pick(res, ['url'], '') }
+  },
+
+  /** Cancela a assinatura na hora, sem período de graça. */
+  async cancel(): Promise<{ plan: PlanId }> {
+    if (isDemo()) {
+      demoSetPlan('free')
+      return delay({ plan: 'free' }, 300)
+    }
+    const res = await api.post<Raw>('/billing/cancel')
+    return { plan: (pick(res, ['plan'], 'free') as PlanId) ?? 'free' }
   },
 }
 
