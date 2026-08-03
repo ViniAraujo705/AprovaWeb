@@ -23,7 +23,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
-import { dashboardService, sampleDataService, videoService } from '@/lib/services'
+import { dashboardService, publicService, sampleDataService, videoService } from '@/lib/services'
 import { statusLabel, type DashboardInsights, type Video, type VideoStatus } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
@@ -45,10 +45,14 @@ const ALL_CLIENTS = 'Todos os clientes'
 /**
  * Vídeos com comentário mais recente ficam no topo. Sem nenhum comentário,
  * cai pro fim da lista, ordenado entre si pelo envio mais recente.
+ * `activity` complementa `lastCommentAt` (raramente vem da API de listagem)
+ * com a data calculada a partir do endpoint público — ver efeito acima.
  */
-function byMostRecentComment(a: Video, b: Video): number {
-  const aTime = a.lastCommentAt ? new Date(a.lastCommentAt).getTime() : null
-  const bTime = b.lastCommentAt ? new Date(b.lastCommentAt).getTime() : null
+function byMostRecentComment(a: Video, b: Video, activity: Record<string, string>): number {
+  const aLast = activity[a.id] ?? a.lastCommentAt
+  const bLast = activity[b.id] ?? b.lastCommentAt
+  const aTime = aLast ? new Date(aLast).getTime() : null
+  const bTime = bLast ? new Date(bLast).getTime() : null
   if (aTime !== null && bTime !== null) return bTime - aTime
   if (aTime !== null) return -1
   if (bTime !== null) return 1
@@ -85,6 +89,43 @@ export function DashboardView() {
   const videos = (data ?? []).filter((v) => v.latestVersionId === v.id)
   const hasExamples = videos.some((v) => v.isExample)
 
+  // `GET /videos` não devolve data do último comentário (só a contagem), então
+  // o `lastCommentAt` mapeado em `mapVideo` fica sempre nulo fora do modo demo.
+  // Busca a data real via `/public/videos/:link` (mesmo endpoint da tela do
+  // cliente, que já devolve os comentários com `criadoEm`) só pros vídeos que
+  // têm comentário — enriquece a ordenação sem precisar de mudança no backend.
+  const [commentActivity, setCommentActivity] = useState<Record<string, string>>({})
+  useEffect(() => {
+    const targets = videos.filter((v) => v.commentsCount > 0 && v.publicLink)
+    if (targets.length === 0) return
+    let cancelled = false
+    Promise.all(
+      targets.map(async (v) => {
+        try {
+          const pub = await publicService.getByLink(v.publicLink!)
+          const latest = pub.comments.reduce<string | null>(
+            (acc, c) => (c.createdAt && (!acc || c.createdAt > acc) ? c.createdAt : acc),
+            null,
+          )
+          return [v.id, latest] as const
+        } catch {
+          return [v.id, null] as const
+        }
+      }),
+    ).then((results) => {
+      if (cancelled) return
+      setCommentActivity((prev) => {
+        const next = { ...prev }
+        for (const [id, latest] of results) if (latest) next[id] = latest
+        return next
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data])
+
   const [deletingExamples, setDeletingExamples] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
@@ -116,7 +157,7 @@ export function DashboardView() {
       const bySearch = search.trim() === '' || v.title.toLowerCase().includes(search.trim().toLowerCase())
       return byClient && byStatus && bySearch
     })
-    .sort(byMostRecentComment)
+    .sort((a, b) => byMostRecentComment(a, b, commentActivity))
 
   const pending = videos.filter((v) => v.status === 'pendente').length
   const approved = videos.filter((v) => v.status === 'aprovado').length
