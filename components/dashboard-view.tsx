@@ -42,6 +42,21 @@ const filters: { key: 'todos' | VideoStatus; label: string }[] = [
 
 const ALL_CLIENTS = 'Todos os clientes'
 
+/**
+ * Vídeos com comentário mais recente ficam no topo. Sem nenhum comentário,
+ * cai pro fim da lista, ordenado entre si pelo envio mais recente.
+ */
+function byMostRecentComment(a: Video, b: Video): number {
+  const aTime = a.lastCommentAt ? new Date(a.lastCommentAt).getTime() : null
+  const bTime = b.lastCommentAt ? new Date(b.lastCommentAt).getTime() : null
+  if (aTime !== null && bTime !== null) return bTime - aTime
+  if (aTime !== null) return -1
+  if (bTime !== null) return 1
+  const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0
+  const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0
+  return bCreated - aCreated
+}
+
 /** Passos do fluxo completo, mostrados no checklist do banner de onboarding. */
 const onboardingSteps: { icon: typeof Film; label: string }[] = [
   { icon: Film, label: 'Envie um vídeo' },
@@ -94,12 +109,14 @@ export function DashboardView() {
     return [ALL_CLIENTS, ...Array.from(set).sort()]
   }, [videos])
 
-  const filtered = videos.filter((v) => {
-    const byClient = client === ALL_CLIENTS || v.clientName === client
-    const byStatus = status === 'todos' || v.status === status
-    const bySearch = search.trim() === '' || v.title.toLowerCase().includes(search.trim().toLowerCase())
-    return byClient && byStatus && bySearch
-  })
+  const filtered = videos
+    .filter((v) => {
+      const byClient = client === ALL_CLIENTS || v.clientName === client
+      const byStatus = status === 'todos' || v.status === status
+      const bySearch = search.trim() === '' || v.title.toLowerCase().includes(search.trim().toLowerCase())
+      return byClient && byStatus && bySearch
+    })
+    .sort(byMostRecentComment)
 
   const pending = videos.filter((v) => v.status === 'pendente').length
   const approved = videos.filter((v) => v.status === 'aprovado').length

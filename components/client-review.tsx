@@ -25,9 +25,12 @@ import { ApprovedCelebration } from '@/components/approved-celebration'
 import { VideoStage, type VideoStageHandle, type StageMarker } from '@/components/video-stage'
 import { AgencyReplyItem, ClientCommentItem } from '@/components/comment-items'
 import { VideoTitleField } from '@/components/video-title-field'
+import { AudioCommentRecorder } from '@/components/audio-comment-recorder'
 import { toast } from '@/lib/toast'
 import { playApproveSound } from '@/lib/sound'
 import { brandAccentStyle } from '@/lib/theme'
+import { isDemoVideoLink } from '@/lib/demo'
+import { uploadToPresignedUrl, UploadError } from '@/lib/upload'
 
 /** Decisão já registrada (se houver) a partir do status atual do vídeo. */
 function decisionFromStatus(status: VideoStatus): VideoStatus | null {
@@ -94,6 +97,8 @@ export function ClientReview({
 
   const [comments, setComments] = useState<Comment[]>(initial.comments)
   const [draft, setDraft] = useState('')
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null)
   const [authorName, setAuthorName] = useState(() => readStoredClientName())
   const [showOnboarding, setShowOnboarding] = useState(() => !readOnboardingSeen())
 
@@ -153,6 +158,9 @@ export function ClientReview({
     setDecision(decisionFromStatus(res.video.status))
     setDecisionError(null)
     setDraft('')
+    if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl)
+    setAudioBlob(null)
+    setAudioPreviewUrl(null)
     setCurrent(0)
   }
 
@@ -222,17 +230,52 @@ export function ClientReview({
     }
   }, [decision, activeLink])
 
+  function handleAudioRecorded(blob: Blob) {
+    if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl)
+    setAudioBlob(blob)
+    setAudioPreviewUrl(URL.createObjectURL(blob))
+  }
+
+  function discardAudio() {
+    if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl)
+    setAudioBlob(null)
+    setAudioPreviewUrl(null)
+  }
+
   async function addComment() {
     const text = draft.trim()
     const name = authorName.trim()
-    if (!text || !name) return
+    if ((!text && !audioBlob) || !name) return
     setPostingComment(true)
     setCommentError(null)
     try {
+      let audioUrl: string | null = null
+      if (audioBlob) {
+        if (isDemoVideoLink(activeLink)) {
+          // Modo demo: sem backend real, o próprio object URL local já serve
+          // pra tocar de volta o áudio gravado.
+          audioUrl = audioPreviewUrl
+        } else {
+          const contentType = audioBlob.type || 'audio/webm'
+          const ext = contentType.includes('mp4') ? 'm4a' : contentType.includes('ogg') ? 'ogg' : 'webm'
+          const presigned = await publicService.getCommentAudioUploadUrl(activeLink, {
+            fileName: `comentario-${Date.now()}.${ext}`,
+            contentType,
+          })
+          if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload de áudio.')
+          await uploadToPresignedUrl({
+            url: presigned.uploadUrl,
+            file: new File([audioBlob], `comentario.${ext}`, { type: contentType }),
+            headers: presigned.headers,
+          })
+          audioUrl = presigned.publicUrl
+        }
+      }
       const created = await publicService.addComment(activeLink, {
         text,
         timestamp: Math.round(current),
         author: name,
+        audioUrl,
       })
       try {
         window.localStorage.setItem(CLIENT_NAME_KEY, name)
@@ -241,12 +284,20 @@ export function ClientReview({
       }
       setComments((prev) => [...prev, created])
       setDraft('')
+      // Não revoga o object URL aqui: em modo demo ele continua em uso como
+      // `audioUrl` do comentário recém-adicionado, pra dar pra tocar de volta.
+      setAudioBlob(null)
+      setAudioPreviewUrl(null)
       // Confirmação visual rápida (não bloqueia a tela).
       setCommentSent(true)
       toast.success('Comentário adicionado')
       setTimeout(() => setCommentSent(false), 1800)
     } catch (err) {
-      setCommentError(err instanceof ApiError ? err.message : 'Não foi possível enviar.')
+      setCommentError(
+        err instanceof UploadError || err instanceof ApiError
+          ? err.message
+          : 'Não foi possível enviar.',
+      )
     } finally {
       setPostingComment(false)
     }
@@ -420,17 +471,35 @@ export function ClientReview({
                 <textarea
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
-                  placeholder="Escreva um comentário neste ponto do vídeo…"
+                  placeholder="Escreva um comentário ou grave um áudio neste ponto do vídeo…"
                   rows={2}
                   className="mt-2 w-full resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
                 />
+
+                {audioPreviewUrl ? (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2">
+                    <audio controls src={audioPreviewUrl} className="h-9 w-full min-w-0" />
+                    <button
+                      type="button"
+                      onClick={discardAudio}
+                      aria-label="Descartar áudio gravado"
+                      title="Descartar áudio"
+                      className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-background hover:text-foreground"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <AudioCommentRecorder onRecorded={handleAudioRecorded} disabled={postingComment} className="mt-2" />
+                )}
+
                 {commentError && (
                   <p className="mt-1 text-xs text-destructive">{commentError}</p>
                 )}
                 <button
                   type="button"
                   onClick={addComment}
-                  disabled={!draft.trim() || !authorName.trim() || postingComment}
+                  disabled={(!draft.trim() && !audioBlob) || !authorName.trim() || postingComment}
                   className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary font-display text-lg tracking-wide text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
                 >
                   {postingComment && <Loader2 className="size-4 animate-spin" />}

@@ -189,9 +189,9 @@ function UserFooter({ collapsed }: { collapsed?: boolean }) {
             (user?.name || user?.email || '?').slice(0, 1)
           )}
         </span>
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <p className="truncate text-sm font-medium text-foreground" title={user?.name || 'Usuário'}>
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <p className="min-w-0 shrink truncate text-sm font-medium text-foreground" title={user?.name || 'Usuário'}>
               {user?.name || 'Usuário'}
             </p>
             {user && (

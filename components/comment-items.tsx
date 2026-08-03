@@ -71,9 +71,12 @@ export function ClientCommentItem({
   return (
     <li className="flex gap-3 rounded-xl border border-border bg-card p-3">
       <TimestampChip seconds={comment.timestamp} onSeek={onSeek} />
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{comment.author}</p>
-        <p className="text-sm text-muted-foreground">{comment.text}</p>
+        {comment.text && <p className="text-sm text-muted-foreground">{comment.text}</p>}
+        {comment.audioUrl && (
+          <audio controls src={comment.audioUrl} className="mt-1.5 h-9 w-full max-w-full" />
+        )}
       </div>
     </li>
   )
@@ -165,7 +168,12 @@ export function DraggableClientCommentItem({
               </button>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">{comment.text}</p>
+            <>
+              {comment.text && <p className="text-sm text-muted-foreground">{comment.text}</p>}
+              {comment.audioUrl && (
+                <audio controls src={comment.audioUrl} className="mt-1.5 h-9 w-full max-w-full" />
+              )}
+            </>
           )}
         </div>
         <button

@@ -133,6 +133,7 @@ export const demoVideos: Video[] = [
     clientName: 'Bela Cosméticos',
     projectId: 'p1',
     commentsCount: 3,
+    lastCommentAt: iso(1),
     createdAt: iso(3),
     processingStatus: 'pronto',
     isExample: true,
@@ -155,6 +156,7 @@ export const demoVideos: Video[] = [
     clientName: 'Burger House',
     projectId: 'p2',
     commentsCount: 5,
+    lastCommentAt: iso(10),
     createdAt: iso(20),
     processingStatus: 'pronto',
     isExample: false,
@@ -177,6 +179,7 @@ export const demoVideos: Video[] = [
     clientName: 'Studio Moda',
     projectId: null,
     commentsCount: 2,
+    lastCommentAt: null,
     createdAt: iso(48),
     processingStatus: 'pronto',
     isExample: false,
@@ -199,6 +202,7 @@ export const demoVideos: Video[] = [
     clientName: 'Bela Cosméticos',
     projectId: 'p1',
     commentsCount: 0,
+    lastCommentAt: null,
     createdAt: iso(60),
     processingStatus: 'processando',
     isExample: true,
@@ -221,6 +225,7 @@ export const demoVideos: Video[] = [
     clientName: 'Burger House',
     projectId: 'p2',
     commentsCount: 4,
+    lastCommentAt: iso(40),
     createdAt: iso(72),
     processingStatus: 'pronto',
     isExample: false,
@@ -252,6 +257,7 @@ export function demoNewVersion(videoId: string, nomeArquivo: string): Video {
     status: 'pendente',
     publicLink: `${original.publicLink}-v${original.version + 1}`,
     commentsCount: 0,
+    lastCommentAt: null,
     createdAt: new Date().toISOString(),
     version: original.version + 1,
     videoPaiId: original.id,
@@ -313,17 +319,17 @@ function demoCommentsFor(videoId: string): Comment[] {
   switch (videoId) {
     case 'rv-01':
       return [
-        { id: 'c1', author: 'Cliente', timestamp: 2, text: 'A abertura ficou ótima! Só deixa a logo aparecer 1s a mais.', createdAt: iso(2), authorRole: 'client', parentId: null },
-        { id: 'c2', author: 'Cliente', timestamp: 5, text: 'Esse corte está muito rápido, dá pra segurar mais nesse plano?', createdAt: iso(2), authorRole: 'client', parentId: null },
-        { id: 'c3', author: 'Cliente', timestamp: 8, text: 'Adorei a trilha entrando aqui.', createdAt: iso(1), authorRole: 'client', parentId: null },
+        { id: 'c1', author: 'Cliente', timestamp: 2, text: 'A abertura ficou ótima! Só deixa a logo aparecer 1s a mais.', audioUrl: null, createdAt: iso(2), authorRole: 'client', parentId: null },
+        { id: 'c2', author: 'Cliente', timestamp: 5, text: 'Esse corte está muito rápido, dá pra segurar mais nesse plano?', audioUrl: null, createdAt: iso(2), authorRole: 'client', parentId: null },
+        { id: 'c3', author: 'Cliente', timestamp: 8, text: 'Adorei a trilha entrando aqui.', audioUrl: null, createdAt: iso(1), authorRole: 'client', parentId: null },
       ]
     case 'rv-02':
       return [
-        { id: 'c4', author: 'Cliente', timestamp: 3, text: 'Dá pra trocar o preço exibido? Mudamos a promoção.', createdAt: iso(10), authorRole: 'client', parentId: null },
+        { id: 'c4', author: 'Cliente', timestamp: 3, text: 'Dá pra trocar o preço exibido? Mudamos a promoção.', audioUrl: null, createdAt: iso(10), authorRole: 'client', parentId: null },
       ]
     case 'rv-05':
       return [
-        { id: 'c5', author: 'Cliente', timestamp: 6, text: 'Ficou show, aprovado!', createdAt: iso(40), authorRole: 'client', parentId: null },
+        { id: 'c5', author: 'Cliente', timestamp: 6, text: 'Ficou show, aprovado!', audioUrl: null, createdAt: iso(40), authorRole: 'client', parentId: null },
       ]
     default:
       return []
@@ -509,6 +515,7 @@ export function demoInternalComments(_videoId: string): Comment[] {
       author: 'Marina Alves',
       timestamp: 3,
       text: 'Renderizei numa qualidade menor pra aprovar rápido — subo a final depois. Ok?',
+      audioUrl: null,
       createdAt: iso(5),
       authorRole: 'editor',
       parentId: null,
@@ -518,6 +525,7 @@ export function demoInternalComments(_videoId: string): Comment[] {
       author: 'Você (demo)',
       timestamp: 3,
       text: 'Pode subir a final. Só confirma o LUT antes de mandar pro cliente.',
+      audioUrl: null,
       createdAt: iso(4),
       authorRole: 'owner',
       parentId: 'ic1',
@@ -527,6 +535,7 @@ export function demoInternalComments(_videoId: string): Comment[] {
       author: 'Você (demo)',
       timestamp: 9,
       text: 'Aqui o corte ficou seco. Vamos adicionar um crossfade de 4 frames.',
+      audioUrl: null,
       createdAt: iso(2),
       authorRole: 'owner',
       parentId: null,
@@ -546,6 +555,7 @@ export function demoClientChannel(_videoId: string): PublicVideo {
     author: 'Você (demo)',
     timestamp: 5,
     text: 'Boa! Já seguramos esse plano por mais 1s na nova versão. 🙌',
+    audioUrl: null,
     createdAt: iso(1),
     authorRole: 'agency',
     parentId: null,

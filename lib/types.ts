@@ -94,6 +94,8 @@ export interface Video {
   clientName: string
   projectId: string | null
   commentsCount: number
+  /** Data/hora do comentário mais recente (para ordenar por atividade recente). Null sem comentários. */
+  lastCommentAt: string | null
   createdAt: string | null
   /** Status do processamento do vídeo otimizado (status_processamento). */
   processingStatus: VideoProcessingStatus
@@ -137,6 +139,8 @@ export interface Comment {
   /** Momento do vídeo, em segundos. */
   timestamp: number
   text: string
+  /** URL do áudio gravado pelo cliente, quando o comentário foi falado em vez de escrito. */
+  audioUrl: string | null
   createdAt: string | null
   /** Papel de quem escreveu (para badges e diferenciação visual). */
   authorRole: CommentAuthorRole | null

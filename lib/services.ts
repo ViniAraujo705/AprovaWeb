@@ -230,6 +230,11 @@ function mapVideo(raw: Raw, extra?: { clientName?: string | null }): Video {
     projectId: pick<string | null>(raw, ['projectId', 'project_id'], projectRaw?.id ?? null),
     commentsCount:
       Number(pick(raw, ['commentsCount', 'comments_count'], countRaw?.comments ?? 0)) || 0,
+    lastCommentAt: pick<string | null>(
+      raw,
+      ['ultimoComentarioEm', 'ultimo_comentario_em', 'lastCommentAt', 'last_comment_at'],
+      null,
+    ),
     createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
     processingStatus: normalizeProcessing(
       pick(raw, ['statusProcessamento', 'status_processamento'], 'pronto'),
@@ -294,6 +299,7 @@ function mapComment(raw: Raw): Comment {
     author: author || 'Cliente',
     timestamp: Number(pick(raw, ['timestampVideo', 'timestamp_video', 'timestamp'], 0)) || 0,
     text: pick(raw, ['texto', 'text', 'body', 'content'], ''),
+    audioUrl: pick<string | null>(raw, ['audioUrl', 'audio_url', 'urlAudio', 'url_audio'], null),
     createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
     authorRole: normalizeCommentAuthorRole(raw),
     parentId: pick<string | null>(raw, ['parentId', 'parent_id'], null),
@@ -878,7 +884,7 @@ export const publicService = {
 
   async addComment(
     link: string,
-    input: { text: string; timestamp: number; author?: string },
+    input: { text: string; timestamp: number; author?: string; audioUrl?: string | null },
   ): Promise<Comment> {
     if (isDemoVideoLink(link))
       return delay(
@@ -887,6 +893,7 @@ export const publicService = {
           author: input.author || 'Você',
           timestamp: input.timestamp,
           text: input.text,
+          audioUrl: input.audioUrl ?? null,
           createdAt: new Date().toISOString(),
           authorRole: 'client',
           parentId: null,
@@ -899,10 +906,34 @@ export const publicService = {
         timestampVideo: input.timestamp,
         texto: input.text,
         autorNome: (input.author ?? '').trim() || 'Cliente',
+        audioUrl: input.audioUrl ?? undefined,
       },
       { auth: false },
     )
     return mapComment(res)
+  },
+
+  /**
+   * Presigned URL pra upload direto do áudio gravado pelo cliente (mesmo
+   * padrão 3-etapas de `videoService.getUploadUrl`), pro comentário por voz.
+   * Endpoint ainda não existe no backend — precisa ser criado lá seguindo
+   * este mesmo contrato antes desta função funcionar fora do modo demo.
+   */
+  async getCommentAudioUploadUrl(
+    link: string,
+    input: { fileName: string; contentType: string },
+  ): Promise<{ uploadUrl: string; key: string; publicUrl: string | null; headers?: Record<string, string> }> {
+    const res = await api.post<Raw>(
+      `/public/videos/${encodeURIComponent(link)}/comments/audio-upload-url`,
+      { nomeArquivo: input.fileName, contentType: input.contentType },
+      { auth: false },
+    )
+    return {
+      uploadUrl: pick(res, ['uploadUrl'], ''),
+      key: pick(res, ['key'], ''),
+      publicUrl: pick<string | null>(res, ['publicUrl'], null),
+      headers: pick<Record<string, string> | undefined>(res, ['headers'], undefined),
+    }
   },
 
   async addRating(
@@ -1009,6 +1040,7 @@ export const internalCommentService = {
           author: demoMe().name,
           timestamp: input.timestamp,
           text: input.text,
+          audioUrl: null,
           createdAt: new Date().toISOString(),
           authorRole: demoMe().teamRole,
           parentId: input.parentId ?? null,
@@ -1067,6 +1099,7 @@ export const clientChannelService = {
           author: demoMe().name,
           timestamp: input.timestamp,
           text: input.text,
+          audioUrl: null,
           createdAt: new Date().toISOString(),
           authorRole: 'agency',
           parentId: null,
