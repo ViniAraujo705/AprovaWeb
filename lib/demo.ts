@@ -456,16 +456,18 @@ const DEMO_PLAN_LIMITS: Record<PlanId, PlanStatus['limits']> = {
     whiteLabel: false,
     pdfReports: false,
     priorityQueue: false,
+    teamPerformance: false,
     storageGb: 5,
   },
   pro: {
     maxClients: null,
     maxVideosPerMonth: null,
     maxRatingQuestions: null,
-    maxExtraEditors: 0,
+    maxExtraEditors: 1,
     whiteLabel: true,
     pdfReports: true,
     priorityQueue: false,
+    teamPerformance: false,
     storageGb: 50,
   },
   agencia: {
@@ -476,7 +478,8 @@ const DEMO_PLAN_LIMITS: Record<PlanId, PlanStatus['limits']> = {
     whiteLabel: true,
     pdfReports: true,
     priorityQueue: true,
-    storageGb: 200,
+    teamPerformance: true,
+    storageGb: 300,
   },
 }
 

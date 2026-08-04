@@ -7,13 +7,14 @@
  * cinza-escuro sutil para as cores de status se destacarem no fundo preto.
  */
 import { useState } from 'react'
-import { ArrowDownUp, BarChart3 } from 'lucide-react'
+import { ArrowDownUp, BarChart3, Lock } from 'lucide-react'
 import { teamPerformanceService } from '@/lib/services'
 import type { EditorPerformance, PerformanceTier } from '@/lib/types'
 import { useQuery } from '@/lib/use-query'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { cn } from '@/lib/utils'
 import { motion, useReducedMotion } from '@/components/motion'
+import { usePlanLimit } from '@/components/plan-limit-provider'
 
 const tierFillClass: Record<Exclude<PerformanceTier, 'sem_dados'>, string> = {
   verde: 'bg-emerald-500',
@@ -32,9 +33,14 @@ const tierTextClass: Record<Exclude<PerformanceTier, 'sem_dados'>, string> = {
 type SortMode = 'score' | 'count'
 
 export function TeamPerformanceView() {
+  const { planStatus, openUpgradeModal } = usePlanLimit()
+  // Enquanto o plano ainda não carregou, não bloqueia (o 403 real continua
+  // sendo o backstop) — evita prender a UI atrás de um estado de loading.
+  const locked = planStatus ? !planStatus.limits.teamPerformance : false
   const { data, loading, error, refetch } = useQuery<EditorPerformance[]>(
     (signal) => teamPerformanceService.list(signal),
     [],
+    { enabled: !locked },
   )
   const [sortMode, setSortMode] = useState<SortMode>('score')
 
@@ -56,7 +62,7 @@ export function TeamPerformanceView() {
           </p>
         </div>
 
-        {!loading && !error && (rows.length ?? 0) > 0 && (
+        {!locked && !loading && !error && (rows.length ?? 0) > 0 && (
           <div className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-card p-1 text-xs">
             <SortButton active={sortMode === 'score'} onClick={() => setSortMode('score')}>
               Nota média
@@ -69,7 +75,28 @@ export function TeamPerformanceView() {
       </div>
 
       <div className="mt-6">
-        {loading ? (
+        {locked ? (
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-4 py-12 text-center">
+            <span className="grid size-12 place-items-center rounded-full bg-primary/15 text-primary">
+              <Lock className="size-6" />
+            </span>
+            <div>
+              <p className="text-sm font-medium text-foreground">Recurso exclusivo do plano Agência</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                O painel de desempenho da equipe está disponível apenas no plano Agência.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                openUpgradeModal('Painel de desempenho da equipe é exclusivo do plano Agência.')
+              }
+              className="mt-1 inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+            >
+              Ver planos
+            </button>
+          </div>
+        ) : loading ? (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-16 w-full" />

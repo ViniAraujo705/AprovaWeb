@@ -1508,6 +1508,7 @@ function mapPlanStatus(raw: Raw): PlanStatus {
       whiteLabel: Boolean(pick(limitsRaw, ['whiteLabel'], false)),
       pdfReports: Boolean(pick(limitsRaw, ['pdfReports'], false)),
       priorityQueue: Boolean(pick(limitsRaw, ['priorityQueue'], false)),
+      teamPerformance: Boolean(pick(limitsRaw, ['teamPerformance'], false)),
       storageGb: pick<number | null>(limitsRaw, ['storageGb'], null),
     },
     usage: {

@@ -8,7 +8,7 @@ import { usePlanLimit } from '@/components/plan-limit-provider'
 import { billingService } from '@/lib/services'
 import { ApiError } from '@/lib/api'
 import type { BillingCycle, PlanId } from '@/lib/types'
-import { PLAN_PRICING, EXTRA_EDITOR_MONTHLY_PRICE, formatBRL } from '@/lib/plan-pricing'
+import { PLAN_PRICING, formatBRL } from '@/lib/plan-pricing'
 import { PENDING_CHECKOUT_PLAN_KEY } from '@/lib/config'
 
 type Billing = 'monthly' | 'annual'
@@ -132,12 +132,6 @@ export function PlansView() {
                     </li>
                   ))}
                 </ul>
-
-                {plan.id === 'agencia' && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Editor extra: +{formatBRL(EXTRA_EDITOR_MONTHLY_PRICE)}/mês por editor
-                  </p>
-                )}
 
                 {isCurrent ? (
                   <button

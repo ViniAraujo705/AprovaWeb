@@ -36,7 +36,6 @@ export const PLAN_PRICING: PlanPricing[] = [
       'Até 8 vídeos por mês',
       'Até 3 perguntas de avaliação',
       'Até 5GB de armazenamento',
-      'Link de aprovação com marca APROVA',
     ],
   },
   {
@@ -47,32 +46,29 @@ export const PLAN_PRICING: PlanPricing[] = [
     annualTotal: 588,
     description: 'Para agências com fluxo constante de aprovação.',
     features: [
-      '1 usuário (sem convite de editor)',
+      '1 usuário + 1 editor',
       'Clientes, vídeos e perguntas ilimitados',
       'Até 50GB de armazenamento',
-      'Link de aprovação sem marca d’água',
       'Exportação de relatório em PDF',
     ],
   },
   {
     id: 'agencia',
     name: 'Agência',
-    monthly: 149,
-    annualMonthly: 124,
-    annualTotal: 1490,
+    monthly: 169,
+    annualMonthly: 141,
+    annualTotal: 1690,
     description: 'Para equipes maiores com múltiplos clientes e membros.',
     features: [
       'Tudo do Pro',
       'Até 5 editores inclusos',
-      '100GB de armazenamento',
+      '300GB de armazenamento',
       'Fila de processamento prioritária',
+      'Painel de desempenho da equipe',
       'Suporte prioritário',
     ],
   },
 ]
-
-/** Preço por editor além dos 5 inclusos no plano Agência. */
-export const EXTRA_EDITOR_MONTHLY_PRICE = 29
 
 export function planPricing(id: PlanId): PlanPricing {
   return PLAN_PRICING.find((p) => p.id === id) ?? PLAN_PRICING[0]

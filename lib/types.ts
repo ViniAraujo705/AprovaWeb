@@ -291,6 +291,7 @@ export interface PlanLimits {
   whiteLabel: boolean
   pdfReports: boolean
   priorityQueue: boolean
+  teamPerformance: boolean
   storageGb: number | null
 }
 
