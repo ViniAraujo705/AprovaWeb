@@ -180,7 +180,7 @@ function UserFooter({ collapsed }: { collapsed?: boolean }) {
   }
 
   return (
-    <div className="mt-4 flex items-center justify-between gap-2 rounded-xl border border-sidebar-border bg-secondary/40 p-3">
+    <div className="mt-4 flex flex-col gap-3 rounded-xl border border-sidebar-border bg-secondary/40 p-3">
       <div className="flex min-w-0 items-center gap-2">
         <span className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary text-xs font-bold uppercase text-foreground">
           {user?.photoUrl ? (
@@ -212,7 +212,7 @@ function UserFooter({ collapsed }: { collapsed?: boolean }) {
           </p>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex items-center justify-end gap-1">
         <NotificationBell direction="up" />
         <ThemeToggle />
         <button
