@@ -118,7 +118,19 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   const [current, setCurrent] = useState(0)
   const [duration, setDuration] = useState(video.duration || 0)
   // Tela cheia fiel ao Reels, aberta ao tocar em play na aba "Preview Reels".
+  // Só no celular — no computador o toque apenas pausa/retoma o vídeo já
+  // visível na moldura em mockup (ver `isDesktop` abaixo), sem cobrir a tela.
   const [fullscreen, setFullscreen] = useState(false)
+  // Mesmo breakpoint `lg` usado na moldura do Reels (mockup de celular a
+  // partir do desktop) — abaixo dele o comportamento touch original se mantém.
+  const [isDesktop, setIsDesktop] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    setIsDesktop(mq.matches)
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
   // Sentido da última troca de vídeo (1 = próximo, -1 = anterior), usado para
   // animar a transição estilo feed do Instagram: o vídeo que sai e o que
   // entra deslizam no mesmo sentido do swipe.
@@ -196,9 +208,18 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
     else el.pause()
   }
 
-  /** Toque na aba Reels: primeiro toque abre a tela cheia, os seguintes pausam/retomam. */
+  /**
+   * Toque na aba Reels: no celular, o primeiro toque abre a tela cheia e os
+   * seguintes pausam/retomam. No computador não faz sentido cobrir a tela
+   * inteira (o mockup de celular já mostra o vídeo por completo) — só
+   * pausa/retoma.
+   */
   function handleReelsTap() {
     if (processing) return
+    if (isDesktop) {
+      togglePlay()
+      return
+    }
     if (!fullscreen) setFullscreen(true)
     else togglePlay()
   }

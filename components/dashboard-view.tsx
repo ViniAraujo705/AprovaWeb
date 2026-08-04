@@ -22,6 +22,7 @@ import {
   MoreVertical,
   ExternalLink,
   CircleX,
+  Download,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
 import { dashboardService, publicService, sampleDataService, videoService } from '@/lib/services'
@@ -30,6 +31,7 @@ import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { formatDuration, formatSentAtCompact } from '@/lib/format'
+import { triggerDownload } from '@/lib/download'
 import { cn } from '@/lib/utils'
 import { StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
 import { toast } from '@/lib/toast'
@@ -184,6 +186,11 @@ export function DashboardView() {
     )
   }
 
+  const approvedVideos = filtered.filter((v) => v.status === 'aprovado')
+  function selectApproved() {
+    setSelected(new Set(approvedVideos.map((v) => v.id)))
+  }
+
   function handleRowDeleted(id: string) {
     setData((prev) => (prev ?? []).filter((v) => v.id !== id))
     setSelected((prev) => {
@@ -207,6 +214,38 @@ export function DashboardView() {
       insights.refetch()
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Não foi possível atualizar os vídeos selecionados.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  /** Baixa os vídeos selecionados um a um — em sequência, pra não disparar vários downloads simultâneos e o navegador bloquear. */
+  async function bulkDownload() {
+    const items = filtered.filter((v) => selected.has(v.id))
+    if (items.length === 0) return
+    setBulkBusy(true)
+    let failed = 0
+    try {
+      for (const v of items) {
+        try {
+          let url = v.originalUrl ?? v.url ?? null
+          if (!url && v.publicLink) {
+            const resolved = (await publicService.getByLink(v.publicLink)).video
+            url = resolved.originalUrl ?? resolved.url
+          }
+          if (!url) {
+            failed++
+            continue
+          }
+          await triggerDownload(url, `${v.title || 'video'}.mp4`)
+          await new Promise((resolve) => setTimeout(resolve, 400))
+        } catch {
+          failed++
+        }
+      }
+      const ok = items.length - failed
+      if (ok > 0) toast.success(`${ok} vídeo${ok === 1 ? '' : 's'} baixado${ok === 1 ? '' : 's'}`)
+      if (failed > 0) toast.error(`${failed} de ${items.length} vídeos não puderam ser baixados.`)
     } finally {
       setBulkBusy(false)
     }
@@ -341,6 +380,15 @@ export function DashboardView() {
             />
             Selecionar todos
           </label>
+          {approvedVideos.length > 0 && (
+            <button
+              type="button"
+              onClick={selectApproved}
+              className="inline-flex min-h-9 items-center justify-center rounded-lg bg-secondary px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70"
+            >
+              Selecionar aprovados ({approvedVideos.length})
+            </button>
+          )}
           <AnimatePresence>
             {selected.size > 0 && (
               <BulkActionsBar
@@ -349,6 +397,7 @@ export function DashboardView() {
                 onApprove={() => bulkUpdateStatus('aprovado')}
                 onPending={() => bulkUpdateStatus('pendente')}
                 onAdjust={() => bulkUpdateStatus('ajuste')}
+                onDownload={bulkDownload}
                 onDelete={bulkDelete}
                 onClear={() => setSelected(new Set())}
               />
@@ -715,6 +764,7 @@ function BulkActionsBar({
   onApprove,
   onPending,
   onAdjust,
+  onDownload,
   onDelete,
   onClear,
 }: {
@@ -723,6 +773,7 @@ function BulkActionsBar({
   onApprove: () => void
   onPending: () => void
   onAdjust: () => void
+  onDownload: () => void
   onDelete: () => void
   onClear: () => void
 }) {
@@ -827,6 +878,14 @@ function BulkActionsBar({
                   >
                     <AlarmClock className="size-3.5 text-muted-foreground" />
                     Marcar como pendente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => run(onDownload)}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+                  >
+                    <Download className="size-3.5 text-muted-foreground" />
+                    Baixar
                   </button>
                   <button
                     type="button"
