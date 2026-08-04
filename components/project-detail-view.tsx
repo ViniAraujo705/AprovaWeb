@@ -23,7 +23,14 @@ import {
   Archive,
   ArchiveRestore,
 } from 'lucide-react'
-import { projectService, publicService, reportService, teamService, videoService } from '@/lib/services'
+import {
+  projectService,
+  publicService,
+  reportService,
+  resolveLatestVersions,
+  teamService,
+  videoService,
+} from '@/lib/services'
 import type { Project, TeamMember, Video } from '@/lib/types'
 import { StatusBadge } from '@/components/status-badge'
 import { DeadlineBadge, DeadlineField } from '@/components/deadline-badge'
@@ -44,25 +51,71 @@ export function ProjectDetailView({ id }: { id: string }) {
   const isOwner = user?.teamRole === 'owner'
   const { planStatus, handlePlanLimitError, openUpgradeModal } = usePlanLimit()
   const project = useQuery<Project>((signal) => projectService.get(id, signal), [id])
-  const videos = useQuery<Video[]>((signal) => videoService.list(id, signal), [id])
+  // Paginado de verdade (`videoService.listPage`, não `list()`) — projetos
+  // grandes não trazem tudo de uma vez. `page`/erro de "carregar mais" ficam
+  // fora do estado do useQuery porque o hook não modela paginação.
+  const videos = useQuery<{ items: Video[]; hasMore: boolean }>(
+    async (signal) => {
+      const first = await videoService.listPage(id, { page: 1 }, signal)
+      return { items: first.videos, hasMore: first.hasMore }
+    },
+    [id],
+  )
+  const [page, setPage] = useState(1)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
+  useEffect(() => {
+    setPage(1)
+    setLoadMoreError(null)
+  }, [id])
+
+  async function loadMoreVideos() {
+    if (loadingMore || !videos.data?.hasMore) return
+    setLoadingMore(true)
+    setLoadMoreError(null)
+    try {
+      const nextPage = page + 1
+      const next = await videoService.listPage(id, { page: nextPage })
+      videos.setData((prev) => {
+        const state = prev ?? { items: [], hasMore: false }
+        return { items: [...state.items, ...next.videos], hasMore: next.hasMore }
+      })
+      setPage(nextPage)
+    } catch (err) {
+      setLoadMoreError(
+        err instanceof ApiError ? err.message : 'Não foi possível carregar mais vídeos.',
+      )
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
   // Esconde versões antigas (substituídas por um reenvio via "Enviar nova
   // versão" na tela de revisão) — só a mais recente de cada cadeia aparece
   // aqui. A antiga continua acessível por link direto, só não polui a lista.
-  const currentVideos = (videos.data ?? []).filter((v) => v.latestVersionId === v.id)
+  // `resolveLatestVersions` roda sobre o acumulado de todas as páginas já
+  // carregadas: a API lista mais recente primeiro por versão, então a versão
+  // nova de uma cadeia sempre chega numa página igual ou anterior à da
+  // antiga — nunca fica "atrás" de uma página ainda não carregada.
+  const currentVideos = resolveLatestVersions(videos.data?.items ?? []).filter(
+    (v) => v.latestVersionId === v.id,
+  )
   // Buscado para todo mundo: o editor precisa ver o nome do responsável, mesmo sem poder editar.
   const members = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
   const assignableMembers = (members.data ?? []).filter((m) => m.status === 'active')
 
   function updateVideoDeadline(videoId: string, deadline: string | null) {
-    videos.setData((prev) =>
-      (prev ?? []).map((v) => (v.id === videoId ? { ...v, deadline } : v)),
-    )
+    videos.setData((prev) => {
+      const state = prev ?? { items: [], hasMore: false }
+      return { ...state, items: state.items.map((v) => (v.id === videoId ? { ...v, deadline } : v)) }
+    })
   }
 
   function updateVideoEditor(videoId: string, editorId: string | null) {
-    videos.setData((prev) =>
-      (prev ?? []).map((v) => (v.id === videoId ? { ...v, editorId } : v)),
-    )
+    videos.setData((prev) => {
+      const state = prev ?? { items: [], hasMore: false }
+      return { ...state, items: state.items.map((v) => (v.id === videoId ? { ...v, editorId } : v)) }
+    })
   }
 
   const [exporting, setExporting] = useState(false)
@@ -186,7 +239,10 @@ export function ProjectDetailView({ id }: { id: string }) {
     setDeleteError(null)
     try {
       await videoService.remove(id)
-      videos.setData((prev) => (prev ?? []).filter((v) => v.id !== id))
+      videos.setData((prev) => {
+        const state = prev ?? { items: [], hasMore: false }
+        return { ...state, items: state.items.filter((v) => v.id !== id) }
+      })
       setSelected((prev) => {
         if (!prev.has(id)) return prev
         const next = new Set(prev)
@@ -617,6 +673,24 @@ export function ProjectDetailView({ id }: { id: string }) {
                 </div>
               )
             })}
+          </div>
+        )}
+        {loadMoreError && (
+          <p className="mt-3 flex items-center gap-1.5 text-sm text-destructive">
+            <AlertTriangle className="size-4" /> {loadMoreError}
+          </p>
+        )}
+        {!videos.loading && !videos.error && videos.data?.hasMore && (
+          <div className="mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={loadMoreVideos}
+              disabled={loadingMore}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-50"
+            >
+              {loadingMore && <Loader2 className="size-4 animate-spin" />}
+              Carregar mais vídeos
+            </button>
           </div>
         )}
       </div>

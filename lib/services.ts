@@ -261,7 +261,7 @@ function mapVideo(raw: Raw, extra?: { clientName?: string | null }): Video {
  * só expõe filho→pai, então isso precisa ser calculado no frontend com a
  * lista inteira em mãos.
  */
-function resolveLatestVersions(videos: Video[]): Video[] {
+export function resolveLatestVersions(videos: Video[]): Video[] {
   const childByParent = new Map<string, string>()
   for (const v of videos) if (v.videoPaiId) childByParent.set(v.videoPaiId, v.id)
   return videos.map((v) => {
@@ -544,10 +544,37 @@ export const authService = {
 
 /* ------------------------------- videos ---------------------------------- */
 
+/** Teto de itens por página aceito pelo backend em `GET /videos`. */
+const VIDEOS_PAGE_LIMIT = 100
+
+/**
+ * `GET /videos` passou a ser paginado (default `page=1&limit=50`, teto de
+ * `limit=100`) — sem paginar de verdade nessa busca, contas com mais vídeos
+ * que o limit pareciam estar com vídeos "sumindo" (truncados na primeira
+ * página). Busca todas as páginas e agrega, já que dashboard/projetos ainda
+ * listam tudo de uma vez (sem infinite scroll).
+ */
+async function fetchAllVideoPages(
+  query: Record<string, string | number | undefined>,
+  signal?: AbortSignal,
+): Promise<Raw[]> {
+  const items: Raw[] = []
+  let page = 1
+  for (;;) {
+    const res = await api.get('/videos', { query: { ...query, page, limit: VIDEOS_PAGE_LIMIT }, signal })
+    const pageItems = asArray<Raw>(res)
+    items.push(...pageItems)
+    const totalPages = pick<number>(res as Raw, ['totalPages', 'total_pages'], 1)
+    if (pageItems.length === 0 || page >= totalPages) break
+    page += 1
+  }
+  return items
+}
+
 /** Busca os vídeos de um projeto já resolvido, herdando o nome do cliente (não vem no item). */
 async function fetchProjectVideos(project: Project, signal?: AbortSignal): Promise<Video[]> {
-  const res = await api.get('/videos', { query: { project_id: project.id }, signal })
-  return asArray(res).map((v) => mapVideo(v, { clientName: project.client?.name ?? null }))
+  const raw = await fetchAllVideoPages({ project_id: project.id }, signal)
+  return raw.map((v) => mapVideo(v, { clientName: project.client?.name ?? null }))
 }
 
 /**
@@ -572,9 +599,9 @@ function fetchAllVideosCached(): Promise<Video[]> {
   if (allVideosCache && allVideosCache.expiresAt > now) return allVideosCache.promise
 
   const promise = (async () => {
-    const [projects, res] = await Promise.all([projectService.list(), api.get('/videos')])
+    const [projects, raw] = await Promise.all([projectService.list(), fetchAllVideoPages({})])
     const clientNameByProjectId = new Map(projects.map((p) => [p.id, p.client?.name ?? '']))
-    const videos = asArray(res).map((v) => {
+    const videos = raw.map((v) => {
       const projectId = pick<string | null>(v, ['projectId', 'project_id'], null)
       return mapVideo(v, { clientName: (projectId && clientNameByProjectId.get(projectId)) ?? '' })
     })
@@ -603,6 +630,35 @@ export const videoService = {
       return resolveLatestVersions(await fetchProjectVideos(project, signal))
     }
     return resolveLatestVersions(await fetchAllVideosCached())
+  },
+
+  /**
+   * Página única de vídeos de um projeto (`GET /videos?project_id=&page=&limit=`),
+   * para telas com "carregar mais" em vez de agregar tudo de uma vez como o
+   * `list()` acima faz (ver `fetchAllVideoPages`). Não resolve `clientName`
+   * por vídeo — quem chama isso já está numa tela de projeto único e não
+   * precisa repetir o nome do cliente por card. Quem usa isso é responsável
+   * por acumular as páginas e rodar `resolveLatestVersions` sobre a lista
+   * acumulada a cada nova página (a API lista mais recente primeiro por
+   * versão, então a versão nova sempre chega numa página igual ou anterior à
+   * da antiga).
+   */
+  async listPage(
+    projectId: string,
+    opts: { page: number; limit?: number } = { page: 1 },
+    signal?: AbortSignal,
+  ): Promise<{ videos: Video[]; hasMore: boolean }> {
+    if (isDemo()) {
+      return delay({ videos: demoVideosForProject(projectId), hasMore: false })
+    }
+    const limit = opts.limit ?? VIDEOS_PAGE_LIMIT
+    const res = await api.get('/videos', {
+      query: { project_id: projectId, page: opts.page, limit },
+      signal,
+    })
+    const raw = asArray<Raw>(res)
+    const totalPages = pick<number>(res as Raw, ['totalPages', 'total_pages'], opts.page)
+    return { videos: raw.map((v) => mapVideo(v)), hasMore: opts.page < totalPages }
   },
 
   /** Não existe `GET /videos/:id` no backend — resolve buscando entre todos os projetos. */
