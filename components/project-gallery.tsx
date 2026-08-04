@@ -409,14 +409,20 @@ export function ProjectGalleryView({
                     onContextMenu={(e) => e.preventDefault()}
                   />
                   <div className="relative aspect-video w-full overflow-hidden bg-secondary">
-                    <Image
-                      src={v.posterUrl || '/placeholder.svg'}
-                      alt=""
-                      fill
-                      className="object-cover transition-transform group-hover:scale-105"
-                      sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                      unoptimized
-                    />
+                    {v.posterUrl ? (
+                      <Image
+                        src={v.posterUrl}
+                        alt=""
+                        fill
+                        className="object-cover transition-transform group-hover:scale-105"
+                        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                        unoptimized
+                      />
+                    ) : (
+                      <span className="grid h-full w-full place-items-center text-muted-foreground/60">
+                        <Film className="size-6" />
+                      </span>
+                    )}
                     {v.processingStatus === 'processando' && (
                       <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50">
                         <Loader2 className="size-6 animate-spin text-white" />

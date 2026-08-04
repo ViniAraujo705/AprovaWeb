@@ -21,6 +21,7 @@ import {
   Link2,
   MoreVertical,
   ExternalLink,
+  CircleX,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
 import { dashboardService, publicService, sampleDataService, videoService } from '@/lib/services'
@@ -74,7 +75,7 @@ export function DashboardView() {
   const [status, setStatus] = useState<'todos' | VideoStatus>('todos')
   const [search, setSearch] = useState('')
 
-  const { data, loading, error, refetch } = useQuery<Video[]>(
+  const { data, loading, error, refetch, setData } = useQuery<Video[]>(
     (signal) => videoService.list(undefined, signal),
     [],
   )
@@ -162,6 +163,75 @@ export function DashboardView() {
   const pending = videos.filter((v) => v.status === 'pendente').length
   const approved = videos.filter((v) => v.status === 'aprovado').length
   const adjust = videos.filter((v) => v.status === 'ajuste').length
+
+  // Seleção múltipla + ações em lote (aprovar/pendente/ajuste/excluir) — só os
+  // ids visíveis no filtro atual entram no "selecionar todos".
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    setSelected((prev) =>
+      prev.size === filtered.length ? new Set() : new Set(filtered.map((v) => v.id)),
+    )
+  }
+
+  function handleRowDeleted(id: string) {
+    setData((prev) => (prev ?? []).filter((v) => v.id !== id))
+    setSelected((prev) => {
+      if (!prev.has(id)) return prev
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+    insights.refetch()
+  }
+
+  async function bulkUpdateStatus(newStatus: VideoStatus) {
+    const ids = Array.from(selected)
+    if (ids.length === 0) return
+    setBulkBusy(true)
+    try {
+      await Promise.all(ids.map((id) => videoService.updateStatus(id, newStatus)))
+      setData((prev) => (prev ?? []).map((v) => (ids.includes(v.id) ? { ...v, status: newStatus } : v)))
+      toast.success(`${ids.length} vídeo${ids.length === 1 ? '' : 's'} atualizado${ids.length === 1 ? '' : 's'}`)
+      setSelected(new Set())
+      insights.refetch()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível atualizar os vídeos selecionados.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  async function bulkDelete() {
+    const ids = Array.from(selected)
+    if (ids.length === 0) return
+    setBulkBusy(true)
+    try {
+      const results = await Promise.allSettled(ids.map((id) => videoService.remove(id)))
+      const succeededIds = ids.filter((_, i) => results[i].status === 'fulfilled')
+      const failed = ids.length - succeededIds.length
+      setData((prev) => (prev ?? []).filter((v) => !succeededIds.includes(v.id)))
+      setSelected(new Set())
+      if (failed > 0) {
+        toast.error(`${failed} de ${ids.length} vídeos não puderam ser excluídos.`)
+      } else {
+        toast.success(`${ids.length} vídeo${ids.length === 1 ? '' : 's'} excluído${ids.length === 1 ? '' : 's'}`)
+      }
+      insights.refetch()
+    } finally {
+      setBulkBusy(false)
+    }
+  }
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
@@ -259,6 +329,34 @@ export function DashboardView() {
         </div>
       </div>
 
+      {/* Seleção múltipla + ações em lote */}
+      {!loading && !error && filtered.length > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={selected.size > 0 && selected.size === filtered.length}
+              onChange={toggleSelectAll}
+              className="size-4 cursor-pointer accent-primary"
+            />
+            Selecionar todos
+          </label>
+          <AnimatePresence>
+            {selected.size > 0 && (
+              <BulkActionsBar
+                count={selected.size}
+                busy={bulkBusy}
+                onApprove={() => bulkUpdateStatus('aprovado')}
+                onPending={() => bulkUpdateStatus('pendente')}
+                onAdjust={() => bulkUpdateStatus('ajuste')}
+                onDelete={bulkDelete}
+                onClear={() => setSelected(new Set())}
+              />
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
       {/* Video list */}
       <div className="mt-6">
         {loading ? (
@@ -297,7 +395,12 @@ export function DashboardView() {
             />
           )
         ) : (
-          <CompactVideoList videos={filtered} />
+          <CompactVideoList
+            videos={filtered}
+            selected={selected}
+            onToggleSelect={toggleSelected}
+            onDeleted={handleRowDeleted}
+          />
         )}
       </div>
     </div>
@@ -308,7 +411,17 @@ export function DashboardView() {
 const LIST_GRID_COLS =
   'grid-cols-[64px_minmax(0,1.4fr)_minmax(0,1fr)_auto_40px_auto_28px] sm:grid-cols-[96px_minmax(0,1.4fr)_minmax(0,1fr)_auto_40px_auto_28px]'
 
-function CompactVideoList({ videos }: { videos: Video[] }) {
+function CompactVideoList({
+  videos,
+  selected,
+  onToggleSelect,
+  onDeleted,
+}: {
+  videos: Video[]
+  selected: Set<string>
+  onToggleSelect: (id: string) => void
+  onDeleted: (id: string) => void
+}) {
   return (
     <div>
       <div
@@ -329,7 +442,13 @@ function CompactVideoList({ videos }: { videos: Video[] }) {
       </div>
       <div className="flex flex-col gap-2.5">
         {videos.map((v) => (
-          <CompactVideoRow key={v.id} video={v} />
+          <CompactVideoRow
+            key={v.id}
+            video={v}
+            selected={selected.has(v.id)}
+            onToggleSelect={() => onToggleSelect(v.id)}
+            onDeleted={() => onDeleted(v.id)}
+          />
         ))}
       </div>
     </div>
@@ -343,7 +462,17 @@ const compactStatusStyles: Record<VideoStatus, string> = {
   erro: 'bg-destructive/15 text-destructive',
 }
 
-function CompactVideoRow({ video: v }: { video: Video }) {
+function CompactVideoRow({
+  video: v,
+  selected,
+  onToggleSelect,
+  onDeleted,
+}: {
+  video: Video
+  selected: boolean
+  onToggleSelect: () => void
+  onDeleted: () => void
+}) {
   const { user } = useAuth()
   const isOwner = user?.teamRole === 'owner'
 
@@ -361,13 +490,30 @@ function CompactVideoRow({ video: v }: { video: Video }) {
       />
 
       <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-lg bg-secondary">
-        <Image
-          src={v.posterUrl || '/placeholder.svg'}
-          alt=""
-          fill
-          className="object-cover"
-          sizes="96px"
-          unoptimized
+        {v.posterUrl ? (
+          <Image
+            src={v.posterUrl}
+            alt=""
+            fill
+            className="object-cover"
+            sizes="96px"
+            unoptimized
+          />
+        ) : (
+          <span className="grid h-full w-full place-items-center text-muted-foreground/60">
+            <Film className="size-5" />
+          </span>
+        )}
+        <input
+          type="checkbox"
+          aria-label={`Selecionar ${v.title}`}
+          checked={selected}
+          onChange={(e) => {
+            e.stopPropagation()
+            onToggleSelect()
+          }}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute left-1.5 top-1.5 z-[2] size-4 cursor-pointer accent-primary"
         />
         <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <span className="grid size-6 place-items-center rounded-full bg-black/45 text-white">
@@ -424,25 +570,53 @@ function CompactVideoRow({ video: v }: { video: Video }) {
       </div>
 
       <div className="relative z-[2] flex justify-end">
-        <RowActionsMenu video={v} isOwner={isOwner} />
+        <RowActionsMenu video={v} isOwner={isOwner} onDeleted={onDeleted} />
       </div>
     </div>
   )
 }
 
-function RowActionsMenu({ video: v, isOwner }: { video: Video; isOwner: boolean }) {
+function RowActionsMenu({
+  video: v,
+  isOwner,
+  onDeleted,
+}: {
+  video: Video
+  isOwner: boolean
+  onDeleted: () => void
+}) {
   const [open, setOpen] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const publicHref = v.publicLink ? `/v/${v.publicLink}` : null
 
   useEffect(() => {
     if (!open) return
     function onClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+        setConfirmingDelete(false)
+      }
     }
     document.addEventListener('mousedown', onClickOutside)
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [open])
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await videoService.remove(v.id)
+      onDeleted()
+      toast.success('Vídeo excluído')
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível excluir o vídeo.')
+    } finally {
+      setDeleting(false)
+      setOpen(false)
+      setConfirmingDelete(false)
+    }
+  }
 
   return (
     <div ref={containerRef} className="relative">
@@ -464,38 +638,221 @@ function RowActionsMenu({ video: v, isOwner }: { video: Video; isOwner: boolean 
             transition={{ duration: 0.15 }}
             className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-2xl"
           >
-            <Link
-              href={`/videos/${v.id}/revisao`}
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
-            >
-              <Lock className="size-3.5 text-muted-foreground" />
-              Revisão interna
-            </Link>
-            {isOwner && (
-              <Link
-                href={`/videos/${v.id}/canal-cliente`}
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
-              >
-                <Users className="size-3.5 text-muted-foreground" />
-                Canal do cliente
-              </Link>
-            )}
-            {publicHref && (
-              <Link
-                href={publicHref}
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
-              >
-                <ExternalLink className="size-3.5 text-muted-foreground" />
-                Link do cliente
-              </Link>
+            {confirmingDelete ? (
+              <div className="p-1.5">
+                <p className="px-1 pb-2 text-xs text-muted-foreground">Excluir este vídeo?</p>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="inline-flex min-h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-destructive px-2 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {deleting ? <Loader2 className="size-3.5 animate-spin" /> : 'Confirmar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDelete(false)}
+                    disabled={deleting}
+                    className="inline-flex min-h-8 flex-1 items-center justify-center rounded-lg bg-secondary text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <Link
+                  href={`/videos/${v.id}/revisao`}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+                >
+                  <Lock className="size-3.5 text-muted-foreground" />
+                  Revisão interna
+                </Link>
+                {isOwner && (
+                  <Link
+                    href={`/videos/${v.id}/canal-cliente`}
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+                  >
+                    <Users className="size-3.5 text-muted-foreground" />
+                    Canal do cliente
+                  </Link>
+                )}
+                {publicHref && (
+                  <Link
+                    href={publicHref}
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+                  >
+                    <ExternalLink className="size-3.5 text-muted-foreground" />
+                    Link do cliente
+                  </Link>
+                )}
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDelete(true)}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
+                  >
+                    <Trash2 className="size-3.5" />
+                    Excluir vídeo
+                  </button>
+                )}
+              </>
             )}
           </motion.div>
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+function BulkActionsBar({
+  count,
+  busy,
+  onApprove,
+  onPending,
+  onAdjust,
+  onDelete,
+  onClear,
+}: {
+  count: number
+  busy: boolean
+  onApprove: () => void
+  onPending: () => void
+  onAdjust: () => void
+  onDelete: () => void
+  onClear: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+        setConfirmingDelete(false)
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [open])
+
+  function run(action: () => void) {
+    action()
+    setOpen(false)
+    setConfirmingDelete(false)
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      transition={{ duration: 0.15 }}
+      className="inline-flex items-center gap-2 rounded-lg bg-secondary py-1.5 pl-3 pr-1.5"
+    >
+      <span className="text-sm font-medium text-foreground">
+        {count} selecionado{count === 1 ? '' : 's'}
+      </span>
+
+      <div ref={containerRef} className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          disabled={busy}
+          aria-label="Ações em lote"
+          className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-50"
+        >
+          {busy ? <Loader2 className="size-4 animate-spin" /> : <MoreVertical className="size-4" />}
+        </button>
+
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15 }}
+              className="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-2xl"
+            >
+              {confirmingDelete ? (
+                <div className="p-1.5">
+                  <p className="px-1 pb-2 text-xs text-muted-foreground">
+                    Excluir {count} vídeo{count === 1 ? '' : 's'}?
+                  </p>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => run(onDelete)}
+                      className="inline-flex min-h-8 flex-1 items-center justify-center rounded-lg bg-destructive px-2 text-xs font-medium text-white hover:opacity-90"
+                    >
+                      Confirmar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingDelete(false)}
+                      className="inline-flex min-h-8 flex-1 items-center justify-center rounded-lg bg-secondary text-xs font-medium text-foreground hover:bg-secondary/70"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => run(onApprove)}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+                  >
+                    <CircleCheckBig className="size-3.5 text-emerald-500" />
+                    Aprovar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => run(onAdjust)}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+                  >
+                    <Pencil className="size-3.5 text-amber-500" />
+                    Marcar como ajuste
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => run(onPending)}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+                  >
+                    <AlarmClock className="size-3.5 text-muted-foreground" />
+                    Marcar como pendente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDelete(true)}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
+                  >
+                    <Trash2 className="size-3.5" />
+                    Excluir
+                  </button>
+                </>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <button
+        type="button"
+        onClick={onClear}
+        disabled={busy}
+        aria-label="Limpar seleção"
+        className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-50"
+      >
+        <CircleX className="size-4" />
+      </button>
+    </motion.div>
   )
 }
 

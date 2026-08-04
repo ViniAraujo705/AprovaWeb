@@ -29,6 +29,7 @@ import {
   Gauge,
   Maximize,
   Minimize,
+  Film,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Video } from '@/lib/types'
@@ -420,9 +421,9 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                       onPause={() => setPlaying(false)}
                       onClick={tab === 'reels' ? handleReelsTap : togglePlay}
                     />
-                  ) : (
+                  ) : video.posterUrl ? (
                     <Image
-                      src={video.posterUrl || '/placeholder.svg'}
+                      src={video.posterUrl}
                       alt={`Prévia do vídeo ${video.title}`}
                       fill
                       className="object-cover opacity-80"
@@ -430,6 +431,10 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                       unoptimized
                       priority
                     />
+                  ) : (
+                    <span className="grid h-full w-full place-items-center text-muted-foreground/60">
+                      <Film className="size-10" />
+                    </span>
                   )}
                 </motion.div>
               </AnimatePresence>

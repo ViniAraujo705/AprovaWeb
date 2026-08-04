@@ -736,6 +736,23 @@ export const videoService = {
     await api.delete(`/videos/${id}`)
     invalidateAllVideosCache()
   },
+
+  /**
+   * Define o status do vídeo diretamente pelo owner/editor (ex.: ações em lote
+   * no dashboard), sem passar pelo fluxo de aprovação do cliente no link
+   * público. Autenticado, exige role owner/editor (ver API.md).
+   */
+  async updateStatus(id: string, status: VideoStatus): Promise<Video> {
+    if (isDemo()) {
+      const found = demoVideos.find((v) => v.id === id)
+      if (!found) throw new ApiError('Vídeo não encontrado.', 404)
+      found.status = status
+      return delay(found, 300)
+    }
+    const res = await api.patch<Raw>(`/videos/${id}/status`, { status })
+    invalidateAllVideosCache()
+    return mapVideo(res)
+  },
 }
 
 /* ------------------------------ clients ---------------------------------- */

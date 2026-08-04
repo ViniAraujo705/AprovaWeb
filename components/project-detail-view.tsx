@@ -483,14 +483,20 @@ export function ProjectDetailView({ id }: { id: string }) {
                   )}
 
                   <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-secondary sm:w-40">
-                    <Image
-                      src={v.posterUrl || '/placeholder.svg'}
-                      alt=""
-                      fill
-                      className="object-cover"
-                      sizes="160px"
-                      unoptimized
-                    />
+                    {v.posterUrl ? (
+                      <Image
+                        src={v.posterUrl}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="160px"
+                        unoptimized
+                      />
+                    ) : (
+                      <span className="grid h-full w-full place-items-center text-muted-foreground/60">
+                        <Film className="size-5" />
+                      </span>
+                    )}
                     {(v.url || v.publicLink) && (
                       <input
                         type="checkbox"
