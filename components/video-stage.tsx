@@ -407,10 +407,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                       src={playbackUrl}
                       poster={video.posterUrl || undefined}
                       playsInline
-                      className={cn(
-                        'h-full w-full',
-                        tab === 'player' ? 'object-contain' : 'object-cover',
-                      )}
+                      className="h-full w-full object-cover"
                       onLoadedMetadata={(e) => {
                         const d = e.currentTarget.duration
                         if (Number.isFinite(d)) setDuration(Math.round(d))
