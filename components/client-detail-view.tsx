@@ -37,7 +37,15 @@ function readAsDataUrl(file: File): Promise<string> {
 }
 
 export function ClientDetailView({ id }: { id: string }) {
+  const router = useRouter()
   const client = useQuery<Client>((signal) => clientService.get(id, signal), [id])
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  async function removeClient() {
+    await clientService.remove(id)
+    toast.success('Cliente excluído')
+    router.push('/clientes')
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-10">
@@ -47,18 +55,28 @@ export function ClientDetailView({ id }: { id: string }) {
         <ErrorState message={client.error} onRetry={client.refetch} />
       ) : client.data ? (
         <>
-          <div className="flex min-w-0 items-center gap-3">
-            <h1 className="truncate text-3xl font-bold tracking-tight sm:text-4xl" title={client.data.name}>
-              {client.data.name}
-            </h1>
-            {client.data.isExample && (
-              <span
-                title="Cliente de exemplo — explore e delete quando quiser."
-                className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary"
-              >
-                <Sparkles className="size-3.5" /> Exemplo
-              </span>
-            )}
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <h1 className="truncate text-3xl font-bold tracking-tight sm:text-4xl" title={client.data.name}>
+                {client.data.name}
+              </h1>
+              {client.data.isExample && (
+                <span
+                  title="Cliente de exemplo — explore e delete quando quiser."
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary"
+                >
+                  <Sparkles className="size-3.5" /> Exemplo
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive"
+            >
+              <Trash2 className="size-4" />
+              Excluir cliente
+            </button>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Configure os dados do cliente e a legenda/foto exibidas no modo Reels da tela de aprovação.
@@ -71,8 +89,99 @@ export function ClientDetailView({ id }: { id: string }) {
           <div className="mt-8">
             <ClientProjects clientId={id} />
           </div>
+
+          <AnimatePresence>
+            {confirmingDelete && (
+              <DeleteClientModal
+                name={client.data.name}
+                onClose={() => setConfirmingDelete(false)}
+                onConfirm={removeClient}
+              />
+            )}
+          </AnimatePresence>
         </>
       ) : null}
+    </div>
+  )
+}
+
+function DeleteClientModal({
+  name,
+  onClose,
+  onConfirm,
+}: {
+  name: string
+  onClose: () => void
+  onConfirm: () => Promise<void>
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleConfirm() {
+    setBusy(true)
+    setError(null)
+    try {
+      await onConfirm()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível excluir o cliente.')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+      <motion.div
+        className="absolute inset-0 bg-black/70"
+        onClick={() => !busy && onClose()}
+        aria-hidden="true"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+      />
+      <motion.div
+        className="relative w-full max-w-md rounded-xl border border-border bg-card p-5"
+        initial={{ opacity: 0, y: 8, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-destructive/15 text-destructive">
+            <AlertTriangle className="size-5" />
+          </span>
+          <h3 className="text-lg font-bold tracking-tight">Excluir cliente?</h3>
+        </div>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Isso vai apagar <span className="font-medium text-foreground">{name}</span>, junto com{' '}
+          <span className="font-medium text-foreground">todos os projetos, vídeos e comentários</span>{' '}
+          associados a ele. Essa ação não pode ser desfeita.
+        </p>
+        {error && (
+          <p className="mt-3 flex items-center gap-1.5 text-sm text-destructive">
+            <AlertTriangle className="size-4 shrink-0" /> {error}
+          </p>
+        )}
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={busy}
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-destructive px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {busy && <Loader2 className="size-4 animate-spin" />}
+            Excluir permanentemente
+          </button>
+        </div>
+      </motion.div>
     </div>
   )
 }
