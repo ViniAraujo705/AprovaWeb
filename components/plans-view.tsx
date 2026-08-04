@@ -8,10 +8,19 @@ import { usePlanLimit } from '@/components/plan-limit-provider'
 import { billingService } from '@/lib/services'
 import { ApiError } from '@/lib/api'
 import type { BillingCycle, PlanId } from '@/lib/types'
-import { PLAN_PRICING, formatBRL } from '@/lib/plan-pricing'
+import { PLAN_PRICING, formatBRL, planPricing } from '@/lib/plan-pricing'
 import { PENDING_CHECKOUT_PLAN_KEY } from '@/lib/config'
 
 type Billing = 'monthly' | 'annual'
+
+// Desconto do anual sobre o mensal, calculado a partir do Pro (referência
+// pra badge "-XX%" ao lado do toggle Anual — mesma ideia do Free, que não
+// tem opção anual).
+const annualSavingsPct = (() => {
+  const pro = planPricing('pro')
+  if (!pro.monthly || pro.annualMonthly === null) return null
+  return Math.round((1 - pro.annualMonthly / pro.monthly) * 100)
+})()
 
 export function PlansView() {
   const { planStatus } = usePlanLimit()
@@ -50,12 +59,12 @@ export function PlansView() {
         Compare os planos — assinar leva você direto para o checkout seguro da Mercado Pago.
       </p>
 
-      <div className="mt-6 inline-flex rounded-lg border border-border bg-secondary p-1 text-sm">
+      <div className="mt-6 inline-flex rounded-full border border-border bg-secondary p-1 text-sm">
         <button
           type="button"
           onClick={() => setBilling('monthly')}
           className={cn(
-            'rounded-md px-3 py-1.5 font-medium transition-colors',
+            'rounded-full px-4 py-1.5 font-medium transition-colors',
             billing === 'monthly' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground',
           )}
         >
@@ -65,11 +74,16 @@ export function PlansView() {
           type="button"
           onClick={() => setBilling('annual')}
           className={cn(
-            'rounded-md px-3 py-1.5 font-medium transition-colors',
+            'flex items-center gap-1.5 rounded-full px-4 py-1.5 font-medium transition-colors',
             billing === 'annual' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground',
           )}
         >
-          Anual <span className="text-primary">(mais barato)</span>
+          Anual
+          {annualSavingsPct !== null && (
+            <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-500">
+              -{annualSavingsPct}%
+            </span>
+          )}
         </button>
       </div>
 
@@ -79,7 +93,7 @@ export function PlansView() {
         </p>
       )}
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {PLAN_PRICING.map((plan) => {
           const isCurrent = planStatus?.plan === plan.id
           const highlighted = plan.id === 'pro'
@@ -92,79 +106,114 @@ export function PlansView() {
 
           return (
             <FadeIn key={plan.id} y={6}>
-              <div
-                className={cn(
-                  'flex h-full flex-col rounded-2xl border p-5 sm:p-6',
-                  highlighted
-                    ? 'border-primary bg-primary/5 ring-1 ring-primary/40'
-                    : 'border-border bg-card',
+              <div className="relative h-full">
+                {highlighted && (
+                  <span className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground shadow-md">
+                    Mais popular
+                  </span>
                 )}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    {highlighted ? (
-                      <Sparkles className="size-4 text-primary" />
-                    ) : (
-                      <CreditCard className="size-4 text-muted-foreground" />
-                    )}
-                    {plan.name}
-                  </div>
-                  {isCurrent && (
-                    <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                      Plano atual
-                    </span>
+
+                <div
+                  className={cn(
+                    'group relative flex h-full flex-col overflow-hidden rounded-2xl border transition-all duration-300 ease-out hover:z-10 hover:-translate-y-1 hover:scale-[1.03] hover:shadow-2xl',
+                    highlighted
+                      ? 'border-blue-200 shadow-lg shadow-blue-500/10 dark:border-blue-400/25'
+                      : 'border-border hover:border-foreground/20',
                   )}
-                </div>
-
-                <p className="mt-3 font-display text-3xl tracking-wide">{price}</p>
-                {billing === 'annual' && plan.annualTotal !== null && (
-                  <p className="text-xs text-muted-foreground">
-                    {formatBRL(plan.annualTotal)}/ano cobrados de uma vez
-                  </p>
-                )}
-                <p className="mt-1 text-xs text-muted-foreground">{plan.description}</p>
-
-                <ul className="mt-5 flex-1 space-y-2.5">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2 text-sm text-foreground">
-                      <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-
-                {isCurrent ? (
-                  <button
-                    type="button"
-                    disabled
-                    className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Plano atual
-                  </button>
-                ) : plan.id === 'free' ? (
-                  // Não existe "checkout" pro Free — voltar pra ele é cancelar
-                  // a assinatura atual, ação que mora em Meu Plano.
-                  <p className="mt-6 text-center text-xs text-muted-foreground">
-                    Cancele sua assinatura em{' '}
-                    <span className="font-medium text-foreground">Meu Plano</span> para voltar ao
-                    Free.
-                  </p>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => startCheckout(plan.id)}
-                    disabled={checkingOut !== null}
+                >
+                  <div
                     className={cn(
-                      'mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50',
-                      highlighted
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary text-foreground',
+                      'px-5 pt-7 pb-5 sm:px-6',
+                      highlighted ? 'plan-highlight-bg text-[#0b0b0d]' : 'bg-card',
                     )}
                   >
-                    {checkingOut === plan.id && <Loader2 className="size-4 animate-spin" />}
-                    Assinar
-                  </button>
-                )}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        {highlighted ? (
+                          <Sparkles className="size-4" />
+                        ) : (
+                          <CreditCard className="size-4 text-muted-foreground" />
+                        )}
+                        {plan.name}
+                      </div>
+                      {isCurrent && (
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                            highlighted ? 'bg-black/10' : 'bg-primary/15 text-primary',
+                          )}
+                        >
+                          Plano atual
+                        </span>
+                      )}
+                    </div>
+
+                    <p
+                      className={cn(
+                        'mt-1 text-xs',
+                        highlighted ? 'text-black/60' : 'text-muted-foreground',
+                      )}
+                    >
+                      {plan.description}
+                    </p>
+
+                    <p className="mt-4 font-display text-4xl tracking-wide">{price}</p>
+                    {billing === 'annual' && plan.annualTotal !== null && (
+                      <p
+                        className={cn(
+                          'text-xs',
+                          highlighted ? 'text-black/60' : 'text-muted-foreground',
+                        )}
+                      >
+                        {formatBRL(plan.annualTotal)}/ano cobrados de uma vez
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-1 flex-col bg-card px-5 py-5 sm:px-6">
+                    <ul className="flex-1 space-y-2.5">
+                      {plan.features.map((feature) => (
+                        <li key={feature} className="flex items-start gap-2 text-sm text-foreground">
+                          <Check className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+
+                    {isCurrent ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Plano atual
+                      </button>
+                    ) : plan.id === 'free' ? (
+                      // Não existe "checkout" pro Free — voltar pra ele é cancelar
+                      // a assinatura atual, ação que mora em Meu Plano.
+                      <p className="mt-6 text-center text-xs text-muted-foreground">
+                        Cancele sua assinatura em{' '}
+                        <span className="font-medium text-foreground">Meu Plano</span> para voltar
+                        ao Free.
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => startCheckout(plan.id)}
+                        disabled={checkingOut !== null}
+                        className={cn(
+                          'mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50',
+                          highlighted
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary text-foreground',
+                        )}
+                      >
+                        {checkingOut === plan.id && <Loader2 className="size-4 animate-spin" />}
+                        Assinar
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </FadeIn>
           )
