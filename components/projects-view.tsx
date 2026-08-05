@@ -25,6 +25,7 @@ import { StaggerList, staggerItem, motion } from '@/components/motion'
 import { toast } from '@/lib/toast'
 import { getArchivedProjectIds, unarchiveProject } from '@/lib/archived-projects'
 import { ClientAvatar } from '@/components/client-avatar'
+import { useAuth } from '@/components/auth-provider'
 
 const ALL_CLIENTS = 'Todos os clientes'
 
@@ -43,6 +44,8 @@ function normalize(s: string): string {
  */
 export function ProjectsView() {
   const router = useRouter()
+  const { user } = useAuth()
+  const isOwner = user?.teamRole === 'owner'
   const projects = useQuery<Project[]>((signal) => projectService.list(undefined, signal), [])
   // Buscado à parte só para contar quantos vídeos cada projeto tem — o
   // hand-rolled useQuery não faz join, então dois fetches independentes.
@@ -346,24 +349,30 @@ export function ProjectsView() {
           <EmptyState
             className="m-auto w-full"
             icon={<FolderOpen className="size-7" />}
-            title="Nenhum projeto ainda"
-            description="Crie um projeto para um cliente, ou envie o primeiro vídeo direto."
+            title={isOwner ? 'Nenhum projeto ainda' : 'Nenhum projeto atribuído a você ainda'}
+            description={
+              isOwner
+                ? 'Crie um projeto para um cliente, ou envie o primeiro vídeo direto.'
+                : 'Peça para o responsável da agência te adicionar a um projeto.'
+            }
             action={
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={openProjectForm}
-                  className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
-                >
-                  Novo projeto
-                </button>
-                <Link
-                  href="/upload"
-                  className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70"
-                >
-                  Enviar vídeo
-                </Link>
-              </div>
+              isOwner && (
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={openProjectForm}
+                    className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+                  >
+                    Novo projeto
+                  </button>
+                  <Link
+                    href="/upload"
+                    className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70"
+                  >
+                    Enviar vídeo
+                  </Link>
+                </div>
+              )
             }
           />
         ) : searched.length === 0 ? (

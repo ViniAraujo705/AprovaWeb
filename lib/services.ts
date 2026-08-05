@@ -13,6 +13,7 @@ import {
   buildDemoReport,
   delay,
   demoAdminUsers,
+  demoAssignProjectMember,
   demoClientChannel,
   demoClients,
   demoInsights,
@@ -29,6 +30,7 @@ import {
   demoPublicVideo,
   demoRatingQuestions,
   demoRecordingEvents,
+  demoRemoveProjectMember,
   demoSessions,
   demoTeamMembers,
   demoTeamPerformance,
@@ -58,6 +60,7 @@ import type {
   PlanStatus,
   Project,
   ProjectGallery,
+  ProjectMember,
   PublicVideo,
   QueueVideoItem,
   Rating,
@@ -160,8 +163,19 @@ function mapClient(raw: Raw): Client {
   }
 }
 
+function mapProjectMember(raw: Raw): ProjectMember {
+  const userRaw = pick<Raw | null>(raw, ['user', 'usuario'], null)
+  return {
+    id: String(pick(raw, ['id', '_id'], '')),
+    userId: String(pick(raw, ['userId', 'user_id'], userRaw?.id ?? '')),
+    name: pick(userRaw ?? raw, ['nome', 'name', 'fullName'], ''),
+    email: pick(userRaw ?? raw, ['email'], ''),
+  }
+}
+
 function mapProject(raw: Raw): Project {
   const clientRaw = pick<Raw | null>(raw, ['client'], null)
+  const membersRaw = pick<Raw[] | null>(raw, ['members'], null)
   return {
     id: String(pick(raw, ['id', '_id', 'projectId'], '')),
     name: pick(raw, ['nome', 'name', 'title'], ''),
@@ -169,6 +183,7 @@ function mapProject(raw: Raw): Project {
     client: clientRaw ? mapClient(clientRaw) : undefined,
     isExample: Boolean(pick(raw, ['isExemplo', 'is_exemplo', 'isExample'], false)),
     publicLink: pick<string | null>(raw, ['linkPublico', 'link_publico', 'publicLink'], null),
+    members: membersRaw ? membersRaw.map(mapProjectMember) : undefined,
   }
 }
 
@@ -437,7 +452,8 @@ function normalizeNotificationType(raw: unknown): NotificationType {
     s === 'comentario_cliente' ||
     s === 'aprovacao_cliente' ||
     s === 'ajuste_solicitado' ||
-    s === 'avaliacao_cliente'
+    s === 'avaliacao_cliente' ||
+    s === 'lembrete_gravacao'
   )
     return s
   return 'comentario_cliente'
@@ -463,19 +479,33 @@ function mapNotification(raw: Raw): AppNotification {
     // vídeo (`clienteNome`/`clientName`), sem objeto aninhado.
     pick<string>(videoRaw, ['clienteNome', 'cliente_nome', 'clientName', 'client_name'], '')
 
+  // `lembrete_gravacao` não tem vídeo — referencia um evento da escala
+  // (`/recording-events`) em vez disso.
+  const eventRaw = pick<Raw | null>(raw, ['event', 'evento', 'recordingEvent'], null)
+
   return {
     id: String(pick(raw, ['id', '_id'], cryptoId())),
     type: normalizeNotificationType(pick(raw, ['type', 'tipo'], null)),
     read: Boolean(pick(raw, ['lida', 'read'], false)),
     createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
-    video: {
-      id: String(pick(videoRaw, ['id', '_id'], '')),
-      title: pick(videoRaw, ['nomeArquivo', 'nome_arquivo', 'title'], 'Vídeo'),
-      posterUrl: pick<string | null>(videoRaw, ['thumbnailUrl', 'thumbnail_url', 'posterUrl'], null),
-      publicLink: pick<string | null>(videoRaw, ['linkPublico', 'link_publico', 'publicLink'], null),
-      projectName: pick(projectRaw, ['nome', 'name'], ''),
-      clientName,
-    },
+    video: videoRaw
+      ? {
+          id: String(pick(videoRaw, ['id', '_id'], '')),
+          title: pick(videoRaw, ['nomeArquivo', 'nome_arquivo', 'title'], 'Vídeo'),
+          posterUrl: pick<string | null>(videoRaw, ['thumbnailUrl', 'thumbnail_url', 'posterUrl'], null),
+          publicLink: pick<string | null>(videoRaw, ['linkPublico', 'link_publico', 'publicLink'], null),
+          projectName: pick(projectRaw, ['nome', 'name'], ''),
+          clientName,
+        }
+      : null,
+    event: eventRaw
+      ? {
+          id: String(pick(eventRaw, ['id', '_id'], '')),
+          title: pick(eventRaw, ['title', 'titulo'], 'Gravação'),
+          startAt: pick<string>(eventRaw, ['startAt', 'inicioEm', 'inicio_em'], ''),
+          clientName: pick<string | null>(eventRaw, ['clientName', 'cliente_nome', 'clienteNome'], null),
+        }
+      : null,
   }
 }
 
@@ -918,6 +948,18 @@ export const projectService = {
   },
   async remove(id: string): Promise<void> {
     await api.delete(`/projects/${id}`)
+  },
+  /** Atribui um editor ao projeto (só owner). Idempotente — retorna a lista atualizada de membros. */
+  async assignMember(projectId: string, memberId: string): Promise<ProjectMember[]> {
+    if (isDemo()) return delay(demoAssignProjectMember(projectId, memberId), 300)
+    const res = await api.post<Raw>(`/projects/${projectId}/members/${memberId}`, {})
+    return asArray(res).map(mapProjectMember)
+  },
+  /** Remove o acesso de um editor ao projeto (só owner). Retorna a lista atualizada de membros. */
+  async removeMember(projectId: string, memberId: string): Promise<ProjectMember[]> {
+    if (isDemo()) return delay(demoRemoveProjectMember(projectId, memberId), 300)
+    const res = await api.delete<Raw>(`/projects/${projectId}/members/${memberId}`)
+    return asArray(res).map(mapProjectMember)
   },
 }
 

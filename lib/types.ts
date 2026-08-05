@@ -70,6 +70,16 @@ export interface Project {
   isExample: boolean
   /** Link público (slug) da galeria do projeto, para a rota /g/:linkPublico. */
   publicLink: string | null
+  /** Editores com acesso a este projeto. Só vem em `GET /projects/:id`. */
+  members?: ProjectMember[]
+}
+
+/** Editor atribuído a um projeto (`GET /projects/:id`, `POST/DELETE /projects/:id/members/:memberId`). */
+export interface ProjectMember {
+  id: string
+  userId: string
+  name: string
+  email: string
 }
 
 // Estado do processamento do vídeo otimizado no backend. Enquanto está
@@ -377,16 +387,19 @@ export type NotificationType =
   | 'aprovacao_cliente'
   | 'ajuste_solicitado'
   | 'avaliacao_cliente'
+  | 'lembrete_gravacao'
 
 /**
- * Notificação de ação do cliente num vídeo (GET /notifications). Nomeado
- * `AppNotification` (não `Notification`) pra não colidir com a Notification API do browser.
+ * Notificação de ação do cliente num vídeo, ou lembrete de gravação próxima
+ * (GET /notifications). Nomeado `AppNotification` (não `Notification`) pra
+ * não colidir com a Notification API do browser.
  */
 export interface AppNotification {
   id: string
   type: NotificationType
   read: boolean
   createdAt: string | null
+  /** Presente pros tipos de ação do cliente num vídeo; `null` em `lembrete_gravacao`. */
   video: {
     id: string
     title: string
@@ -394,7 +407,14 @@ export interface AppNotification {
     publicLink: string | null
     projectName: string
     clientName: string
-  }
+  } | null
+  /** Presente só em `lembrete_gravacao` — evento da escala (`/calendario`) que está próximo. */
+  event: {
+    id: string
+    title: string
+    startAt: string
+    clientName: string | null
+  } | null
 }
 
 /* ------------------------------ calendário ---------------------------------- */

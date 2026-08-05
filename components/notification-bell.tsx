@@ -187,10 +187,15 @@ export function NotificationBell({
                     <ul>
                       {items.map((n) => {
                         const Icon = TYPE_ICON[n.type]
+                        const href = n.video ? `/videos/${n.video.id}/canal-cliente` : '/calendario'
+                        const title = n.video
+                          ? n.video.clientName || 'Cliente'
+                          : n.event?.clientName || 'Cliente'
+                        const subtitle = n.video ? n.video.projectName || n.video.title : n.event?.title || ''
                         return (
                           <li key={n.id}>
                             <Link
-                              href={`/videos/${n.video.id}/canal-cliente`}
+                              href={href}
                               onClick={() => {
                                 setOpen(false)
                                 if (!n.read) markRead(n.id)
@@ -201,7 +206,7 @@ export function NotificationBell({
                               )}
                             >
                               <div className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-secondary">
-                                {n.video.posterUrl ? (
+                                {n.video?.posterUrl ? (
                                   <Image
                                     src={n.video.posterUrl}
                                     alt=""
@@ -218,14 +223,10 @@ export function NotificationBell({
                               </div>
                               <div className="min-w-0 flex-1">
                                 <p className="text-foreground">
-                                  <span className="font-medium">{n.video.clientName || 'Cliente'}</span>{' '}
-                                  {TYPE_LABEL[n.type]}
+                                  <span className="font-medium">{title}</span> {TYPE_LABEL[n.type]}
                                 </p>
-                                <p
-                                  className="truncate text-xs text-muted-foreground"
-                                  title={n.video.projectName || n.video.title}
-                                >
-                                  {n.video.projectName || n.video.title}
+                                <p className="truncate text-xs text-muted-foreground" title={subtitle}>
+                                  {subtitle}
                                 </p>
                                 <p className="mt-0.5 text-[11px] text-muted-foreground">
                                   {timeAgo(n.createdAt)}

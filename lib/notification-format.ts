@@ -1,4 +1,4 @@
-import { MessageSquare, Check, RotateCcw, Star } from 'lucide-react'
+import { MessageSquare, Check, RotateCcw, Star, CalendarClock } from 'lucide-react'
 import type { NotificationType } from '@/lib/types'
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
@@ -6,6 +6,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   aprovacao_cliente: 'aprovou o vídeo',
   ajuste_solicitado: 'pediu ajuste no vídeo',
   avaliacao_cliente: 'avaliou o vídeo',
+  lembrete_gravacao: 'tem gravação agendada em breve',
 }
 
 export const NOTIFICATION_TYPE_ICON: Record<NotificationType, typeof MessageSquare> = {
@@ -13,6 +14,7 @@ export const NOTIFICATION_TYPE_ICON: Record<NotificationType, typeof MessageSqua
   aprovacao_cliente: Check,
   ajuste_solicitado: RotateCcw,
   avaliacao_cliente: Star,
+  lembrete_gravacao: CalendarClock,
 }
 
 /** Tempo relativo curto (ex.: "agora", "5min", "3h", "2d"). */

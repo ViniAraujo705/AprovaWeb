@@ -23,6 +23,7 @@ import type {
   PlanStatus,
   Project,
   ProjectGallery,
+  ProjectMember,
   PublicVideo,
   QueueVideoItem,
   RatingQuestion,
@@ -103,6 +104,7 @@ export const demoProjects: Project[] = [
     client: demoClients[0],
     isExample: true,
     publicLink: 'demo-projeto',
+    members: [{ id: 'pm1', userId: 'm2', name: 'Marina Alves', email: 'marina@agencia.com' }],
   },
   {
     id: 'p2',
@@ -111,8 +113,38 @@ export const demoProjects: Project[] = [
     client: demoClients[1],
     isExample: false,
     publicLink: 'demo-projeto-combo',
+    members: [{ id: 'pm2', userId: 'm3', name: 'Rafael Souza', email: 'rafael@agencia.com' }],
   },
 ]
+
+/**
+ * Atribui/remove um editor de um projeto de exemplo (mutação in-memory, só
+ * pra exercitar a UI de `ProjectMembersField` no modo demo — não persiste
+ * entre reloads). O demo user é sempre owner, então isso nunca afeta o que
+ * `projectService.list()` retorna no modo demo.
+ */
+export function demoAssignProjectMember(projectId: string, memberId: string): ProjectMember[] {
+  const project = demoProjects.find((p) => p.id === projectId)
+  if (!project) return []
+  if (!project.members) project.members = []
+  if (!project.members.some((m) => m.userId === memberId)) {
+    const member = demoTeamMembers().find((m) => m.id === memberId)
+    project.members.push({
+      id: `pm-${memberId}-${projectId}`,
+      userId: memberId,
+      name: member?.name ?? '',
+      email: member?.email ?? '',
+    })
+  }
+  return project.members
+}
+
+export function demoRemoveProjectMember(projectId: string, memberId: string): ProjectMember[] {
+  const project = demoProjects.find((p) => p.id === projectId)
+  if (!project) return []
+  project.members = (project.members ?? []).filter((m) => m.userId !== memberId)
+  return project.members
+}
 
 const now = Date.now()
 const iso = (hoursAgo: number) => new Date(now - hoursAgo * 3600_000).toISOString()
@@ -267,6 +299,63 @@ export function demoNewVersion(videoId: string, nomeArquivo: string): Video {
   return created
 }
 
+/** Soma horas a um ISO já calculado (fecha o horário de término de um evento). */
+function plusHours(isoString: string, hours: number): string {
+  return new Date(new Date(isoString).getTime() + hours * 3600_000).toISOString()
+}
+
+/**
+ * Escala de gravações (aba Calendário) — array mutável: `calendarService`
+ * em modo demo faz `push`/edita/remove direto aqui, igual a `demoClients`,
+ * então altura feitas na tela persistem durante a sessão (até recarregar).
+ */
+export const demoRecordingEvents: RecordingEvent[] = [
+  {
+    id: 'ev-1',
+    title: 'Gravação — Batom matte (novo lançamento)',
+    startAt: futureIso(26),
+    endAt: plusHours(futureIso(26), 2),
+    clientId: 'c1',
+    clientName: 'Bela Cosméticos',
+    memberId: 'm2',
+    memberName: 'Marina Alves',
+    notes: 'Estúdio próprio. Levar o kit de iluminação extra.',
+  },
+  {
+    id: 'ev-2',
+    title: 'Gravação externa — Bastidores da cozinha',
+    startAt: futureIso(74),
+    endAt: plusHours(futureIso(74), 3),
+    clientId: 'c2',
+    clientName: 'Burger House',
+    memberId: 'm3',
+    memberName: 'Rafael Souza',
+    notes: null,
+  },
+  {
+    id: 'ev-3',
+    title: 'Reunião de briefing — coleção verão',
+    startAt: iso(20),
+    endAt: plusHours(iso(20), 1),
+    clientId: 'c3',
+    clientName: 'Studio Moda',
+    memberId: 'demo-user',
+    memberName: 'Você (demo)',
+    notes: null,
+  },
+  {
+    id: 'ev-4',
+    title: 'Gravação — café especial (Reels)',
+    startAt: futureIso(170),
+    endAt: plusHours(futureIso(170), 2),
+    clientId: 'c4',
+    clientName: 'Café Aurora',
+    memberId: 'm2',
+    memberName: 'Marina Alves',
+    notes: 'Cliente pediu foco no processo de torra.',
+  },
+]
+
 /** Notificações de exemplo (sininho no topo do app) a partir dos vídeos de exemplo. */
 function buildDemoNotification(
   id: string,
@@ -290,10 +379,30 @@ function buildDemoNotification(
       projectName: project?.name ?? '',
       clientName: video.clientName,
     },
+    event: null,
+  }
+}
+
+/** Lembrete de gravação próxima (aba Calendário) — só pro owner, sem vídeo associado. */
+function buildDemoRecordingReminder(id: string, eventId: string, hoursAgo: number, read: boolean): AppNotification {
+  const event = demoRecordingEvents.find((e) => e.id === eventId)!
+  return {
+    id,
+    type: 'lembrete_gravacao',
+    read,
+    createdAt: iso(hoursAgo),
+    video: null,
+    event: {
+      id: event.id,
+      title: event.title,
+      startAt: event.startAt,
+      clientName: event.clientName,
+    },
   }
 }
 
 export const demoNotifications: AppNotification[] = [
+  buildDemoRecordingReminder('n0', 'ev-1', 0.5, false),
   buildDemoNotification('n1', 'comentario_cliente', 'rv-01', 1, false),
   buildDemoNotification('n2', 'ajuste_solicitado', 'rv-02', 6, false),
   buildDemoNotification('n3', 'avaliacao_cliente', 'rv-01', 20, false),
@@ -635,63 +744,6 @@ export function demoTeamMembers(): TeamMember[] {
     { id: 'm5', name: '', email: 'convite.antigo@agencia.com', teamRole: 'editor', status: 'invited', createdAt: iso(90), expiresAt: iso(18) },
   ]
 }
-
-/** Soma horas a um ISO já calculado (fecha o horário de término de um evento). */
-function plusHours(isoString: string, hours: number): string {
-  return new Date(new Date(isoString).getTime() + hours * 3600_000).toISOString()
-}
-
-/**
- * Escala de gravações (aba Calendário) — array mutável: `calendarService`
- * em modo demo faz `push`/edita/remove direto aqui, igual a `demoClients`,
- * então altura feitas na tela persistem durante a sessão (até recarregar).
- */
-export const demoRecordingEvents: RecordingEvent[] = [
-  {
-    id: 'ev-1',
-    title: 'Gravação — Batom matte (novo lançamento)',
-    startAt: futureIso(26),
-    endAt: plusHours(futureIso(26), 2),
-    clientId: 'c1',
-    clientName: 'Bela Cosméticos',
-    memberId: 'm2',
-    memberName: 'Marina Alves',
-    notes: 'Estúdio próprio. Levar o kit de iluminação extra.',
-  },
-  {
-    id: 'ev-2',
-    title: 'Gravação externa — Bastidores da cozinha',
-    startAt: futureIso(74),
-    endAt: plusHours(futureIso(74), 3),
-    clientId: 'c2',
-    clientName: 'Burger House',
-    memberId: 'm3',
-    memberName: 'Rafael Souza',
-    notes: null,
-  },
-  {
-    id: 'ev-3',
-    title: 'Reunião de briefing — coleção verão',
-    startAt: iso(20),
-    endAt: plusHours(iso(20), 1),
-    clientId: 'c3',
-    clientName: 'Studio Moda',
-    memberId: 'demo-user',
-    memberName: 'Você (demo)',
-    notes: null,
-  },
-  {
-    id: 'ev-4',
-    title: 'Gravação — café especial (Reels)',
-    startAt: futureIso(170),
-    endAt: plusHours(futureIso(170), 2),
-    clientId: 'c4',
-    clientName: 'Café Aurora',
-    memberId: 'm2',
-    memberName: 'Marina Alves',
-    notes: 'Cliente pediu foco no processo de torra.',
-  },
-]
 
 /** Desempenho dos editores para /equipe/desempenho, calculado a partir dos vídeos de exemplo. */
 export function demoTeamPerformance(): EditorPerformance[] {

@@ -31,10 +31,11 @@ import {
   teamService,
   videoService,
 } from '@/lib/services'
-import type { Project, TeamMember, Video } from '@/lib/types'
+import type { Project, ProjectMember, TeamMember, Video } from '@/lib/types'
 import { StatusBadge } from '@/components/status-badge'
 import { DeadlineBadge, DeadlineField } from '@/components/deadline-badge'
 import { EditorAssignBadge, EditorAssignField } from '@/components/editor-assign-field'
+import { ProjectMembersField } from '@/components/project-members-field'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { useAuth } from '@/components/auth-provider'
@@ -103,6 +104,8 @@ export function ProjectDetailView({ id }: { id: string }) {
   // Buscado para todo mundo: o editor precisa ver o nome do responsável, mesmo sem poder editar.
   const members = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
   const assignableMembers = (members.data ?? []).filter((m) => m.status === 'active')
+  // Só editores entram como candidatos a "membro do projeto" — owner já enxerga tudo.
+  const assignableEditors = assignableMembers.filter((m) => m.teamRole === 'editor')
 
   function updateVideoDeadline(videoId: string, deadline: string | null) {
     videos.setData((prev) => {
@@ -116,6 +119,10 @@ export function ProjectDetailView({ id }: { id: string }) {
       const state = prev ?? { items: [], hasMore: false }
       return { ...state, items: state.items.map((v) => (v.id === videoId ? { ...v, editorId } : v)) }
     })
+  }
+
+  function updateProjectMembers(nextMembers: ProjectMember[]) {
+    project.setData((prev) => ({ ...(prev as Project), members: nextMembers }))
   }
 
   const [exporting, setExporting] = useState(false)
@@ -437,6 +444,17 @@ export function ProjectDetailView({ id }: { id: string }) {
             {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
             {copied ? 'Copiado' : 'Copiar link da galeria'}
           </button>
+        </div>
+      )}
+
+      {isOwner && project.data && (
+        <div className="mt-4">
+          <ProjectMembersField
+            projectId={id}
+            members={project.data.members ?? []}
+            candidates={assignableEditors}
+            onUpdated={updateProjectMembers}
+          />
         </div>
       )}
 

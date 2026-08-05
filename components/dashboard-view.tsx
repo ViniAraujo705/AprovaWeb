@@ -73,6 +73,8 @@ const onboardingSteps: { icon: typeof Film; label: string }[] = [
 ]
 
 export function DashboardView() {
+  const { user } = useAuth()
+  const isOwner = user?.teamRole === 'owner'
   const [client, setClient] = useState(ALL_CLIENTS)
   const [status, setStatus] = useState<'todos' | VideoStatus>('todos')
   const [search, setSearch] = useState('')
@@ -426,15 +428,21 @@ export function DashboardView() {
           videos.length === 0 ? (
             <EmptyState
               icon={<Film className="size-7" />}
-              title="Nenhum vídeo enviado ainda"
-              description="Envie seu primeiro vídeo para gerar um link de aprovação."
+              title={isOwner ? 'Nenhum vídeo enviado ainda' : 'Nenhum vídeo atribuído a você ainda'}
+              description={
+                isOwner
+                  ? 'Envie seu primeiro vídeo para gerar um link de aprovação.'
+                  : 'Peça para o responsável da agência te adicionar a um projeto.'
+              }
               action={
-                <Link
-                  href="/upload"
-                  className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
-                >
-                  <Plus className="size-4" /> Enviar vídeo
-                </Link>
+                isOwner && (
+                  <Link
+                    href="/upload"
+                    className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+                  >
+                    <Plus className="size-4" /> Enviar vídeo
+                  </Link>
+                )
               }
             />
           ) : (
