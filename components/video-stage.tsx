@@ -92,6 +92,18 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   // Espelha `current` em ref: lido pelo <video> do modo tela cheia ao montar,
   // sem depender de closures desatualizadas dentro dos handlers de evento.
   const currentRef = useRef(0)
+  // Zera a ref já durante o PRÓPRIO render (não num useEffect) sempre que o
+  // vídeo muda. Isso evita uma corrida real: o <video> novo lê `currentRef`
+  // no handler `onLoadedMetadata` assim que carrega os metadados — se esse
+  // vídeo já estiver em cache do navegador, esse evento pode disparar antes
+  // do useEffect (assíncrono/passivo) rodar, herdando o ponto de reprodução
+  // do vídeo ANTERIOR em vez de começar do zero. Zerar aqui garante que o
+  // valor já esteja correto antes de qualquer evento do elemento recém-montado.
+  const prevVideoIdRef = useRef(video.id)
+  if (prevVideoIdRef.current !== video.id) {
+    prevVideoIdRef.current = video.id
+    currentRef.current = 0
+  }
   // Id do vídeo dono da instância atual de `videoRef`. Necessário porque o
   // <video> que está SAINDO (crossfade do AnimatePresence) continua montado
   // por ~320ms com a MESMA ref do <video> que já ENTROU — sem essa checagem,
@@ -173,20 +185,26 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
     document.addEventListener('fullscreenchange', onFullscreenChange)
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
   }, [])
-  function togglePlayerFullscreen() {
+  async function togglePlayerFullscreen() {
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {})
       return
     }
     const frame = playerFrameRef.current
-    // Safari no iOS não implementa a Fullscreen API padrão em elementos
-    // genéricos (só `document.fullscreenEnabled === false`, sem lançar erro
-    // nenhum antes disso) — só o próprio <video> suporta tela cheia nativa,
-    // via essa API proprietária. Sem esse fallback, o botão simplesmente não
-    // fazia nada no celular (funcionava só no computador).
+    // Alguns Safari no iOS anunciam suporte à Fullscreen API padrão
+    // (`document.fullscreenEnabled === true`) mas rejeitam a chamada em
+    // elementos genéricos como este <div> — só o próprio <video> suporta tela
+    // cheia nativa de fato, via essa API proprietária. Por isso o fallback
+    // depende do resultado REAL da chamada (await + catch), não só da
+    // checagem de suporte feita de antemão — checar só isso deixava o botão
+    // sem efeito nenhum nesses navegadores (funcionava só no computador).
     if (frame?.requestFullscreen && document.fullscreenEnabled) {
-      frame.requestFullscreen().catch(() => {})
-      return
+      try {
+        await frame.requestFullscreen()
+        return
+      } catch {
+        // cai para o fallback nativo do <video> abaixo
+      }
     }
     const el = videoRef.current as IOSVideoElement | null
     el?.webkitEnterFullscreen?.()
@@ -407,14 +425,21 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
           <div
             ref={playerFrameRef}
             // Moldura: define a largura final da caixa (incl. max-w no desktop),
-            // cor de fundo, borda e cantos arredondados. A altura nasce do spacer
-            // logo abaixo, não é animada com Framer Motion `layout` — o morph
-            // entre Player e Reels deixava um transform: scale(...) grudado sem
-            // nunca terminar de resolver (tanto em teste automatizado quanto no
-            // Safari do iPhone), espremendo o Reels de volta na proporção do
-            // Player. A troca de formato agora é instantânea; o <video> continua
-            // sendo o mesmo elemento, então a reprodução não reinicia mesmo sem
-            // a animação.
+            // cor de fundo, borda e cantos arredondados. Não é animada com Framer
+            // Motion `layout` — o morph entre Player e Reels deixava um
+            // transform: scale(...) grudado sem nunca terminar de resolver (tanto
+            // em teste automatizado quanto no Safari do iPhone), espremendo o
+            // Reels de volta na proporção do Player. A troca de formato agora é
+            // instantânea; o <video> continua sendo o mesmo elemento, então a
+            // reprodução não reinicia mesmo sem a animação.
+            //
+            // Player: a altura vem da propriedade CSS `aspect-ratio` aplicada
+            // aqui mesmo, direto em cima da largura JÁ DEFINIDA pela moldura —
+            // sem o risco de arredondamento de um `padding-top` percentual (que
+            // podia sobrar uma fração de pixel cortada pelo `overflow-hidden`
+            // nas laterais em telas de celular). Reels continua usando o spacer
+            // de padding-top abaixo, sem mudanças.
+            style={tab === 'player' ? { aspectRatio: aspectRatio || 16 / 9 } : undefined}
             className={cn(
               'relative overflow-hidden bg-black select-none',
               tab === 'player'
@@ -426,21 +451,15 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
             )}
           >
             {/*
-              Spacer: padding-top percentual (não a propriedade CSS aspect-ratio)
-              cria a altura a partir da largura JÁ DEFINIDA pela moldura acima —
-              por isso fica num elemento à parte: se o padding-top estivesse no
-              mesmo elemento que tem max-w-[300px], a porcentagem seria calculada
-              em cima da largura do PAI (não do max-width já aplicado), dando uma
-              altura enorme e errada no desktop.
+              Spacer do Reels: padding-top percentual cria a altura a partir da
+              largura já definida pela moldura acima — por isso fica num elemento
+              à parte: se o padding-top estivesse no mesmo elemento que tem
+              max-w-[300px], a porcentagem seria calculada em cima da largura do
+              PAI (não do max-width já aplicado), dando uma altura enorme e errada
+              no desktop. No Player a altura já vem do `aspect-ratio` da moldura
+              (acima), então este spacer fica sem padding (0) nessa aba.
             */}
-            <div
-              style={{
-                paddingTop:
-                  tab === 'player'
-                    ? `${100 / (aspectRatio || 16 / 9)}%`
-                    : '177.7778%',
-              }}
-            />
+            <div style={{ paddingTop: tab === 'player' ? undefined : '177.7778%' }} />
 
             <div className="absolute inset-0">
               <AnimatePresence initial={false} custom={direction} mode="popLayout">
