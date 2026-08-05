@@ -36,6 +36,9 @@ import type { Video } from '@/lib/types'
 import { formatDuration } from '@/lib/format'
 import { motion, AnimatePresence, useReducedMotion } from '@/components/motion'
 
+/** Safari iOS: API proprietária de tela cheia nativa do `<video>`, não tipada pelo TS DOM lib. */
+type IOSVideoElement = HTMLVideoElement & { webkitEnterFullscreen?: () => void }
+
 export interface StageMarker {
   id: string
   timestamp: number
@@ -117,6 +120,13 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   const [playing, setPlaying] = useState(false)
   const [current, setCurrent] = useState(0)
   const [duration, setDuration] = useState(video.duration || 0)
+  // Proporção real (largura/altura) do arquivo de vídeo, lida do próprio
+  // elemento ao carregar os metadados. A aba Player usava uma caixa 16:9 fixa
+  // com `object-cover`: vídeos que não são 16:9 (comum aqui, já que muito
+  // conteúdo é pensado pra Reels/vertical) ficavam com as laterais cortadas
+  // pra preencher a caixa. Com a proporção real, a caixa se ajusta ao vídeo e
+  // nada precisa ser cortado.
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null)
   // Tela cheia fiel ao Reels, aberta ao tocar em play na aba "Preview Reels".
   // Só no celular — no computador o toque apenas pausa/retoma o vídeo já
   // visível na moldura em mockup (ver `isDesktop` abaixo), sem cobrir a tela.
@@ -164,8 +174,22 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
   }, [])
   function togglePlayerFullscreen() {
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
-    else playerFrameRef.current?.requestFullscreen().catch(() => {})
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {})
+      return
+    }
+    const frame = playerFrameRef.current
+    // Safari no iOS não implementa a Fullscreen API padrão em elementos
+    // genéricos (só `document.fullscreenEnabled === false`, sem lançar erro
+    // nenhum antes disso) — só o próprio <video> suporta tela cheia nativa,
+    // via essa API proprietária. Sem esse fallback, o botão simplesmente não
+    // fazia nada no celular (funcionava só no computador).
+    if (frame?.requestFullscreen && document.fullscreenEnabled) {
+      frame.requestFullscreen().catch(() => {})
+      return
+    }
+    const el = videoRef.current as IOSVideoElement | null
+    el?.webkitEnterFullscreen?.()
   }
 
   // Indicador de "pausado" com um pequeno atraso pra exibir: toda troca de
@@ -284,6 +308,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
     currentRef.current = 0
     updateCurrent(0)
     setDuration(video.duration || 0)
+    setAspectRatio(null)
     const el = videoRef.current
     if (!el) return
     el.currentTime = 0
@@ -408,7 +433,14 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
               em cima da largura do PAI (não do max-width já aplicado), dando uma
               altura enorme e errada no desktop.
             */}
-            <div style={{ paddingTop: tab === 'player' ? '56.25%' : '177.7778%' }} />
+            <div
+              style={{
+                paddingTop:
+                  tab === 'player'
+                    ? `${100 / (aspectRatio || 16 / 9)}%`
+                    : '177.7778%',
+              }}
+            />
 
             <div className="absolute inset-0">
               <AnimatePresence initial={false} custom={direction} mode="popLayout">
@@ -428,10 +460,15 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                       src={playbackUrl}
                       poster={video.posterUrl || undefined}
                       playsInline
-                      className="h-full w-full object-cover"
+                      className={cn(
+                        'h-full w-full',
+                        tab === 'player' ? 'object-contain' : 'object-cover',
+                      )}
                       onLoadedMetadata={(e) => {
                         const d = e.currentTarget.duration
                         if (Number.isFinite(d)) setDuration(Math.round(d))
+                        const { videoWidth, videoHeight } = e.currentTarget
+                        if (videoWidth && videoHeight) setAspectRatio(videoWidth / videoHeight)
                         e.currentTarget.currentTime = currentRef.current
                       }}
                       onTimeUpdate={(e) => updateCurrent(e.currentTarget.currentTime)}
