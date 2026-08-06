@@ -1835,7 +1835,7 @@ export const calendarService = {
       dataInicio: input.startAt,
       dataFim: input.endAt,
       clienteId: input.clientId,
-      equipe: input.crew,
+      equipeIds: input.crew?.map((c) => c.id),
       observacoes: input.notes,
     })
     return mapRecordingEvent(res)
@@ -1864,7 +1864,7 @@ export const calendarService = {
       dataInicio: input.startAt,
       dataFim: input.endAt,
       clienteId: input.clientId,
-      equipe: input.crew,
+      equipeIds: input.crew?.map((c) => c.id),
       observacoes: input.notes,
     })
     return mapRecordingEvent(res)
