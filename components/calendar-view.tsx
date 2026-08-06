@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,12 +10,12 @@ import {
   Trash2,
   X,
   Clock,
-  User as UserIcon,
+  Users as UsersIcon,
   Contact,
   StickyNote,
 } from 'lucide-react'
-import { calendarService, clientService, teamService } from '@/lib/services'
-import type { Client, RecordingEvent, TeamMember } from '@/lib/types'
+import { calendarService, clientService, crewService } from '@/lib/services'
+import type { Client, CrewMember, RecordingEvent } from '@/lib/types'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { ErrorState, LoadingState } from '@/components/states'
@@ -57,7 +57,10 @@ export function CalendarView() {
     [],
   )
   const clients = useQuery<Client[]>((signal) => clientService.list(signal), [])
-  const members = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
+  const { data: crewRoster, setData: setCrewRoster } = useQuery<CrewMember[]>(
+    (signal) => crewService.list(signal),
+    [],
+  )
 
   const [modal, setModal] = useState<{ date: Date; event: RecordingEvent | null } | null>(null)
 
@@ -201,27 +204,38 @@ export function CalendarView() {
                     {d.getDate()}
                   </span>
                   <div className="flex flex-col gap-1">
-                    {visible.map((ev) => (
-                      <span
-                        key={ev.id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setModal({ date: new Date(ev.startAt), event: ev })
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                    {visible.map((ev) => {
+                      const crewLabel = ev.crew.map((c) => c.name).join(', ')
+                      const extra = [crewLabel || null, ev.notes || null].filter(Boolean).join(' · ')
+                      return (
+                        <div
+                          key={ev.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
                             e.stopPropagation()
                             setModal({ date: new Date(ev.startAt), event: ev })
-                          }
-                        }}
-                        className="truncate rounded-md bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/25 sm:text-xs"
-                        title={ev.title}
-                      >
-                        {timeLabel(ev.startAt)} {ev.title}
-                      </span>
-                    ))}
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.stopPropagation()
+                              setModal({ date: new Date(ev.startAt), event: ev })
+                            }
+                          }}
+                          className="flex flex-col rounded-md bg-primary/15 px-1.5 py-0.5 hover:bg-primary/25"
+                          title={[ev.title, extra].filter(Boolean).join(' — ')}
+                        >
+                          <span className="truncate text-[10px] font-medium text-primary sm:text-xs">
+                            {timeLabel(ev.startAt)} {ev.title}
+                          </span>
+                          {extra && (
+                            <span className="truncate text-[9px] text-muted-foreground sm:text-[10px]">
+                              {extra}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
                     {overflow > 0 && (
                       <span className="px-1.5 text-[10px] text-muted-foreground">
                         +{overflow} mais
@@ -241,7 +255,8 @@ export function CalendarView() {
             date={modal.date}
             event={modal.event}
             clients={clients.data ?? []}
-            members={members.data ?? []}
+            crewRoster={crewRoster ?? []}
+            onCrewCreated={(created) => setCrewRoster((prev) => [...(prev ?? []), created])}
             onClose={() => setModal(null)}
             onSaved={(saved) => {
               upsertLocal(saved)
@@ -267,7 +282,8 @@ function EventModal({
   date,
   event,
   clients,
-  members,
+  crewRoster,
+  onCrewCreated,
   onClose,
   onSaved,
   onDeleted,
@@ -275,7 +291,8 @@ function EventModal({
   date: Date
   event: RecordingEvent | null
   clients: Client[]
-  members: TeamMember[]
+  crewRoster: CrewMember[]
+  onCrewCreated: (created: CrewMember) => void
   onClose: () => void
   onSaved: (saved: RecordingEvent) => void
   onDeleted: (id: string) => void
@@ -297,12 +314,42 @@ function EventModal({
   const [startAt, setStartAt] = useState(toDateTimeLocalValue(defaultStart))
   const [endAt, setEndAt] = useState(toDateTimeLocalValue(defaultEnd))
   const [clientId, setClientId] = useState(event?.clientId ?? '')
-  const [memberId, setMemberId] = useState(event?.memberId ?? '')
+  const [crew, setCrew] = useState<CrewMember[]>(event?.crew ?? [])
+  const [newCrewName, setNewCrewName] = useState('')
+  const [addingCrew, setAddingCrew] = useState(false)
+  const addingCrewRef = useRef(false)
   const [notes, setNotes] = useState(event?.notes ?? '')
   const [titleError, setTitleError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  function toggleCrew(member: CrewMember) {
+    setCrew((prev) =>
+      prev.some((c) => c.id === member.id)
+        ? prev.filter((c) => c.id !== member.id)
+        : [...prev, member],
+    )
+  }
+
+  async function addCrewMember() {
+    if (addingCrewRef.current) return
+    const trimmed = newCrewName.trim()
+    if (!trimmed) return
+    addingCrewRef.current = true
+    setAddingCrew(true)
+    try {
+      const created = await crewService.create(trimmed)
+      onCrewCreated(created)
+      setCrew((prev) => [...prev, created])
+      setNewCrewName('')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível adicionar essa pessoa. Tente novamente.')
+    } finally {
+      addingCrewRef.current = false
+      setAddingCrew(false)
+    }
+  }
 
   async function save() {
     const trimmed = title.trim()
@@ -315,15 +362,13 @@ function EventModal({
     setBusy(true)
     try {
       const client = clients.find((c) => c.id === clientId)
-      const member = members.find((m) => m.id === memberId)
       const input = {
         title: trimmed,
         startAt: new Date(startAt).toISOString(),
         endAt: endAt ? new Date(endAt).toISOString() : null,
         clientId: clientId || null,
         clientName: client?.name ?? null,
-        memberId: memberId || null,
-        memberName: member?.name ?? null,
+        crew,
         notes: notes.trim() || null,
       }
       const saved = event
@@ -440,26 +485,60 @@ function EventModal({
           </select>
         </label>
 
-        <label className="mt-4 flex flex-col gap-1.5">
+        <div className="mt-4 flex flex-col gap-1.5">
           <span className="flex items-center gap-1 text-sm font-medium text-foreground">
-            <UserIcon className="size-3.5" /> Responsável{' '}
-            <span className="font-normal text-muted-foreground">(opcional)</span>
+            <UsersIcon className="size-3.5" /> Equipe{' '}
+            <span className="font-normal text-muted-foreground">(opcional, quem vai)</span>
           </span>
-          <select
-            value={memberId}
-            onChange={(e) => setMemberId(e.target.value)}
-            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
-          >
-            <option value="">Ninguém atribuído</option>
-            {members
-              .filter((m) => m.status === 'active')
-              .map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name || m.email}
-                </option>
-              ))}
-          </select>
-        </label>
+          <div className="flex flex-wrap gap-1.5">
+            {crewRoster.length === 0 && (
+              <span className="text-xs text-muted-foreground">
+                Ninguém na equipe ainda — adicione um nome abaixo.
+              </span>
+            )}
+            {crewRoster.map((m) => {
+              const selected = crew.some((c) => c.id === m.id)
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => toggleCrew(m)}
+                  aria-pressed={selected}
+                  className={cn(
+                    'inline-flex min-h-8 items-center rounded-full border px-3 text-xs font-medium transition-colors',
+                    selected
+                      ? 'border-primary bg-primary/15 text-primary'
+                      : 'border-border bg-secondary text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {m.name}
+                </button>
+              )
+            })}
+          </div>
+          <div className="mt-1 flex gap-1.5">
+            <input
+              value={newCrewName}
+              onChange={(e) => setNewCrewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  addCrewMember()
+                }
+              }}
+              placeholder="Adicionar pessoa (não precisa ter conta no Aprova)"
+              className="min-h-9 flex-1 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+            />
+            <button
+              type="button"
+              onClick={addCrewMember}
+              disabled={addingCrew || !newCrewName.trim()}
+              className="inline-flex min-h-9 items-center justify-center rounded-lg bg-secondary px-3 text-sm font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+            >
+              {addingCrew ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+            </button>
+          </div>
+        </div>
 
         <label className="mt-4 flex flex-col gap-1.5">
           <span className="flex items-center gap-1 text-sm font-medium text-foreground">

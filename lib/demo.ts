@@ -16,6 +16,7 @@ import type {
   AppNotification,
   Client,
   Comment,
+  CrewMember,
   DashboardInsights,
   EditorPerformance,
   GalleryVideoItem,
@@ -305,6 +306,18 @@ function plusHours(isoString: string, hours: number): string {
 }
 
 /**
+ * Roster de equipe de gravação (nomes livres, sem conta no Aprova) — array
+ * mutável: `crewService` em modo demo faz `push` direto aqui, igual a
+ * `demoClients`, então gente adicionada na tela persiste durante a sessão.
+ */
+export const demoCrewRoster: CrewMember[] = [
+  { id: 'crew-1', name: 'Marina Alves' },
+  { id: 'crew-2', name: 'Rafael Souza' },
+  { id: 'crew-3', name: 'Diego (cinegrafista freelancer)' },
+  { id: 'crew-4', name: 'Ana Paula (motorista)' },
+]
+
+/**
  * Escala de gravações (aba Calendário) — array mutável: `calendarService`
  * em modo demo faz `push`/edita/remove direto aqui, igual a `demoClients`,
  * então altura feitas na tela persistem durante a sessão (até recarregar).
@@ -317,8 +330,7 @@ export const demoRecordingEvents: RecordingEvent[] = [
     endAt: plusHours(futureIso(26), 2),
     clientId: 'c1',
     clientName: 'Bela Cosméticos',
-    memberId: 'm2',
-    memberName: 'Marina Alves',
+    crew: [demoCrewRoster[0], demoCrewRoster[2]],
     notes: 'Estúdio próprio. Levar o kit de iluminação extra.',
   },
   {
@@ -328,8 +340,7 @@ export const demoRecordingEvents: RecordingEvent[] = [
     endAt: plusHours(futureIso(74), 3),
     clientId: 'c2',
     clientName: 'Burger House',
-    memberId: 'm3',
-    memberName: 'Rafael Souza',
+    crew: [demoCrewRoster[1]],
     notes: null,
   },
   {
@@ -339,8 +350,7 @@ export const demoRecordingEvents: RecordingEvent[] = [
     endAt: plusHours(iso(20), 1),
     clientId: 'c3',
     clientName: 'Studio Moda',
-    memberId: 'demo-user',
-    memberName: 'Você (demo)',
+    crew: [{ id: 'demo-user', name: 'Você (demo)' }],
     notes: null,
   },
   {
@@ -350,8 +360,7 @@ export const demoRecordingEvents: RecordingEvent[] = [
     endAt: plusHours(futureIso(170), 2),
     clientId: 'c4',
     clientName: 'Café Aurora',
-    memberId: 'm2',
-    memberName: 'Marina Alves',
+    crew: [demoCrewRoster[0], demoCrewRoster[3]],
     notes: 'Cliente pediu foco no processo de torra.',
   },
 ]

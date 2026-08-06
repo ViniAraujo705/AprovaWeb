@@ -16,6 +16,7 @@ import {
   demoAssignProjectMember,
   demoClientChannel,
   demoClients,
+  demoCrewRoster,
   demoInsights,
   demoInternalComments,
   demoMe,
@@ -49,6 +50,7 @@ import type {
   Client,
   Comment,
   CommentAuthorRole,
+  CrewMember,
   DashboardInsights,
   EditorPerformance,
   GalleryVideoItem,
@@ -1771,7 +1773,15 @@ export const teamPerformanceService = {
 
 /* ------------------------------ calendário -------------------------------- */
 
+function mapCrewMember(raw: Raw): CrewMember {
+  return {
+    id: pick(raw, ['id', '_id'], ''),
+    name: pick(raw, ['name', 'nome'], ''),
+  }
+}
+
 function mapRecordingEvent(raw: Raw): RecordingEvent {
+  const crewRaw = pick<Raw[]>(raw, ['crew', 'equipe'], [])
   return {
     id: pick(raw, ['id', '_id'], ''),
     title: pick(raw, ['title', 'titulo'], ''),
@@ -1779,8 +1789,7 @@ function mapRecordingEvent(raw: Raw): RecordingEvent {
     endAt: pick<string | null>(raw, ['endAt', 'fim', 'dataFim', 'end_at'], null),
     clientId: pick<string | null>(raw, ['clientId', 'clienteId', 'client_id'], null),
     clientName: pick<string | null>(raw, ['clientName', 'clienteNome', 'client_name'], null),
-    memberId: pick<string | null>(raw, ['memberId', 'membroId', 'member_id'], null),
-    memberName: pick<string | null>(raw, ['memberName', 'membroNome', 'member_name'], null),
+    crew: Array.isArray(crewRaw) ? crewRaw.map(mapCrewMember) : [],
     notes: pick<string | null>(raw, ['notes', 'notas', 'observacoes'], null),
   }
 }
@@ -1804,8 +1813,7 @@ export const calendarService = {
     endAt?: string | null
     clientId?: string | null
     clientName?: string | null
-    memberId?: string | null
-    memberName?: string | null
+    crew?: CrewMember[]
     notes?: string | null
   }): Promise<RecordingEvent> {
     if (isDemo()) {
@@ -1816,8 +1824,7 @@ export const calendarService = {
         endAt: input.endAt ?? null,
         clientId: input.clientId ?? null,
         clientName: input.clientName ?? null,
-        memberId: input.memberId ?? null,
-        memberName: input.memberName ?? null,
+        crew: input.crew ?? [],
         notes: input.notes ?? null,
       }
       demoRecordingEvents.push(created)
@@ -1828,7 +1835,7 @@ export const calendarService = {
       dataInicio: input.startAt,
       dataFim: input.endAt,
       clienteId: input.clientId,
-      membroId: input.memberId,
+      equipe: input.crew,
       observacoes: input.notes,
     })
     return mapRecordingEvent(res)
@@ -1842,8 +1849,7 @@ export const calendarService = {
       endAt: string | null
       clientId: string | null
       clientName: string | null
-      memberId: string | null
-      memberName: string | null
+      crew: CrewMember[]
       notes: string | null
     }>,
   ): Promise<RecordingEvent> {
@@ -1858,7 +1864,7 @@ export const calendarService = {
       dataInicio: input.startAt,
       dataFim: input.endAt,
       clienteId: input.clientId,
-      membroId: input.memberId,
+      equipe: input.crew,
       observacoes: input.notes,
     })
     return mapRecordingEvent(res)
@@ -1872,6 +1878,32 @@ export const calendarService = {
       return
     }
     await api.delete(`/recording-events/${id}`)
+  },
+}
+
+/**
+ * Roster de equipe de gravação — nomes livres (freelancers, motorista, etc.)
+ * sem precisar de conta/convite no Aprova. Endpoint `/crew` ainda não existe
+ * no backend documentado em API.md, mesma situação de `/recording-events`.
+ */
+export const crewService = {
+  async list(signal?: AbortSignal): Promise<CrewMember[]> {
+    if (isDemo()) return delay(demoCrewRoster)
+    const res = await api.get('/crew', { signal })
+    return asArray(res).map(mapCrewMember)
+  },
+
+  async create(name: string): Promise<CrewMember> {
+    if (isDemo()) {
+      const created: CrewMember = {
+        id: `crew-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name,
+      }
+      demoCrewRoster.push(created)
+      return delay(created, 200)
+    }
+    const res = await api.post<Raw>('/crew', { nome: name })
+    return mapCrewMember(res)
   },
 }
 

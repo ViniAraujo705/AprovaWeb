@@ -419,6 +419,15 @@ export interface AppNotification {
 
 /* ------------------------------ calendário ---------------------------------- */
 
+/**
+ * Pessoa da equipe de gravação — só um nome livre, sem conta/login no Aprova.
+ * Reaproveitável entre eventos (roster salvo, não precisa digitar de novo).
+ */
+export interface CrewMember {
+  id: string
+  name: string
+}
+
 /** Escala de gravação da agência (aba Calendário). */
 export interface RecordingEvent {
   id: string
@@ -430,8 +439,7 @@ export interface RecordingEvent {
   clientId: string | null
   /** Nome do cliente resolvido (pra exibir sem precisar de outra chamada). */
   clientName: string | null
-  /** Responsável pela gravação (membro da equipe), opcional. */
-  memberId: string | null
-  memberName: string | null
+  /** Quem vai gravar — pode incluir gente sem conta no Aprova. */
+  crew: CrewMember[]
   notes: string | null
 }
