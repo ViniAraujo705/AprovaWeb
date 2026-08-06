@@ -443,7 +443,15 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
             className={cn(
               'relative overflow-hidden bg-black select-none',
               tab === 'player'
-                ? 'w-full sm:rounded-xl'
+                ? // `max-h` evita que vídeos verticais, ao usar a proporção real
+                  // (ver aspectRatio acima), estourem a altura da página no
+                  // desktop — a coluna do Player é `1fr` num grid largo
+                  // (InternalReview etc.), então largura total + proporção
+                  // vertical vira uma caixa gigantesca. Acima do cap, o
+                  // `object-contain` do <video> centraliza com faixas pretas,
+                  // igual já acontecia com a caixa 16:9 fixa antes desta aba
+                  // passar a usar a proporção real do arquivo.
+                  'w-full sm:rounded-xl lg:max-h-[75vh]'
                 : // Reels: no celular ocupa a largura cheia da tela (edge-to-edge, sem
                   // moldura). A partir do lg, volta a ser um mockup de celular
                   // (moldura) ao lado do painel de comentários.
