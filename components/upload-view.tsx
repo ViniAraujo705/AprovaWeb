@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   UploadCloud,
   Film,
@@ -92,6 +93,31 @@ export function UploadView() {
     [clientId],
     { enabled: projectMode === 'existente' && !!clientId },
   )
+
+  // Chegando com `?projectId=` (botão "Novo vídeo" na tela do projeto):
+  // pré-seleciona cliente + projeto pra subir direto naquele projeto, em vez
+  // do fluxo padrão de criar um projeto novo.
+  const searchParams = useSearchParams()
+  const prefillProjectId = searchParams.get('projectId')
+  useEffect(() => {
+    if (!prefillProjectId) return
+    let cancelled = false
+    projectService
+      .get(prefillProjectId)
+      .then((project) => {
+        if (cancelled) return
+        setClientId(project.clientId)
+        setProjectMode('existente')
+        setProjectId(project.id)
+      })
+      .catch(() => {
+        // Link inválido/projeto removido: sem problema, o form abre no
+        // fluxo padrão (criar novo projeto) em vez de travar a tela.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [prefillProjectId])
 
   const [phase, setPhase] = useState<Phase>('idle')
   const [submitError, setSubmitError] = useState<string | null>(null)

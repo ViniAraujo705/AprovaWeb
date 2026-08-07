@@ -22,6 +22,7 @@ import {
   Lock,
   Archive,
   ArchiveRestore,
+  UploadCloud,
 } from 'lucide-react'
 import {
   projectService,
@@ -330,6 +331,15 @@ export function ProjectDetailView({ id }: { id: string }) {
 
         {!project.error && (
           <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {!archived && (
+              <Link
+                href={`/upload?projectId=${id}`}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                <UploadCloud className="size-4" />
+                Novo vídeo
+              </Link>
+            )}
             <button
               type="button"
               onClick={exportReport}
