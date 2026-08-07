@@ -231,6 +231,10 @@ export interface QueueVideoItem {
 
 /** Um vídeo listado na galeria pública do projeto (GET /public/projects/:linkPublico). */
 export interface GalleryVideoItem {
+  /** id interno do vídeo — usado só para resolver qual é a versão mais recente, nunca exposto na UI. */
+  id: string
+  /** id do vídeo que esta versão substitui, se houver (ver `id`). */
+  videoPaiId: string | null
   /** linkPublico do vídeo — usado para montar a URL do player (/v/:link). */
   link: string
   title: string

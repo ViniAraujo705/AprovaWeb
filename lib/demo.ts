@@ -502,15 +502,22 @@ export function demoPublicVideo(link: string = DEMO_LINK): PublicVideo {
 /** Galeria pública de exemplo (um link só listando todos os vídeos do projeto). */
 export function demoProjectGallery(link: string): ProjectGallery {
   const project = demoProjects.find((p) => p.publicLink === link) ?? demoProjects[0]
-  const videos: GalleryVideoItem[] = demoVideosForProject(project.id).map((v) => ({
+  const allVideos: GalleryVideoItem[] = demoVideosForProject(project.id).map((v) => ({
+    id: v.id,
+    videoPaiId: v.videoPaiId,
     link: v.publicLink ?? '',
     title: v.title,
     posterUrl: v.posterUrl,
     status: v.status,
     processingStatus: v.processingStatus,
-    version: 1,
+    version: v.version,
     createdAt: v.createdAt,
   }))
+  // Mesma regra da galeria pública real: um vídeo substituído por uma nova
+  // versão (videoPaiId de outro item aponta pra ele) não deve aparecer.
+  const supersededIds = new Set<string>()
+  for (const v of allVideos) if (v.videoPaiId) supersededIds.add(v.videoPaiId)
+  const videos = allVideos.filter((v) => !supersededIds.has(v.id))
   return {
     projectName: project.name,
     clientName: project.client?.name ?? '',

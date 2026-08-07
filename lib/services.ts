@@ -423,9 +423,12 @@ function mapQueueItem(raw: Raw): QueueVideoItem {
 }
 
 function mapGalleryVideoItem(raw: Raw): GalleryVideoItem {
+  const videoPaiRaw = pick<Raw | null>(raw, ['videoPai', 'video_pai'], null)
   return {
+    id: String(pick(raw, ['id', '_id', 'videoId'], '')),
+    videoPaiId: pick<string | null>(raw, ['videoPaiId', 'video_pai_id'], videoPaiRaw?.id ?? null),
     link: String(pick(raw, ['link', 'publicLink', 'public_link', 'slug'], '')),
-    title: pick(raw, ['title', 'name', 'titulo'], 'Sem título'),
+    title: pick(raw, ['nomeArquivo', 'nome_arquivo', 'title', 'name', 'titulo'], 'Sem título'),
     posterUrl: pick<string | null>(raw, ['posterUrl', 'poster', 'thumbnailUrl', 'thumbnail'], null),
     status: normalizeStatus(pick(raw, ['status'], 'pendente')),
     processingStatus: normalizeProcessing(
@@ -434,6 +437,18 @@ function mapGalleryVideoItem(raw: Raw): GalleryVideoItem {
     version: Number(pick(raw, ['versao', 'version'], 1)) || 1,
     createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
   }
+}
+
+/**
+ * Some da galeria pública os vídeos que já foram substituídos por uma nova
+ * versão — mesmo problema que dashboard/projeto resolvem com `resolveLatestVersions`
+ * (lib/services.ts:281), mas a galeria não tem a cadeia completa de ids, só
+ * precisa saber "alguém aponta pra mim como pai?" pra se esconder.
+ */
+function hideSupersededGalleryVideos(videos: GalleryVideoItem[]): GalleryVideoItem[] {
+  const supersededIds = new Set<string>()
+  for (const v of videos) if (v.videoPaiId) supersededIds.add(v.videoPaiId)
+  return videos.filter((v) => !supersededIds.has(v.id))
 }
 
 function mapAdminUser(raw: Raw): AdminUser {
@@ -1122,9 +1137,11 @@ export const publicService = {
       projectName: pick(projetoRaw, ['nome', 'name'], ''),
       clientName: pick(clienteRaw, ['nome', 'name'], ''),
       branding: mapBranding(agenciaRaw),
-      videos: asArray(pick(res, ['videos'], []))
-        .map(mapGalleryVideoItem)
-        .filter((v) => v.link)
+      videos: hideSupersededGalleryVideos(
+        asArray(pick(res, ['videos'], []))
+          .map(mapGalleryVideoItem)
+          .filter((v) => v.link),
+      )
         // Backend não garante ordem; sem isso o vídeo recém-enviado podia
         // aparecer depois de vídeos antigos do mesmo projeto na galeria.
         .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),

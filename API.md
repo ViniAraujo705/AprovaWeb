@@ -220,6 +220,13 @@ Body: `{ "deadline": "2026-08-15" | null }` (ISO 8601; `null` remove o prazo)
 > `deadline` nunca é exposto no canal público do cliente
 > (`GET /public/videos/:linkPublico`) — é dado interno da agência.
 
+### `PATCH /videos/:id/titulo`
+**[ PENDENTE NO BACKEND — 404 hoje ]** `owner`, `editor`. Renomeia o vídeo.
+
+Body: `{ "nomeArquivo": "novo-nome.mp4" }`
+
+Resposta: o `Video` atualizado (mesmo shape de `status`/`deadline`).
+
 **Shape do `Video`** (retornado por `POST`, `new-version` e `PATCH`):
 ```json
 {
@@ -499,7 +506,7 @@ Resposta:
   "cliente": { "nome": "Cliente X" },
   "agencia": { "nome": "Agencia Teste", "logoUrl": "https://...", "corDestaque": "#ff0000" },
   "videos": [
-    { "link": "64c7527a-...", "title": "video1.mp4", "posterUrl": "https://.../thumb.jpg", "status": "pendente", "statusProcessamento": "pronto", "versao": 1 }
+    { "id": "uuid", "videoPaiId": null, "link": "64c7527a-...", "title": "video1.mp4", "posterUrl": "https://.../thumb.jpg", "status": "pendente", "statusProcessamento": "pronto", "versao": 1 }
   ]
 }
 ```
@@ -507,6 +514,14 @@ Resposta:
   abre o player normal (`/v/:link`), sem mudar seu contrato de
   aprovação/comentário/avaliação.
 - `status`: `pendente | aprovado | ajuste | erro`, para badge no card.
+- **[ PENDENTE NO BACKEND — hoje a resposta não traz `id` nem `videoPaiId` por
+  vídeo ]** O frontend usa esses dois campos só para esconder da galeria uma
+  versão que já foi substituída por uma mais nova (`POST
+  /videos/:id/new-version` cria uma linha nova com `videoPaiId` apontando pra
+  antiga, mas a antiga continua existindo e continua vindo nesta lista).
+  Sem `id`/`videoPaiId` aqui, a versão antiga (com erro, por exemplo) fica
+  visível pro cliente lado a lado com a nova pra sempre — mesmo shape que já
+  é usado em `GET /videos?project_id=` (ver acima).
 - O link do projeto (`linkPublico`) já vem no retorno de `POST /projects` e
   `GET /projects` / `GET /projects/:id` (ver seção Projetos) — não precisa de
   chamada separada para descobri-lo.
@@ -534,6 +549,13 @@ Rate limit: **10/min**. Sem body. Marca `status = aprovado` e carimba
 
 ### `POST /public/videos/:linkPublico/request-changes`
 Rate limit: **10/min**. Sem body. Marca `status = ajuste`.
+
+### `PATCH /public/videos/:linkPublico/titulo`
+**[ PENDENTE NO BACKEND — 404 hoje ]** Sem autenticação — o cliente também pode renomear pela tela pública.
+
+Body: `{ "nomeArquivo": "novo-nome.mp4" }`
+
+Resposta: o `Video` atualizado.
 
 ---
 
