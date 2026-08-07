@@ -31,6 +31,7 @@ import { UploadError, uploadToPresignedUrl, validateImageFile, validateVideoFile
 import { isDemo } from '@/lib/demo'
 import { AnimatePresence, motion, FadeIn } from '@/components/motion'
 import { toast } from '@/lib/toast'
+import { cn } from '@/lib/utils'
 
 /** Lê um arquivo como Data URL (usado só no preview/modo demo). */
 function readAsDataUrl(file: File): Promise<string> {
@@ -168,7 +169,7 @@ function PortfolioDetailBody({
             onClick={() => setUploadOpen((v) => !v)}
             className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
-            <UploadCloud className="size-4" /> Enviar vídeo ou foto
+            <UploadCloud className="size-4" /> Enviar vídeos ou fotos
           </button>
         </div>
       </div>
@@ -176,10 +177,8 @@ function PortfolioDetailBody({
       {uploadOpen && (
         <UploadPortfolioMediaForm
           portfolioId={portfolio.id}
-          onDone={(updated) => {
-            onChange(updated)
-            setUploadOpen(false)
-          }}
+          onItemUploaded={onChange}
+          onAllDone={() => setUploadOpen(false)}
           onCancel={() => setUploadOpen(false)}
         />
       )}
@@ -644,104 +643,145 @@ function SelectExistingVideoModal({
   )
 }
 
+interface PendingPortfolioFile {
+  id: string
+  file: File
+  /** Título editável, pré-preenchido com o nome do arquivo sem extensão. */
+  title: string
+  mediaType: PortfolioItemMediaType
+  status: 'pending' | 'uploading' | 'done' | 'error'
+  progress: number
+  error?: string
+}
+
 function UploadPortfolioMediaForm({
   portfolioId,
-  onDone,
+  onItemUploaded,
+  onAllDone,
   onCancel,
 }: {
   portfolioId: string
-  onDone: (updated: Portfolio) => void
+  /** Chamado após cada arquivo do lote terminar com sucesso, pra ir refletindo no grid sem fechar o form. */
+  onItemUploaded: (updated: Portfolio) => void
+  /** Chamado só quando o lote inteiro termina sem nenhum erro pendente — fecha o form. */
+  onAllDone: () => void
   onCancel: () => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const [file, setFile] = useState<File | null>(null)
-  const [mediaType, setMediaType] = useState<PortfolioItemMediaType>('video')
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [progress, setProgress] = useState(0)
+  const nextId = useRef(0)
+  const [items, setItems] = useState<PendingPortfolioFile[]>([])
+  const [fileError, setFileError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
-  function handleFile(f: File | undefined | null) {
-    if (!f) return
-    const detectedType: PortfolioItemMediaType = f.type.startsWith('image/') ? 'foto' : 'video'
-    const invalid = detectedType === 'foto' ? validateImageFile(f) : validateVideoFile(f)
-    if (invalid) {
-      setError(invalid)
-      return
+  function addFiles(fileList: FileList | null | undefined) {
+    if (!fileList) return
+    const files = Array.from(fileList)
+    if (files.length === 0) return
+
+    const rejected: string[] = []
+    const accepted: PendingPortfolioFile[] = []
+    for (const f of files) {
+      const detectedType: PortfolioItemMediaType = f.type.startsWith('image/') ? 'foto' : 'video'
+      const invalid = detectedType === 'foto' ? validateImageFile(f) : validateVideoFile(f)
+      if (invalid) rejected.push(`${f.name}: ${invalid}`)
+      else
+        accepted.push({
+          id: String(nextId.current++),
+          file: f,
+          title: f.name.replace(/\.[^.]+$/, ''),
+          mediaType: detectedType,
+          status: 'pending',
+          progress: 0,
+        })
     }
-    setError(null)
-    setFile(f)
-    setMediaType(detectedType)
-    setTitle((prev) => prev || f.name.replace(/\.[^.]+$/, ''))
+    setFileError(rejected.length > 0 ? rejected.join('; ') : null)
+    if (accepted.length > 0) setItems((prev) => [...prev, ...accepted])
+  }
+
+  function removeItem(id: string) {
+    setItems((prev) => prev.filter((i) => i.id !== id))
+  }
+
+  function updateItem(id: string, patch: Partial<PendingPortfolioFile>) {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)))
   }
 
   async function submit() {
-    if (!file) {
-      setError('Selecione um vídeo ou foto para enviar.')
+    const pending = items.filter((i) => i.status === 'pending' || i.status === 'error')
+    if (pending.length === 0) {
+      setFileError('Selecione ao menos um vídeo ou foto para enviar.')
       return
     }
     setBusy(true)
-    setError(null)
-    setProgress(0)
-    try {
-      // Modo demo: simula o upload sem tocar no backend/R2, reproduzindo o
-      // arquivo local escolhido (mesmo padrão de `upload-view.tsx`).
-      if (isDemo()) {
-        for (let p = 20; p <= 100; p += 20) {
-          await new Promise((r) => setTimeout(r, 80))
-          setProgress(p)
+    setFileError(null)
+    let allSucceeded = true
+
+    for (const item of pending) {
+      updateItem(item.id, { status: 'uploading', progress: 0, error: undefined })
+      try {
+        // Modo demo: simula o upload sem tocar no backend/R2, reproduzindo o
+        // arquivo local escolhido (mesmo padrão de `upload-view.tsx`).
+        if (isDemo()) {
+          for (let p = 20; p <= 100; p += 20) {
+            await new Promise((r) => setTimeout(r, 80))
+            updateItem(item.id, { progress: p })
+          }
+          const updated = await portfolioService.confirmUpload(portfolioId, {
+            urlStorage: URL.createObjectURL(item.file),
+            nomeArquivo: item.file.name,
+            mediaType: item.mediaType,
+            title: item.title.trim() || item.file.name,
+          })
+          updateItem(item.id, { status: 'done', progress: 100 })
+          onItemUploaded(updated)
+          continue
         }
-        const updated = await portfolioService.confirmUpload(portfolioId, {
-          urlStorage: URL.createObjectURL(file),
-          nomeArquivo: file.name,
-          mediaType,
-          title: title.trim() || file.name,
-          description: description.trim() || undefined,
+
+        const presigned = await portfolioService.getUploadUrl(portfolioId, {
+          fileName: item.file.name,
+          contentType: item.file.type || 'application/octet-stream',
         })
-        onDone(updated)
-        toast.success(mediaType === 'foto' ? 'Foto enviada' : 'Vídeo enviado')
-        return
+        if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
+        if (!presigned.publicUrl) throw new UploadError('Servidor não retornou a URL pública do arquivo.')
+
+        await uploadToPresignedUrl({
+          url: presigned.uploadUrl,
+          file: item.file,
+          headers: presigned.headers,
+          onProgress: (p) => updateItem(item.id, { progress: p }),
+        })
+
+        const updated = await portfolioService.confirmUpload(portfolioId, {
+          urlStorage: presigned.publicUrl,
+          nomeArquivo: item.file.name,
+          mediaType: item.mediaType,
+          title: item.title.trim() || item.file.name,
+        })
+        updateItem(item.id, { status: 'done', progress: 100 })
+        onItemUploaded(updated)
+      } catch (err) {
+        allSucceeded = false
+        updateItem(item.id, {
+          status: 'error',
+          error:
+            err instanceof UploadError || err instanceof ApiError
+              ? err.message
+              : 'Falha ao enviar o arquivo.',
+        })
       }
+    }
 
-      const presigned = await portfolioService.getUploadUrl(portfolioId, {
-        fileName: file.name,
-        contentType: file.type || 'application/octet-stream',
-      })
-      if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
-      if (!presigned.publicUrl) throw new UploadError('Servidor não retornou a URL pública do arquivo.')
-
-      await uploadToPresignedUrl({
-        url: presigned.uploadUrl,
-        file,
-        headers: presigned.headers,
-        onProgress: (p) => setProgress(p),
-      })
-
-      const updated = await portfolioService.confirmUpload(portfolioId, {
-        urlStorage: presigned.publicUrl,
-        nomeArquivo: file.name,
-        mediaType,
-        title: title.trim() || file.name,
-        description: description.trim() || undefined,
-      })
-      onDone(updated)
-      toast.success(mediaType === 'foto' ? 'Foto enviada' : 'Vídeo enviado')
-    } catch (err) {
-      setError(
-        err instanceof UploadError || err instanceof ApiError
-          ? err.message
-          : 'Falha ao enviar o arquivo. Tente novamente.',
-      )
-    } finally {
-      setBusy(false)
+    setBusy(false)
+    if (allSucceeded) {
+      toast.success(pending.length > 1 ? `${pending.length} itens enviados` : 'Item enviado')
+      onAllDone()
     }
   }
 
   return (
     <FadeIn y={6} className="mt-4 rounded-xl border border-border bg-card p-4">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-foreground">Enviar vídeo ou foto para o portfólio</span>
+        <span className="text-sm font-medium text-foreground">Enviar vídeos ou fotos para o portfólio</span>
         <button
           type="button"
           onClick={onCancel}
@@ -755,72 +795,118 @@ function UploadPortfolioMediaForm({
 
       <div
         onClick={() => !busy && inputRef.current?.click()}
-        className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary/50 bg-background p-6 text-center transition-colors hover:border-primary hover:bg-primary/5"
+        className={cn(
+          'mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary/50 bg-background text-center transition-colors hover:border-primary hover:bg-primary/5',
+          items.length > 0 ? 'p-4' : 'p-6',
+          busy && 'cursor-not-allowed opacity-70',
+        )}
       >
         <input
           ref={inputRef}
           type="file"
           accept="video/mp4,video/quicktime,video/webm,image/png,image/jpeg,image/webp"
+          multiple
           className="hidden"
-          onChange={(e) => handleFile(e.target.files?.[0])}
+          onChange={(e) => {
+            addFiles(e.target.files)
+            e.target.value = ''
+          }}
         />
         <span className="grid size-10 place-items-center rounded-full bg-primary/15 text-primary">
-          {mediaType === 'foto' && file ? (
-            <ImageIcon className="size-5" />
-          ) : (
-            <UploadCloud className="size-5" />
-          )}
+          {items.length > 0 ? <Plus className="size-5" /> : <UploadCloud className="size-5" />}
         </span>
         <p className="mt-2 text-sm font-medium text-foreground">
-          {file ? file.name : 'Clique para selecionar um vídeo (MP4, MOV, WEBM) ou foto (PNG, JPG, WEBP)'}
+          {items.length > 0
+            ? 'Solte mais arquivos aqui, ou clique para adicionar'
+            : 'Clique para selecionar (pode escolher vários) — vídeo (MP4, MOV, WEBM) ou foto (PNG, JPG, WEBP)'}
         </p>
       </div>
 
-      {file && (
-        <>
-          <label className="mt-4 flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-foreground">Título</span>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
-            />
-          </label>
-          <label className="mt-3 flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-foreground">Descrição (opcional)</span>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              className="resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
-            />
-          </label>
-        </>
-      )}
-
-      {error && (
-        <p className="mt-3 flex items-center gap-1.5 text-sm text-destructive">
-          <AlertTriangle className="size-4 shrink-0" /> {error}
+      {fileError && (
+        <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
+          <AlertTriangle className="size-4 shrink-0" /> {fileError}
         </p>
       )}
 
-      {busy && (
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-          <div
-            className="h-full bg-primary transition-[width] duration-150"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+      {items.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-2">
+          {items.map((item) => (
+            <li
+              key={item.id}
+              className="flex items-center gap-3 rounded-lg border border-border bg-background p-2.5"
+            >
+              <span
+                className={cn(
+                  'grid size-9 shrink-0 place-items-center rounded-lg',
+                  item.status === 'done'
+                    ? 'bg-emerald-500/15 text-emerald-400'
+                    : item.status === 'error'
+                      ? 'bg-destructive/15 text-destructive'
+                      : 'bg-primary/15 text-primary',
+                )}
+              >
+                {item.status === 'done' ? (
+                  <Check className="size-4" />
+                ) : item.status === 'error' ? (
+                  <AlertTriangle className="size-4" />
+                ) : item.mediaType === 'foto' ? (
+                  <ImageIcon className="size-4" />
+                ) : (
+                  <Film className="size-4" />
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                {item.status === 'pending' ? (
+                  <input
+                    value={item.title}
+                    onChange={(e) => updateItem(item.id, { title: e.target.value })}
+                    aria-label={`Título de ${item.file.name}`}
+                    placeholder={item.file.name}
+                    className="min-h-8 w-full rounded-md border border-transparent bg-transparent -mx-1 px-1 text-sm font-medium text-foreground outline-none hover:border-border focus:border-primary focus:bg-secondary"
+                  />
+                ) : (
+                  <p className="truncate text-sm font-medium text-foreground" title={item.title}>
+                    {item.title}
+                  </p>
+                )}
+                {item.status === 'error' ? (
+                  <p className="truncate text-xs text-destructive">{item.error}</p>
+                ) : item.status === 'uploading' ? (
+                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className="h-full rounded-full bg-primary transition-[width] duration-200"
+                      style={{ width: `${item.progress}%` }}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {(item.file.size / (1024 * 1024)).toFixed(1)} MB
+                  </p>
+                )}
+              </div>
+              {!busy && item.status !== 'done' && (
+                <button
+                  type="button"
+                  onClick={() => removeItem(item.id)}
+                  aria-label={`Remover ${item.file.name}`}
+                  className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
 
       <button
         type="button"
         onClick={submit}
-        disabled={busy || !file}
+        disabled={busy || items.length === 0}
         className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
       >
         {busy && <Loader2 className="size-4 animate-spin" />}
-        Enviar para o portfólio
+        {items.length > 1 ? `Enviar ${items.length} itens` : 'Enviar para o portfólio'}
       </button>
     </FadeIn>
   )
