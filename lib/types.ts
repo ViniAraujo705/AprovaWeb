@@ -253,6 +253,47 @@ export interface ProjectGallery {
   videos: GalleryVideoItem[]
 }
 
+/**
+ * Um vídeo dentro de um portfólio (vitrine da agência, distinta da galeria de
+ * projeto/aprovação). Sem `status` de aprovação: aqui o vídeo já é um "case"
+ * pronto para mostrar a possíveis clientes, não algo em fluxo de revisão.
+ * `videoUrl`/`posterUrl` são denormalizados no momento em que o vídeo entra no
+ * portfólio (seja selecionado de um projeto existente, seja enviado direto),
+ * então a rota pública não precisa resolver o `Video` original.
+ */
+export interface PortfolioVideoItem {
+  id: string
+  title: string
+  description: string | null
+  videoUrl: string | null
+  posterUrl: string | null
+  processingStatus: VideoProcessingStatus
+  order: number
+  createdAt: string | null
+}
+
+/** Portfólio da agência (owner): coleção curada de vídeos com link público próprio, para atrair novos clientes. */
+export interface Portfolio {
+  id: string
+  name: string
+  description: string | null
+  /** Link público (slug) para a rota /p/:link. */
+  link: string
+  /** Poster do primeiro vídeo, usado como capa nos cards de listagem. */
+  coverUrl: string | null
+  videos: PortfolioVideoItem[]
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+/** Portfólio como visto na rota pública /p/:link (GET /public/portfolios/:link) — sem nenhum dado de cliente/projeto. */
+export interface PublicPortfolio {
+  name: string
+  description: string | null
+  branding: Branding | null
+  videos: PortfolioVideoItem[]
+}
+
 /** Cards de destaque do dashboard (GET /dashboard/insights). */
 export interface DashboardInsights {
   /** Vídeos pendentes há mais de 48h. */

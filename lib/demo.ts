@@ -22,9 +22,12 @@ import type {
   GalleryVideoItem,
   PlanId,
   PlanStatus,
+  Portfolio,
+  PortfolioVideoItem,
   Project,
   ProjectGallery,
   ProjectMember,
+  PublicPortfolio,
   PublicVideo,
   QueueVideoItem,
   RatingQuestion,
@@ -525,6 +528,202 @@ export function demoProjectGallery(link: string): ProjectGallery {
     branding: null,
     videos,
   }
+}
+
+/* ------------------------------ portfólios -------------------------------- */
+
+let portfolioIdSeq = 0
+let portfolioVideoIdSeq = 0
+
+export const demoPortfolios: Portfolio[] = [
+  {
+    id: 'pf1',
+    name: 'Reels para redes sociais',
+    description: 'Seleção de reels de curta duração feitos para clientes de e-commerce e beleza.',
+    link: 'demo-reels',
+    coverUrl: '/videos/reel-cosmetics.png',
+    videos: [
+      {
+        id: 'pfv1',
+        title: 'Reel lançamento batom matte',
+        description: 'Case para Bela Cosméticos — lançamento de produto.',
+        videoUrl: DEMO_SAMPLE_URL,
+        posterUrl: '/videos/reel-cosmetics.png',
+        processingStatus: 'pronto',
+        order: 0,
+        createdAt: iso(200),
+      },
+      {
+        id: 'pfv2',
+        title: 'Reel promoção de verão',
+        description: 'Case para Moda Rara — campanha sazonal.',
+        videoUrl: DEMO_SAMPLE_URL,
+        posterUrl: '/videos/reel-fashion.png',
+        processingStatus: 'pronto',
+        order: 1,
+        createdAt: iso(150),
+      },
+    ],
+    createdAt: iso(300),
+    updatedAt: iso(150),
+  },
+  {
+    id: 'pf2',
+    name: 'Institucionais',
+    description: null,
+    link: 'demo-institucional',
+    coverUrl: '/videos/reel-food.png',
+    videos: [
+      {
+        id: 'pfv3',
+        title: 'Institucional restaurante',
+        description: null,
+        videoUrl: DEMO_SAMPLE_URL,
+        posterUrl: '/videos/reel-food.png',
+        processingStatus: 'pronto',
+        order: 0,
+        createdAt: iso(80),
+      },
+    ],
+    createdAt: iso(100),
+    updatedAt: iso(80),
+  },
+]
+
+export function isDemoPortfolioLink(link: string): boolean {
+  return demoPortfolios.some((p) => p.link === link)
+}
+
+/** Portfólio público de exemplo (rota /p/:link). */
+export function demoPublicPortfolio(link: string): PublicPortfolio {
+  const portfolio = demoPortfolios.find((p) => p.link === link) ?? demoPortfolios[0]
+  return {
+    name: portfolio.name,
+    description: portfolio.description,
+    // branding null → a página pública usa o logo padrão do sistema (fallback).
+    branding: null,
+    videos: [...portfolio.videos].sort((a, b) => a.order - b.order),
+  }
+}
+
+export function demoCreatePortfolio(input: { name: string; description?: string }): Portfolio {
+  const created: Portfolio = {
+    id: `pf-${++portfolioIdSeq}-${Date.now()}`,
+    name: input.name,
+    description: input.description ?? null,
+    link: `demo-portfolio-${portfolioIdSeq}`,
+    coverUrl: null,
+    videos: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  demoPortfolios.push(created)
+  return created
+}
+
+export function demoUpdatePortfolio(
+  id: string,
+  input: { name?: string; description?: string | null },
+): Portfolio {
+  const found = demoPortfolios.find((p) => p.id === id)
+  if (!found) throw new Error('Portfólio não encontrado.')
+  if (input.name !== undefined) found.name = input.name
+  if (input.description !== undefined) found.description = input.description
+  found.updatedAt = new Date().toISOString()
+  return found
+}
+
+export function demoDeletePortfolio(id: string): void {
+  const idx = demoPortfolios.findIndex((p) => p.id === id)
+  if (idx !== -1) demoPortfolios.splice(idx, 1)
+}
+
+function touchPortfolioCover(portfolio: Portfolio) {
+  const sorted = [...portfolio.videos].sort((a, b) => a.order - b.order)
+  portfolio.coverUrl = sorted[0]?.posterUrl ?? null
+  portfolio.updatedAt = new Date().toISOString()
+}
+
+export function demoAddExistingPortfolioVideo(
+  portfolioId: string,
+  videoId: string,
+  input: { title?: string; description?: string },
+): Portfolio {
+  const portfolio = demoPortfolios.find((p) => p.id === portfolioId)
+  if (!portfolio) throw new Error('Portfólio não encontrado.')
+  const source = demoVideos.find((v) => v.id === videoId)
+  const item: PortfolioVideoItem = {
+    id: `pfv-${++portfolioVideoIdSeq}-${Date.now()}`,
+    title: input.title || source?.title || 'Sem título',
+    description: input.description ?? null,
+    videoUrl: DEMO_SAMPLE_URL,
+    posterUrl: source?.posterUrl ?? null,
+    processingStatus: 'pronto',
+    order: portfolio.videos.length,
+    createdAt: new Date().toISOString(),
+  }
+  portfolio.videos.push(item)
+  touchPortfolioCover(portfolio)
+  return portfolio
+}
+
+export function demoAddUploadedPortfolioVideo(
+  portfolioId: string,
+  input: { title: string; description: string | null; videoUrl: string | null; posterUrl: string | null },
+): Portfolio {
+  const portfolio = demoPortfolios.find((p) => p.id === portfolioId)
+  if (!portfolio) throw new Error('Portfólio não encontrado.')
+  const item: PortfolioVideoItem = {
+    id: `pfv-${++portfolioVideoIdSeq}-${Date.now()}`,
+    title: input.title,
+    description: input.description,
+    videoUrl: input.videoUrl,
+    posterUrl: input.posterUrl,
+    processingStatus: 'pronto',
+    order: portfolio.videos.length,
+    createdAt: new Date().toISOString(),
+  }
+  portfolio.videos.push(item)
+  touchPortfolioCover(portfolio)
+  return portfolio
+}
+
+export function demoUpdatePortfolioVideo(
+  portfolioId: string,
+  videoId: string,
+  input: { title?: string; description?: string | null },
+): Portfolio {
+  const portfolio = demoPortfolios.find((p) => p.id === portfolioId)
+  if (!portfolio) throw new Error('Portfólio não encontrado.')
+  const item = portfolio.videos.find((v) => v.id === videoId)
+  if (item) {
+    if (input.title !== undefined) item.title = input.title
+    if (input.description !== undefined) item.description = input.description
+  }
+  portfolio.updatedAt = new Date().toISOString()
+  return portfolio
+}
+
+export function demoRemovePortfolioVideo(portfolioId: string, videoId: string): Portfolio {
+  const portfolio = demoPortfolios.find((p) => p.id === portfolioId)
+  if (!portfolio) throw new Error('Portfólio não encontrado.')
+  portfolio.videos = portfolio.videos.filter((v) => v.id !== videoId)
+  portfolio.videos.forEach((v, i) => (v.order = i))
+  touchPortfolioCover(portfolio)
+  return portfolio
+}
+
+export function demoReorderPortfolioVideos(portfolioId: string, orderedVideoIds: string[]): Portfolio {
+  const portfolio = demoPortfolios.find((p) => p.id === portfolioId)
+  if (!portfolio) throw new Error('Portfólio não encontrado.')
+  const byId = new Map(portfolio.videos.map((v) => [v.id, v]))
+  portfolio.videos = orderedVideoIds.map((id, i) => {
+    const v = byId.get(id)
+    if (!v) throw new Error('Vídeo do portfólio não encontrado.')
+    return { ...v, order: i }
+  })
+  touchPortfolioCover(portfolio)
+  return portfolio
 }
 
 export const demoAdminUsers: AdminUser[] = [

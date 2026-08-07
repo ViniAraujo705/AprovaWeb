@@ -13,10 +13,14 @@ import {
   buildDemoReport,
   delay,
   demoAdminUsers,
+  demoAddExistingPortfolioVideo,
+  demoAddUploadedPortfolioVideo,
   demoAssignProjectMember,
   demoClientChannel,
   demoClients,
+  demoCreatePortfolio,
   demoCrewRoster,
+  demoDeletePortfolio,
   demoInsights,
   demoInternalComments,
   demoMe,
@@ -26,18 +30,25 @@ import {
   demoNotifications,
   demoPlanStatus,
   demoSetPlan,
+  demoPortfolios,
   demoProjectGallery,
   demoProjects,
+  demoPublicPortfolio,
   demoPublicVideo,
   demoRatingQuestions,
   demoRecordingEvents,
+  demoRemovePortfolioVideo,
   demoRemoveProjectMember,
+  demoReorderPortfolioVideos,
   demoSessions,
   demoTeamMembers,
   demoTeamPerformance,
+  demoUpdatePortfolio,
+  demoUpdatePortfolioVideo,
   demoVideos,
   demoVideosForProject,
   isDemo,
+  isDemoPortfolioLink,
   isDemoProjectLink,
   isDemoVideoLink,
 } from '@/lib/demo'
@@ -60,9 +71,12 @@ import type {
   BillingCycle,
   PlanId,
   PlanStatus,
+  Portfolio,
+  PortfolioVideoItem,
   Project,
   ProjectGallery,
   ProjectMember,
+  PublicPortfolio,
   PublicVideo,
   QueueVideoItem,
   Rating,
@@ -449,6 +463,41 @@ function hideSupersededGalleryVideos(videos: GalleryVideoItem[]): GalleryVideoIt
   const supersededIds = new Set<string>()
   for (const v of videos) if (v.videoPaiId) supersededIds.add(v.videoPaiId)
   return videos.filter((v) => !supersededIds.has(v.id))
+}
+
+function mapPortfolioVideoItem(raw: Raw): PortfolioVideoItem {
+  return {
+    id: String(pick(raw, ['id', '_id'], '')),
+    title: pick(raw, ['titulo', 'title', 'nomeArquivo', 'nome_arquivo', 'name'], 'Sem título'),
+    description: pick<string | null>(raw, ['descricao', 'description'], null),
+    videoUrl: pick<string | null>(raw, ['videoUrl', 'video_url', 'url', 'urlStorage'], null),
+    posterUrl: pick<string | null>(raw, ['posterUrl', 'poster', 'thumbnailUrl', 'thumbnail'], null),
+    processingStatus: normalizeProcessing(
+      pick(raw, ['statusProcessamento', 'status_processamento'], 'pronto'),
+    ),
+    order: Number(pick(raw, ['ordem', 'order'], 0)) || 0,
+    createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
+  }
+}
+
+function mapPortfolio(raw: Raw): Portfolio {
+  const videos = asArray(pick(raw, ['videos'], []))
+    .map(mapPortfolioVideoItem)
+    .sort((a, b) => a.order - b.order)
+  return {
+    id: String(pick(raw, ['id', '_id'], '')),
+    name: pick(raw, ['nome', 'name', 'titulo'], 'Sem título'),
+    description: pick<string | null>(raw, ['descricao', 'description'], null),
+    link: String(pick(raw, ['link', 'linkPublico', 'link_publico', 'slug'], '')),
+    coverUrl: pick<string | null>(
+      raw,
+      ['capaUrl', 'coverUrl', 'cover_url'],
+      videos[0]?.posterUrl ?? null,
+    ),
+    videos,
+    createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
+    updatedAt: pick<string | null>(raw, ['atualizadoEm', 'atualizado_em', 'updatedAt'], null),
+  }
 }
 
 function mapAdminUser(raw: Raw): AdminUser {
@@ -980,6 +1029,146 @@ export const projectService = {
   },
 }
 
+/* ------------------------------ portfólios -------------------------------- */
+
+/**
+ * Vitrine da agência (só owner): coleções de vídeos curadas manualmente, cada
+ * uma com link público próprio (/p/:link) — distinto da galeria de projeto
+ * (`projectService`/`getProjectGallery`), que espelha 1:1 os vídeos de uma
+ * entrega e carrega status de aprovação. Aqui não há isso: um vídeo só entra
+ * quando o owner escolhe (selecionando um já existente ou subindo um novo
+ * direto pro portfólio), e a página pública nunca expõe cliente/projeto.
+ *
+ * Endpoints ainda não existem no backend — ver
+ * `scratchpad/mensagem-backend-portfolios.md` para o contrato esperado. Até lá,
+ * a experiência completa roda em modo demo.
+ */
+export const portfolioService = {
+  async list(signal?: AbortSignal): Promise<Portfolio[]> {
+    if (isDemo()) return delay(demoPortfolios)
+    const res = await api.get('/portfolios', { signal })
+    return asArray(res).map(mapPortfolio)
+  },
+  async get(id: string, signal?: AbortSignal): Promise<Portfolio> {
+    if (isDemo()) {
+      const found = demoPortfolios.find((p) => p.id === id)
+      if (!found) throw new ApiError('Portfólio não encontrado.', 404)
+      return delay(found)
+    }
+    const res = await api.get<Raw>(`/portfolios/${id}`, { signal })
+    return mapPortfolio(res)
+  },
+  async create(input: { name: string; description?: string }): Promise<Portfolio> {
+    if (isDemo()) return delay(demoCreatePortfolio(input), 300)
+    const res = await api.post<Raw>('/portfolios', {
+      nome: input.name,
+      descricao: input.description,
+    })
+    return mapPortfolio(res)
+  },
+  async update(id: string, input: { name?: string; description?: string | null }): Promise<Portfolio> {
+    if (isDemo()) return delay(demoUpdatePortfolio(id, input), 300)
+    const res = await api.patch<Raw>(`/portfolios/${id}`, {
+      nome: input.name,
+      descricao: input.description,
+    })
+    return mapPortfolio(res)
+  },
+  async remove(id: string): Promise<void> {
+    if (isDemo()) return void (await delay(demoDeletePortfolio(id), 300))
+    await api.delete(`/portfolios/${id}`)
+  },
+  /** Adiciona um vídeo já existente (de qualquer projeto) ao portfólio — o backend copia url/poster nesse momento. */
+  async addExistingVideo(
+    portfolioId: string,
+    videoId: string,
+    input: { title?: string; description?: string } = {},
+  ): Promise<Portfolio> {
+    if (isDemo())
+      return delay(demoAddExistingPortfolioVideo(portfolioId, videoId, input), 300)
+    const res = await api.post<Raw>(`/portfolios/${portfolioId}/videos`, {
+      videoId,
+      titulo: input.title,
+      descricao: input.description,
+    })
+    return mapPortfolio(res)
+  },
+  /**
+   * Passo 1/3 do upload dedicado ao portfólio (mesmo shape de
+   * `videoService.getUploadUrl`). Sem branch demo: quem chama isto já checou
+   * `isDemo()` antes (mesmo padrão de `upload-view.tsx`), pra não gerar uma
+   * URL presignada falsa que ninguém vai usar.
+   */
+  async getUploadUrl(
+    portfolioId: string,
+    input: { fileName: string; contentType: string },
+  ): Promise<{
+    uploadUrl: string
+    key: string
+    publicUrl: string | null
+    headers?: Record<string, string>
+  }> {
+    const res = await api.post<Raw>(`/portfolios/${portfolioId}/upload-url`, {
+      nomeArquivo: input.fileName,
+      contentType: input.contentType,
+    })
+    return {
+      uploadUrl: pick(res, ['uploadUrl'], ''),
+      key: pick(res, ['key'], ''),
+      publicUrl: pick<string | null>(res, ['publicUrl'], null),
+      headers: pick<Record<string, string> | undefined>(res, ['headers'], undefined),
+    }
+  },
+  /** Passo 3/3: registra o vídeo enviado direto pro portfólio (sem projeto/cliente por trás). */
+  async confirmUpload(
+    portfolioId: string,
+    input: { urlStorage: string; nomeArquivo: string; title?: string; description?: string },
+  ): Promise<Portfolio> {
+    if (isDemo())
+      return delay(
+        demoAddUploadedPortfolioVideo(portfolioId, {
+          title: input.title || input.nomeArquivo,
+          description: input.description ?? null,
+          videoUrl: input.urlStorage,
+          posterUrl: null,
+        }),
+        300,
+      )
+    const res = await api.post<Raw>(`/portfolios/${portfolioId}/videos/upload-complete`, {
+      urlStorage: input.urlStorage,
+      nomeArquivo: input.nomeArquivo,
+      titulo: input.title,
+      descricao: input.description,
+    })
+    return mapPortfolio(res)
+  },
+  async updateVideo(
+    portfolioId: string,
+    videoId: string,
+    input: { title?: string; description?: string | null },
+  ): Promise<Portfolio> {
+    if (isDemo()) return delay(demoUpdatePortfolioVideo(portfolioId, videoId, input), 300)
+    const res = await api.patch<Raw>(`/portfolios/${portfolioId}/videos/${videoId}`, {
+      titulo: input.title,
+      descricao: input.description,
+    })
+    return mapPortfolio(res)
+  },
+  async removeVideo(portfolioId: string, videoId: string): Promise<Portfolio> {
+    if (isDemo()) return delay(demoRemovePortfolioVideo(portfolioId, videoId), 300)
+    const res = await api.delete<Raw>(`/portfolios/${portfolioId}/videos/${videoId}`)
+    return mapPortfolio(res)
+  },
+  /** Reordena os vídeos do portfólio (botões subir/descer na UI de gestão). */
+  async reorder(portfolioId: string, orderedVideoIds: string[]): Promise<Portfolio> {
+    if (isDemo()) return delay(demoReorderPortfolioVideos(portfolioId, orderedVideoIds), 300)
+    const res = await api.patch<Raw>(`/portfolios/${portfolioId}/videos/order`, {
+      videoIds: orderedVideoIds,
+    })
+    return mapPortfolio(res)
+  },
+}
+
 /* --------------------------- public (cliente) ---------------------------- */
 
 export const publicService = {
@@ -1145,6 +1334,24 @@ export const publicService = {
         // Backend não garante ordem; sem isso o vídeo recém-enviado podia
         // aparecer depois de vídeos antigos do mesmo projeto na galeria.
         .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
+    }
+  },
+
+  /** Portfólio público da agência (vitrine): grade de vídeos sem nenhum dado de cliente/projeto. */
+  async getPortfolioByLink(link: string, signal?: AbortSignal): Promise<PublicPortfolio> {
+    if (isDemoPortfolioLink(link)) return delay(demoPublicPortfolio(link))
+    const res = await api.get<Raw>(`/public/portfolios/${encodeURIComponent(link)}`, {
+      auth: false,
+      signal,
+    })
+    const agenciaRaw = pick<Raw | null>(res, ['agencia', 'agency', 'branding'], null)
+    return {
+      name: pick(res, ['nome', 'name'], ''),
+      description: pick<string | null>(res, ['descricao', 'description'], null),
+      branding: mapBranding(agenciaRaw),
+      videos: asArray(pick(res, ['videos'], []))
+        .map(mapPortfolioVideoItem)
+        .sort((a, b) => a.order - b.order),
     }
   },
 }

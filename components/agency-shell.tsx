@@ -24,6 +24,7 @@ import {
   Bell,
   Gauge,
   CalendarDays,
+  Images,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/back-button'
@@ -56,6 +57,7 @@ const nav: NavItem[] = [
   { href: '/calendario', label: 'Calendário', icon: CalendarDays },
   { href: '/notificacoes', label: 'Notificações', icon: Bell },
   { href: '/clientes', label: 'Clientes', icon: Contact, teamRole: 'owner' },
+  { href: '/portfolios', label: 'Portfólios', icon: Images, teamRole: 'owner' },
   { href: '/configuracoes/equipe', label: 'Equipe', icon: Users, teamRole: 'owner' },
   { href: '/equipe/desempenho', label: 'Desempenho', icon: BarChart3, teamRole: 'owner' },
   {
