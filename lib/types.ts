@@ -288,7 +288,9 @@ export interface Portfolio {
   description: string | null
   /** Link público (slug) para a rota /p/:link. */
   link: string
-  /** Poster do primeiro item, usado como capa nos cards de listagem. */
+  /** Categoria/aba do hub público a que este álbum pertence (null = "Sem categoria"). */
+  categoryId: string | null
+  /** Capa explícita definida pelo owner; se null, o frontend usa o poster do primeiro item como fallback. */
   coverUrl: string | null
   videos: PortfolioItem[]
   createdAt: string | null
@@ -301,6 +303,37 @@ export interface PublicPortfolio {
   description: string | null
   branding: Branding | null
   videos: PortfolioItem[]
+}
+
+/** Categoria/aba livre criada pelo owner para agrupar álbuns de portfólio no hub público. */
+export interface PortfolioCategory {
+  id: string
+  name: string
+  order: number
+}
+
+/** Perfil da vitrine da agência: foto de perfil + o link público do hub que reúne todos os álbuns (/portfolio/:hubLink). */
+export interface PortfolioProfile {
+  photoUrl: string | null
+  /** Nunca null — gerado automaticamente na primeira leitura, como o `publicLink` de projeto. */
+  hubLink: string
+}
+
+/** Um álbum como aparece agrupado numa categoria do hub público — versão enxuta, sem `videos[]`. */
+export interface PortfolioHubItem {
+  id: string
+  name: string
+  description: string | null
+  link: string
+  coverUrl: string | null
+}
+
+/** Hub público da agência (rota /portfolio/:hubLink): perfil + álbuns agrupados por categoria, sem nenhum dado de cliente/projeto. */
+export interface PublicPortfolioHub {
+  agencyName: string | null
+  photoUrl: string | null
+  branding: Branding | null
+  categories: { id: string; name: string; portfolios: PortfolioHubItem[] }[]
 }
 
 /** Cards de destaque do dashboard (GET /dashboard/insights). */

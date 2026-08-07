@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Film,
   ImageIcon,
+  ImagePlus,
   Link2,
   Loader2,
   Pencil,
@@ -21,8 +22,8 @@ import {
   UploadCloud,
   X,
 } from 'lucide-react'
-import { portfolioService, videoService } from '@/lib/services'
-import type { Portfolio, PortfolioItem, PortfolioItemMediaType, Video } from '@/lib/types'
+import { portfolioProfileService, portfolioService, videoService } from '@/lib/services'
+import type { Portfolio, PortfolioCategory, PortfolioItem, PortfolioItemMediaType, Video } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
@@ -30,6 +31,16 @@ import { UploadError, uploadToPresignedUrl, validateImageFile, validateVideoFile
 import { isDemo } from '@/lib/demo'
 import { AnimatePresence, motion, FadeIn } from '@/components/motion'
 import { toast } from '@/lib/toast'
+
+/** Lê um arquivo como Data URL (usado só no preview/modo demo). */
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('Falha ao ler a imagem.'))
+    reader.readAsDataURL(file)
+  })
+}
 
 export function PortfolioDetailView({ id }: { id: string }) {
   const router = useRouter()
@@ -242,10 +253,19 @@ function PortfolioDetailsForm({
   portfolio: Portfolio
   onUpdated: (next: Portfolio) => void
 }) {
+  const inputRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState(portfolio.name)
   const [description, setDescription] = useState(portfolio.description ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [coverBusy, setCoverBusy] = useState(false)
+  const [coverError, setCoverError] = useState<string | null>(null)
+  const [categoryBusy, setCategoryBusy] = useState(false)
+
+  const categories = useQuery<PortfolioCategory[]>(
+    (signal) => portfolioProfileService.listCategories(signal),
+    [],
+  )
 
   const dirty = name !== portfolio.name || description !== (portfolio.description ?? '')
 
@@ -270,42 +290,143 @@ function PortfolioDetailsForm({
     }
   }
 
+  async function handleCoverFile(file: File | undefined | null) {
+    if (!file) return
+    const invalid = validateImageFile(file)
+    if (invalid) {
+      setCoverError(invalid)
+      return
+    }
+    setCoverError(null)
+    setCoverBusy(true)
+    try {
+      if (isDemo()) {
+        const dataUrl = await readAsDataUrl(file)
+        const updated = await portfolioService.update(portfolio.id, { coverUrl: dataUrl })
+        onUpdated(updated)
+        toast.success('Capa atualizada')
+        return
+      }
+      const presigned = await portfolioService.getCoverUploadUrl(portfolio.id, {
+        fileName: file.name,
+        contentType: file.type || 'application/octet-stream',
+      })
+      if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
+      await uploadToPresignedUrl({ url: presigned.uploadUrl, file, headers: presigned.headers })
+      const updated = await portfolioService.update(portfolio.id, { coverUrl: presigned.publicUrl })
+      onUpdated(updated)
+      toast.success('Capa atualizada')
+    } catch (err) {
+      setCoverError(
+        err instanceof UploadError || err instanceof ApiError
+          ? err.message
+          : 'Falha ao enviar a capa.',
+      )
+    } finally {
+      setCoverBusy(false)
+    }
+  }
+
+  async function changeCategory(categoryId: string) {
+    setCategoryBusy(true)
+    try {
+      const updated = await portfolioService.update(portfolio.id, { categoryId: categoryId || null })
+      onUpdated(updated)
+    } catch (err) {
+      toast.error('Não foi possível mudar a categoria', err instanceof ApiError ? err.message : undefined)
+    } finally {
+      setCategoryBusy(false)
+    }
+  }
+
   return (
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
-      <label className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium text-foreground">Nome</span>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary sm:max-w-md"
-        />
-      </label>
-      <label className="mt-4 flex flex-col gap-1.5">
-        <span className="text-sm font-medium text-foreground">Descrição</span>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Uma frase sobre este portfólio (opcional)"
-          rows={2}
-          className="resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary sm:max-w-md"
-        />
-      </label>
-      {error && (
-        <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
-          <AlertTriangle className="size-4" /> {error}
-        </p>
-      )}
-      {dirty && (
-        <button
-          type="button"
-          onClick={save}
-          disabled={busy}
-          className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
-        >
-          {busy && <Loader2 className="size-4 animate-spin" />}
-          Salvar alterações
-        </button>
-      )}
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="shrink-0">
+          <span className="text-sm font-medium text-foreground">Capa</span>
+          <button
+            type="button"
+            onClick={() => !coverBusy && inputRef.current?.click()}
+            disabled={coverBusy}
+            aria-label="Alterar capa do portfólio"
+            className="group relative mt-1.5 block aspect-video w-40 overflow-hidden rounded-lg border border-border bg-secondary disabled:opacity-70"
+          >
+            {portfolio.coverUrl ? (
+              <Image src={portfolio.coverUrl} alt="" fill className="object-cover" sizes="160px" unoptimized />
+            ) : (
+              <span className="grid h-full w-full place-items-center text-muted-foreground/60">
+                <ImageIcon className="size-6" />
+              </span>
+            )}
+            <span className="absolute inset-0 hidden items-center justify-center bg-black/50 text-white group-hover:flex">
+              {coverBusy ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
+            </span>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={(e) => handleCoverFile(e.target.files?.[0])}
+            />
+          </button>
+          {coverError && <p className="mt-1.5 max-w-40 text-xs text-destructive">{coverError}</p>}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-foreground">Nome</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary sm:max-w-md"
+            />
+          </label>
+          <label className="mt-4 flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-foreground">Descrição</span>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Uma frase sobre este portfólio (opcional)"
+              rows={2}
+              className="resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary sm:max-w-md"
+            />
+          </label>
+          {!categories.loading && !categories.error && (categories.data ?? []).length > 0 && (
+            <label className="mt-4 flex flex-col gap-1.5 sm:max-w-md">
+              <span className="text-sm font-medium text-foreground">Categoria</span>
+              <select
+                value={portfolio.categoryId ?? ''}
+                onChange={(e) => changeCategory(e.target.value)}
+                disabled={categoryBusy}
+                className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-50"
+              >
+                <option value="">Sem categoria</option>
+                {(categories.data ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {error && (
+            <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
+              <AlertTriangle className="size-4" /> {error}
+            </p>
+          )}
+          {dirty && (
+            <button
+              type="button"
+              onClick={save}
+              disabled={busy}
+              className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
+            >
+              {busy && <Loader2 className="size-4 animate-spin" />}
+              Salvar alterações
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

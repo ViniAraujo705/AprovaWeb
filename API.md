@@ -13,6 +13,7 @@ enviar e o que esperar de volta. Gerado a partir do código-fonte em
 - [Projetos](#projetos-projects)
 - [Vídeos](#vídeos-videos)
 - [Portfólios](#portfólios-portfolios)
+- [Portfólio: perfil e categorias](#portfólio-perfil-e-categorias-portfolio-profile-portfolio-categories)
 - [Comentários (canais autenticados)](#comentários-canais-autenticados)
 - [Conta / equipe (convites e membros)](#conta--equipe-account)
 - [Sessões ativas](#sessões-ativas-accountsessions-accountmembersidsessions)
@@ -22,6 +23,7 @@ enviar e o que esperar de volta. Gerado a partir do código-fonte em
 - [Acesso público do cliente (sem autenticação)](#acesso-público-do-cliente-sem-autenticação)
   - [Galeria pública do projeto](#galeria-pública-do-projeto)
   - [Portfólio público](#portfólio-público)
+  - [Hub público do portfólio](#hub-público-do-portfólio)
 - [Admin](#admin)
 - [Health check](#health-check)
 - [Fluxo de upload de vídeo](#fluxo-de-upload-de-vídeo)
@@ -272,14 +274,17 @@ projeto/cliente.
 |---|---|---|---|
 | `GET` | `/portfolios` | — | `Portfolio[]` (sem `videos[]`, só resumo — ver abaixo) |
 | `GET` | `/portfolios/:id` | — | `Portfolio` completo, com `videos[]` |
-| `POST` | `/portfolios` | `{ nome, descricao? }` | `Portfolio` criado (`linkPublico` gerado pelo backend) |
-| `PATCH` | `/portfolios/:id` | `{ nome?, descricao? }` | `Portfolio` atualizado |
+| `POST` | `/portfolios` | `{ nome, descricao?, categoriaId? }` | `Portfolio` criado (`linkPublico` gerado pelo backend) |
+| `PATCH` | `/portfolios/:id` | `{ nome?, descricao?, categoriaId?, capaUrl? }` | `Portfolio` atualizado |
 | `DELETE` | `/portfolios/:id` | — | `{ "deleted": true }` |
 
-`Portfolio`: `{ id, nome, descricao, linkPublico, capaUrl, videos: PortfolioItem[], criadoEm, atualizadoEm }`.
-`capaUrl` pode ser `null` — o frontend usa o poster/foto do primeiro item como
-fallback quando ausente. O campo continua se chamando `videos` por
-compatibilidade com o que já foi combinado, mas a lista mistura vídeos e fotos.
+`Portfolio`: `{ id, nome, descricao, linkPublico, categoriaId, capaUrl, videos: PortfolioItem[], criadoEm, atualizadoEm }`.
+`categoriaId` referencia uma categoria de [`/portfolio-categories`](#portfólio-perfil-e-categorias-portfolio-profile-portfolio-categories),
+`null` = sem categoria (não aparece em nenhuma aba do hub público, mas
+continua acessível pelo link direto do álbum). `capaUrl` também pode ser
+`null` — nesse caso o frontend usa o poster/foto do primeiro item como
+fallback. O campo continua se chamando `videos` por compatibilidade com o
+que já foi combinado, mas a lista mistura vídeos e fotos.
 
 `PortfolioItem`: `{ id, tipoMidia: "video" | "foto", titulo, descricao,
 urlStorage (ou urlOtimizada, o que estiver pronto para tocar — sempre `null`
@@ -345,6 +350,53 @@ Reordena os itens do portfólio (usado pelos botões subir/descer na UI).
 Body: `{ "videoIds": ["uuid1", "uuid2", "..."] }` — a nova ordem completa,
 na sequência desejada. Resposta: o `Portfolio` completo atualizado, com
 `ordem` de cada item recalculada a partir da posição no array.
+
+### `POST /portfolios/:id/cover-upload-url`
+**[ PENDENTE NO BACKEND ]** Presigned URL pra capa do álbum — só imagem, mesmo
+contrato 2-passos de `POST /portfolio-profile/photo-upload-url` (não precisa
+de um terceiro passo de "confirmação": a própria `publicUrl` retornada aqui
+já é enviada direto em `PATCH /portfolios/:id { capaUrl }`).
+
+Body: `{ "nomeArquivo": "capa.jpg", "contentType": "image/jpeg" }`
+`contentType` aceita `image/png`, `image/jpeg`, `image/webp`.
+
+Resposta `200`: `{ "uploadUrl": "...", "key": "...", "publicUrl": "...", "expiresIn": 600 }`
+
+## Portfólio: perfil e categorias (`/portfolio-profile`, `/portfolio-categories`)
+**[ PENDENTE NO BACKEND — nenhuma destas rotas existe hoje ]** Autenticado —
+**somente `owner`**.
+
+A vitrine da agência tem um **hub público único** (`/portfolio/:linkHub` no
+frontend) que reúne todos os portfólios/álbuns, agrupados em abas pelas
+categorias que o owner cria livremente (não é fixo em "Foto"/"Vídeo" — o
+owner nomeia como quiser: "Casamento", "Institucional", etc). Um álbum sem
+categoria (`categoriaId: null`) não aparece em nenhuma aba do hub, mas
+continua acessível pelo link direto dele.
+
+| Método | Rota | Body | Retorno |
+|---|---|---|---|
+| `GET` | `/portfolio-profile` | — | `PortfolioProfile` (cria `linkHub` automaticamente na primeira chamada, se a conta ainda não tiver um) |
+| `PATCH` | `/portfolio-profile` | `{ fotoUrl }` | `PortfolioProfile` atualizado |
+| `GET` | `/portfolio-categories` | — | `PortfolioCategory[]`, ordenadas por `ordem` |
+| `POST` | `/portfolio-categories` | `{ nome }` | `PortfolioCategory` criada |
+| `PATCH` | `/portfolio-categories/:id` | `{ nome }` | `PortfolioCategory` atualizada |
+| `DELETE` | `/portfolio-categories/:id` | — | `{ "deleted": true }` — os álbuns associados viram `categoriaId: null`, **não são apagados** |
+| `PATCH` | `/portfolio-categories/order` | `{ categoryIds: ["uuid1", "uuid2", "..."] }` | `PortfolioCategory[]` com `ordem` recalculada pela posição no array |
+
+`PortfolioProfile`: `{ fotoUrl, linkHub }` — `linkHub` nunca é `null` (mesmo
+espírito do `linkPublico` de projeto). `PortfolioCategory`: `{ id, nome, ordem }`.
+
+### `POST /portfolio-profile/photo-upload-url`
+Presigned URL pra foto de perfil — só imagem, mesmo contrato 2-passos de
+`clientService.getPhotoUploadUrl` (ver seção Clientes): o frontend faz
+`PUT <uploadUrl>` com o arquivo e depois salva a `publicUrl` retornada com
+`PATCH /portfolio-profile { fotoUrl: publicUrl }` — sem um terceiro passo de
+"confirmação" (diferente do upload de vídeo).
+
+Body: `{ "nomeArquivo": "foto.jpg", "contentType": "image/jpeg" }`
+`contentType` aceita `image/png`, `image/jpeg`, `image/webp`.
+
+Resposta `200`: `{ "uploadUrl": "...", "key": "...", "publicUrl": "...", "expiresIn": 600 }`
 
 ---
 
@@ -648,6 +700,37 @@ O frontend abre cada item num lightbox — `<video>` nativo pra
 `tipoMidia: "video"`, a imagem em tela cheia pra `tipoMidia: "foto"` — sem
 navegar para `/v/:linkPublico` — a tela de aprovação do cliente não faz
 sentido aqui.
+
+### Hub público do portfólio
+
+### `GET /public/portfolio-hub/:linkHub`
+**[ PENDENTE NO BACKEND — rota não existe hoje ]** Sem autenticação. `404` se
+o link não existir. Vitrine central da agência (ver
+[Portfólio: perfil e categorias](#portfólio-perfil-e-categorias-portfolio-profile-portfolio-categories)):
+todos os álbuns agrupados por categoria, pra alimentar as abas no frontend
+(`/portfolio/:linkHub`). Só inclui categorias com pelo menos um álbum que
+tenha algum item — categoria vazia não deve vir na resposta. Álbuns sem
+categoria (`categoriaId: null`) não aparecem aqui (só pelo link direto deles).
+
+Resposta:
+```json
+{
+  "fotoUrl": "https://... ou null",
+  "agencia": { "nome": "Agencia Teste", "logoUrl": "https://...", "corDestaque": "#ff0000" },
+  "categorias": [
+    {
+      "id": "uuid",
+      "nome": "Vídeo",
+      "portfolios": [
+        { "id": "uuid", "nome": "Reels para redes sociais", "descricao": "... ou null", "link": "64c7527a-...", "capaUrl": "https://... ou null" }
+      ]
+    }
+  ]
+}
+```
+Cada item de `portfolios[]` é só o resumo do álbum (sem `videos[]`) — o
+frontend usa `link` pra montar o card que leva pra `/p/:link` (a página do
+álbum já existente, sem nenhuma mudança de contrato ali).
 
 ### `POST /public/videos/:linkPublico/comments`
 Rate limit: **20/min**.

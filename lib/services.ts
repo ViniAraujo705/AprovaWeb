@@ -18,6 +18,7 @@ import {
   demoAssignProjectMember,
   demoClientChannel,
   demoClients,
+  demoCreateCategory,
   demoCreatePortfolio,
   demoCrewRoster,
   demoDeletePortfolio,
@@ -30,24 +31,32 @@ import {
   demoNotifications,
   demoPlanStatus,
   demoSetPlan,
+  demoPortfolioCategories,
+  demoPortfolioProfile,
   demoPortfolios,
   demoProjectGallery,
   demoProjects,
   demoPublicPortfolio,
+  demoPublicPortfolioHub,
   demoPublicVideo,
   demoRatingQuestions,
   demoRecordingEvents,
+  demoRemoveCategory,
   demoRemovePortfolioVideo,
   demoRemoveProjectMember,
+  demoReorderCategories,
   demoReorderPortfolioVideos,
   demoSessions,
   demoTeamMembers,
   demoTeamPerformance,
+  demoUpdateCategory,
   demoUpdatePortfolio,
+  demoUpdatePortfolioProfilePhoto,
   demoUpdatePortfolioVideo,
   demoVideos,
   demoVideosForProject,
   isDemo,
+  isDemoHubLink,
   isDemoPortfolioLink,
   isDemoProjectLink,
   isDemoVideoLink,
@@ -72,12 +81,16 @@ import type {
   PlanId,
   PlanStatus,
   Portfolio,
+  PortfolioCategory,
+  PortfolioHubItem,
   PortfolioItem,
   PortfolioItemMediaType,
+  PortfolioProfile,
   Project,
   ProjectGallery,
   ProjectMember,
   PublicPortfolio,
+  PublicPortfolioHub,
   PublicVideo,
   QueueVideoItem,
   Rating,
@@ -496,6 +509,7 @@ function mapPortfolio(raw: Raw): Portfolio {
     name: pick(raw, ['nome', 'name', 'titulo'], 'Sem título'),
     description: pick<string | null>(raw, ['descricao', 'description'], null),
     link: String(pick(raw, ['link', 'linkPublico', 'link_publico', 'slug'], '')),
+    categoryId: pick<string | null>(raw, ['categoriaId', 'categoria_id', 'categoryId'], null),
     coverUrl: pick<string | null>(
       raw,
       ['capaUrl', 'coverUrl', 'cover_url'],
@@ -504,6 +518,31 @@ function mapPortfolio(raw: Raw): Portfolio {
     videos,
     createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
     updatedAt: pick<string | null>(raw, ['atualizadoEm', 'atualizado_em', 'updatedAt'], null),
+  }
+}
+
+function mapPortfolioCategory(raw: Raw): PortfolioCategory {
+  return {
+    id: String(pick(raw, ['id', '_id'], '')),
+    name: pick(raw, ['nome', 'name'], 'Sem título'),
+    order: Number(pick(raw, ['ordem', 'order'], 0)) || 0,
+  }
+}
+
+function mapPortfolioProfile(raw: Raw): PortfolioProfile {
+  return {
+    photoUrl: pick<string | null>(raw, ['fotoUrl', 'foto_url', 'photoUrl'], null),
+    hubLink: String(pick(raw, ['linkHub', 'link_hub', 'hubLink', 'link'], '')),
+  }
+}
+
+function mapPortfolioHubItem(raw: Raw): PortfolioHubItem {
+  return {
+    id: String(pick(raw, ['id', '_id'], '')),
+    name: pick(raw, ['nome', 'name', 'titulo'], 'Sem título'),
+    description: pick<string | null>(raw, ['descricao', 'description'], null),
+    link: String(pick(raw, ['link', 'linkPublico', 'link_publico', 'slug'], '')),
+    coverUrl: pick<string | null>(raw, ['capaUrl', 'coverUrl', 'cover_url'], null),
   }
 }
 
@@ -1065,25 +1104,47 @@ export const portfolioService = {
     const res = await api.get<Raw>(`/portfolios/${id}`, { signal })
     return mapPortfolio(res)
   },
-  async create(input: { name: string; description?: string }): Promise<Portfolio> {
+  async create(input: { name: string; description?: string; categoryId?: string | null }): Promise<Portfolio> {
     if (isDemo()) return delay(demoCreatePortfolio(input), 300)
     const res = await api.post<Raw>('/portfolios', {
       nome: input.name,
       descricao: input.description,
+      categoriaId: input.categoryId,
     })
     return mapPortfolio(res)
   },
-  async update(id: string, input: { name?: string; description?: string | null }): Promise<Portfolio> {
+  async update(
+    id: string,
+    input: { name?: string; description?: string | null; categoryId?: string | null; coverUrl?: string | null },
+  ): Promise<Portfolio> {
     if (isDemo()) return delay(demoUpdatePortfolio(id, input), 300)
     const res = await api.patch<Raw>(`/portfolios/${id}`, {
       nome: input.name,
       descricao: input.description,
+      categoriaId: input.categoryId,
+      capaUrl: input.coverUrl,
     })
     return mapPortfolio(res)
   },
   async remove(id: string): Promise<void> {
     if (isDemo()) return void (await delay(demoDeletePortfolio(id), 300))
     await api.delete(`/portfolios/${id}`)
+  },
+  /** Passo 1/2 do upload de capa (só imagem, mesmo padrão de `clientService.getPhotoUploadUrl`). */
+  async getCoverUploadUrl(
+    portfolioId: string,
+    input: { fileName: string; contentType: string },
+  ): Promise<{ uploadUrl: string; key: string; publicUrl: string | null; headers?: Record<string, string> }> {
+    const res = await api.post<Raw>(`/portfolios/${portfolioId}/cover-upload-url`, {
+      nomeArquivo: input.fileName,
+      contentType: input.contentType,
+    })
+    return {
+      uploadUrl: pick(res, ['uploadUrl'], ''),
+      key: pick(res, ['key'], ''),
+      publicUrl: pick<string | null>(res, ['publicUrl'], null),
+      headers: pick<Record<string, string> | undefined>(res, ['headers'], undefined),
+    }
   },
   /** Adiciona um vídeo já existente (de qualquer projeto) ao portfólio — o backend copia url/poster nesse momento. */
   async addExistingVideo(
@@ -1184,6 +1245,68 @@ export const portfolioService = {
       videoIds: orderedVideoIds,
     })
     return mapPortfolio(res)
+  },
+}
+
+/* --------------------------- perfil do portfólio --------------------------- */
+
+/**
+ * Perfil da vitrine da agência (owner): uma foto + o hub público
+ * (`/portfolio/:hubLink` no frontend) que reúne todos os portfólios,
+ * agrupados pelas categorias abaixo. Distinto de `portfolioService`, que
+ * gerencia cada álbum individualmente.
+ */
+export const portfolioProfileService = {
+  async get(signal?: AbortSignal): Promise<PortfolioProfile> {
+    if (isDemo()) return delay(demoPortfolioProfile)
+    const res = await api.get<Raw>('/portfolio-profile', { signal })
+    return mapPortfolioProfile(res)
+  },
+  /** Passo 1/2 do upload da foto de perfil (só imagem, mesmo padrão de `clientService.getPhotoUploadUrl`). */
+  async getPhotoUploadUrl(input: {
+    fileName: string
+    contentType: string
+  }): Promise<{ uploadUrl: string; key: string; publicUrl: string | null; headers?: Record<string, string> }> {
+    const res = await api.post<Raw>('/portfolio-profile/photo-upload-url', {
+      nomeArquivo: input.fileName,
+      contentType: input.contentType,
+    })
+    return {
+      uploadUrl: pick(res, ['uploadUrl'], ''),
+      key: pick(res, ['key'], ''),
+      publicUrl: pick<string | null>(res, ['publicUrl'], null),
+      headers: pick<Record<string, string> | undefined>(res, ['headers'], undefined),
+    }
+  },
+  async updatePhoto(photoUrl: string | null): Promise<PortfolioProfile> {
+    if (isDemo()) return delay(demoUpdatePortfolioProfilePhoto(photoUrl), 300)
+    const res = await api.patch<Raw>('/portfolio-profile', { fotoUrl: photoUrl })
+    return mapPortfolioProfile(res)
+  },
+  async listCategories(signal?: AbortSignal): Promise<PortfolioCategory[]> {
+    if (isDemo()) return delay([...demoPortfolioCategories].sort((a, b) => a.order - b.order))
+    const res = await api.get('/portfolio-categories', { signal })
+    return asArray(res).map(mapPortfolioCategory).sort((a, b) => a.order - b.order)
+  },
+  async createCategory(input: { name: string }): Promise<PortfolioCategory> {
+    if (isDemo()) return delay(demoCreateCategory(input), 300)
+    const res = await api.post<Raw>('/portfolio-categories', { nome: input.name })
+    return mapPortfolioCategory(res)
+  },
+  async updateCategory(id: string, input: { name: string }): Promise<PortfolioCategory> {
+    if (isDemo()) return delay(demoUpdateCategory(id, input), 300)
+    const res = await api.patch<Raw>(`/portfolio-categories/${id}`, { nome: input.name })
+    return mapPortfolioCategory(res)
+  },
+  /** Exclui a categoria — os álbuns associados ficam com `categoryId: null` ("Sem categoria"), não são apagados. */
+  async removeCategory(id: string): Promise<void> {
+    if (isDemo()) return void (await delay(demoRemoveCategory(id), 300))
+    await api.delete(`/portfolio-categories/${id}`)
+  },
+  async reorderCategories(orderedIds: string[]): Promise<PortfolioCategory[]> {
+    if (isDemo()) return delay(demoReorderCategories(orderedIds), 300)
+    const res = await api.patch<Raw>('/portfolio-categories/order', { categoryIds: orderedIds })
+    return asArray(res).map(mapPortfolioCategory)
   },
 }
 
@@ -1370,6 +1493,26 @@ export const publicService = {
       videos: asArray(pick(res, ['videos'], []))
         .map(mapPortfolioItem)
         .sort((a, b) => a.order - b.order),
+    }
+  },
+
+  /** Hub público da agência (vitrine central): perfil + álbuns agrupados por categoria, sem nenhum dado de cliente/projeto. */
+  async getPortfolioHub(hubLink: string, signal?: AbortSignal): Promise<PublicPortfolioHub> {
+    if (isDemoHubLink(hubLink)) return delay(demoPublicPortfolioHub())
+    const res = await api.get<Raw>(`/public/portfolio-hub/${encodeURIComponent(hubLink)}`, {
+      auth: false,
+      signal,
+    })
+    const agenciaRaw = pick<Raw | null>(res, ['agencia', 'agency', 'branding'], null)
+    return {
+      agencyName: pick<string | null>(agenciaRaw, ['nome', 'name'], null),
+      photoUrl: pick<string | null>(res, ['fotoUrl', 'foto_url', 'photoUrl'], null),
+      branding: mapBranding(agenciaRaw),
+      categories: asArray(pick(res, ['categorias', 'categories'], [])).map((c: Raw) => ({
+        id: String(pick(c, ['id', '_id'], '')),
+        name: pick(c, ['nome', 'name'], ''),
+        portfolios: asArray(pick(c, ['portfolios', 'videos'], [])).map(mapPortfolioHubItem),
+      })),
     }
   },
 }

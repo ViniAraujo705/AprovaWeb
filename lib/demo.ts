@@ -23,12 +23,15 @@ import type {
   PlanId,
   PlanStatus,
   Portfolio,
+  PortfolioCategory,
   PortfolioItem,
   PortfolioItemMediaType,
+  PortfolioProfile,
   Project,
   ProjectGallery,
   ProjectMember,
   PublicPortfolio,
+  PublicPortfolioHub,
   PublicVideo,
   QueueVideoItem,
   RatingQuestion,
@@ -536,12 +539,23 @@ export function demoProjectGallery(link: string): ProjectGallery {
 let portfolioIdSeq = 0
 let portfolioVideoIdSeq = 0
 
+export const demoPortfolioCategories: PortfolioCategory[] = [
+  { id: 'pfc-foto', name: 'Fotos', order: 0 },
+  { id: 'pfc-video', name: 'Vídeo', order: 1 },
+]
+
+export const demoPortfolioProfile: PortfolioProfile = {
+  photoUrl: null,
+  hubLink: 'demo-agencia',
+}
+
 export const demoPortfolios: Portfolio[] = [
   {
     id: 'pf1',
     name: 'Reels para redes sociais',
     description: 'Seleção de reels de curta duração feitos para clientes de e-commerce e beleza.',
     link: 'demo-reels',
+    categoryId: 'pfc-video',
     coverUrl: '/videos/reel-cosmetics.png',
     videos: [
       {
@@ -586,6 +600,7 @@ export const demoPortfolios: Portfolio[] = [
     name: 'Institucionais',
     description: null,
     link: 'demo-institucional',
+    categoryId: 'pfc-video',
     coverUrl: '/videos/reel-food.png',
     videos: [
       {
@@ -621,12 +636,17 @@ export function demoPublicPortfolio(link: string): PublicPortfolio {
   }
 }
 
-export function demoCreatePortfolio(input: { name: string; description?: string }): Portfolio {
+export function demoCreatePortfolio(input: {
+  name: string
+  description?: string
+  categoryId?: string | null
+}): Portfolio {
   const created: Portfolio = {
     id: `pf-${++portfolioIdSeq}-${Date.now()}`,
     name: input.name,
     description: input.description ?? null,
     link: `demo-portfolio-${portfolioIdSeq}`,
+    categoryId: input.categoryId ?? null,
     coverUrl: null,
     videos: [],
     createdAt: new Date().toISOString(),
@@ -638,12 +658,19 @@ export function demoCreatePortfolio(input: { name: string; description?: string 
 
 export function demoUpdatePortfolio(
   id: string,
-  input: { name?: string; description?: string | null },
+  input: {
+    name?: string
+    description?: string | null
+    categoryId?: string | null
+    coverUrl?: string | null
+  },
 ): Portfolio {
   const found = demoPortfolios.find((p) => p.id === id)
   if (!found) throw new Error('Portfólio não encontrado.')
   if (input.name !== undefined) found.name = input.name
   if (input.description !== undefined) found.description = input.description
+  if (input.categoryId !== undefined) found.categoryId = input.categoryId
+  if (input.coverUrl !== undefined) found.coverUrl = input.coverUrl
   found.updatedAt = new Date().toISOString()
   return found
 }
@@ -653,7 +680,80 @@ export function demoDeletePortfolio(id: string): void {
   if (idx !== -1) demoPortfolios.splice(idx, 1)
 }
 
+export function demoUpdatePortfolioProfilePhoto(photoUrl: string | null): PortfolioProfile {
+  demoPortfolioProfile.photoUrl = photoUrl
+  return demoPortfolioProfile
+}
+
+let portfolioCategoryIdSeq = 0
+
+export function demoCreateCategory(input: { name: string }): PortfolioCategory {
+  const created: PortfolioCategory = {
+    id: `pfc-${++portfolioCategoryIdSeq}-${Date.now()}`,
+    name: input.name,
+    order: demoPortfolioCategories.length,
+  }
+  demoPortfolioCategories.push(created)
+  return created
+}
+
+export function demoUpdateCategory(id: string, input: { name: string }): PortfolioCategory {
+  const found = demoPortfolioCategories.find((c) => c.id === id)
+  if (!found) throw new Error('Categoria não encontrada.')
+  found.name = input.name
+  return found
+}
+
+/** Exclui a categoria — os álbuns associados ficam "Sem categoria" (categoryId: null), não são apagados. */
+export function demoRemoveCategory(id: string): void {
+  const idx = demoPortfolioCategories.findIndex((c) => c.id === id)
+  if (idx !== -1) demoPortfolioCategories.splice(idx, 1)
+  for (const p of demoPortfolios) if (p.categoryId === id) p.categoryId = null
+}
+
+export function demoReorderCategories(orderedIds: string[]): PortfolioCategory[] {
+  const byId = new Map(demoPortfolioCategories.map((c) => [c.id, c]))
+  const reordered = orderedIds.map((id, i) => {
+    const c = byId.get(id)
+    if (!c) throw new Error('Categoria não encontrada.')
+    return { ...c, order: i }
+  })
+  demoPortfolioCategories.splice(0, demoPortfolioCategories.length, ...reordered)
+  return demoPortfolioCategories
+}
+
+export function isDemoHubLink(link: string): boolean {
+  return link === demoPortfolioProfile.hubLink
+}
+
+/** Hub público de exemplo (rota /portfolio/:hubLink): agrupa os portfólios demo pelas categorias demo. */
+export function demoPublicPortfolioHub(): PublicPortfolioHub {
+  const sortedCategories = [...demoPortfolioCategories].sort((a, b) => a.order - b.order)
+  return {
+    agencyName: null,
+    photoUrl: demoPortfolioProfile.photoUrl,
+    // branding null → o hub usa o logo padrão do sistema (fallback).
+    branding: null,
+    categories: sortedCategories
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        portfolios: demoPortfolios
+          .filter((p) => p.categoryId === c.id && p.videos.length > 0)
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            link: p.link,
+            coverUrl: p.coverUrl,
+          })),
+      }))
+      .filter((c) => c.portfolios.length > 0),
+  }
+}
+
 function touchPortfolioCover(portfolio: Portfolio) {
+  if (portfolio.coverUrl) return
   const sorted = [...portfolio.videos].sort((a, b) => a.order - b.order)
   portfolio.coverUrl = sorted[0]?.posterUrl ?? null
   portfolio.updatedAt = new Date().toISOString()
