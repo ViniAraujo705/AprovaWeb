@@ -18,6 +18,7 @@ import {
 import { clientService, projectService, teamService, videoService } from '@/lib/services'
 import type { Client, Project, TeamMember } from '@/lib/types'
 import { useQuery } from '@/lib/use-query'
+import { Skeleton } from '@/components/states'
 import { ApiError } from '@/lib/api'
 import { UploadError, uploadToPresignedUrl, validateVideoFile } from '@/lib/upload'
 import { UPLOAD_ACCEPTED_LABEL } from '@/lib/config'
@@ -95,10 +96,13 @@ export function UploadView() {
   )
 
   // Chegando com `?projectId=` (botão "Novo vídeo" na tela do projeto):
-  // pré-seleciona cliente + projeto pra subir direto naquele projeto, em vez
-  // do fluxo padrão de criar um projeto novo.
+  // trava cliente + projeto naquele projeto específico (não dá pra trocar de
+  // cliente/projeto nem criar um novo por aqui) e já herda o editor
+  // responsável do projeto, se houver um.
   const searchParams = useSearchParams()
   const prefillProjectId = searchParams.get('projectId')
+  const [prefilledProject, setPrefilledProject] = useState<Project | null>(null)
+  const [prefillLoading, setPrefillLoading] = useState(!!prefillProjectId)
   useEffect(() => {
     if (!prefillProjectId) return
     let cancelled = false
@@ -109,10 +113,16 @@ export function UploadView() {
         setClientId(project.clientId)
         setProjectMode('existente')
         setProjectId(project.id)
+        setPrefilledProject(project)
+        const projectEditor = project.members?.[0]
+        if (projectEditor) setEditorId(projectEditor.userId)
       })
       .catch(() => {
         // Link inválido/projeto removido: sem problema, o form abre no
         // fluxo padrão (criar novo projeto) em vez de travar a tela.
+      })
+      .finally(() => {
+        if (!cancelled) setPrefillLoading(false)
       })
     return () => {
       cancelled = true
@@ -352,10 +362,15 @@ export function UploadView() {
     setItems([])
     setFileError(null)
     setTitle('')
-    setClientId('')
-    setProjectMode('novo')
-    setProjectId('')
-    setEditorId('')
+    // Com projeto travado (veio de "Novo vídeo" dentro de um projeto), o
+    // próximo lote continua indo pro mesmo projeto — só o form de arquivos
+    // reseta, não a trava de cliente/projeto/editor.
+    if (!prefilledProject) {
+      setClientId('')
+      setProjectMode('novo')
+      setProjectId('')
+      setEditorId('')
+    }
     setFieldErrors({})
     setPhase('idle')
     setSubmitError(null)
@@ -639,169 +654,191 @@ export function UploadView() {
 
           {/* Form */}
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <label className="flex min-w-0 flex-col gap-1.5">
-              <span className="flex items-center justify-between text-sm font-medium text-foreground">
-                Cliente
-                {newClient === null ? (
-                  <button
-                    type="button"
-                    onClick={() => setNewClient('')}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-                  >
-                    <Plus className="size-3" /> Novo
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setNewClient(null)}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="size-3" /> Cancelar
-                  </button>
-                )}
-              </span>
-
-              {newClient === null ? (
-                <select
-                  value={clientId}
-                  onChange={(e) => {
-                    setClientId(e.target.value)
-                    setProjectId('')
-                  }}
-                  disabled={busy || clients.loading}
-                  aria-invalid={!!fieldErrors.client}
-                  className={cn(
-                    'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-60',
-                    fieldErrors.client ? 'border-destructive' : 'border-border',
-                  )}
-                >
-                  <option value="" disabled>
-                    {clients.loading ? 'Carregando…' : 'Selecione o cliente'}
-                  </option>
-                  {(clients.data ?? []).map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                // Sempre em coluna: essa linha vive dentro de metade da grid
-                // (Cliente/Projeto lado a lado), então virar `flex-row` num
-                // breakpoint pensado pra largura total estourava a coluna e
-                // vazava por cima do campo "Projeto" ao lado.
-                <div className="flex flex-col gap-2">
-                  <input
-                    value={newClient}
-                    onChange={(e) => setNewClient(e.target.value)}
-                    placeholder="Nome do cliente"
-                    className="min-h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
-                  />
-                  <button
-                    type="button"
-                    onClick={createClient}
-                    disabled={creatingClient || !newClient.trim()}
-                    className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-foreground px-3 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
-                  >
-                    {creatingClient ? <Loader2 className="size-4 animate-spin" /> : 'Salvar'}
-                  </button>
-                </div>
-              )}
-              {fieldErrors.client && (
-                <span className="text-xs text-destructive">{fieldErrors.client}</span>
-              )}
-              {clients.error && (
-                <span className="text-xs text-destructive">
-                  Falha ao carregar clientes.{' '}
-                  <button type="button" onClick={clients.refetch} className="underline">
-                    Tentar de novo
-                  </button>
-                </span>
-              )}
-            </label>
-
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <span className="text-sm font-medium text-foreground">Projeto</span>
-              <div className="flex gap-1 rounded-lg bg-secondary p-1">
-                <button
-                  type="button"
-                  onClick={() => setProjectMode('novo')}
-                  disabled={busy}
-                  className={cn(
-                    'min-h-9 flex-1 rounded-md text-sm font-medium transition-colors disabled:opacity-60',
-                    projectMode === 'novo'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  Novo projeto
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setProjectMode('existente')}
-                  disabled={busy}
-                  className={cn(
-                    'min-h-9 flex-1 rounded-md text-sm font-medium transition-colors disabled:opacity-60',
-                    projectMode === 'existente'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  Projeto existente
-                </button>
+            {prefillLoading ? (
+              <div className="sm:col-span-2">
+                <Skeleton className="h-11 w-full" />
               </div>
+            ) : prefilledProject ? (
+              // Veio do botão "Novo vídeo" dentro de um projeto: cliente e
+              // projeto ficam travados nesse projeto específico — não dá pra
+              // trocar de cliente, criar um novo, nem escolher outro projeto
+              // por aqui (evita mandar o vídeo pro lugar errado por engano).
+              <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
+                <span className="text-sm font-medium text-foreground">Enviando para</span>
+                <div className="rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground">
+                  <span className="font-medium">{prefilledProject.name}</span>
+                  {prefilledProject.client?.name && (
+                    <span className="text-muted-foreground"> · {prefilledProject.client.name}</span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                <label className="flex min-w-0 flex-col gap-1.5">
+                  <span className="flex items-center justify-between text-sm font-medium text-foreground">
+                    Cliente
+                    {newClient === null ? (
+                      <button
+                        type="button"
+                        onClick={() => setNewClient('')}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                      >
+                        <Plus className="size-3" /> Novo
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setNewClient(null)}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="size-3" /> Cancelar
+                      </button>
+                    )}
+                  </span>
 
-              {projectMode === 'novo' ? (
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  disabled={busy}
-                  placeholder="Ex: Reel lançamento batom"
-                  aria-invalid={!!fieldErrors.title}
-                  className={cn(
-                    'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary disabled:opacity-60',
-                    fieldErrors.title ? 'border-destructive' : 'border-border',
+                  {newClient === null ? (
+                    <select
+                      value={clientId}
+                      onChange={(e) => {
+                        setClientId(e.target.value)
+                        setProjectId('')
+                      }}
+                      disabled={busy || clients.loading}
+                      aria-invalid={!!fieldErrors.client}
+                      className={cn(
+                        'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-60',
+                        fieldErrors.client ? 'border-destructive' : 'border-border',
+                      )}
+                    >
+                      <option value="" disabled>
+                        {clients.loading ? 'Carregando…' : 'Selecione o cliente'}
+                      </option>
+                      {(clients.data ?? []).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    // Sempre em coluna: essa linha vive dentro de metade da grid
+                    // (Cliente/Projeto lado a lado), então virar `flex-row` num
+                    // breakpoint pensado pra largura total estourava a coluna e
+                    // vazava por cima do campo "Projeto" ao lado.
+                    <div className="flex flex-col gap-2">
+                      <input
+                        value={newClient}
+                        onChange={(e) => setNewClient(e.target.value)}
+                        placeholder="Nome do cliente"
+                        className="min-h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={createClient}
+                        disabled={creatingClient || !newClient.trim()}
+                        className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-foreground px-3 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
+                      >
+                        {creatingClient ? <Loader2 className="size-4 animate-spin" /> : 'Salvar'}
+                      </button>
+                    </div>
                   )}
-                />
-              ) : !clientId ? (
-                <p className="rounded-lg border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground">
-                  Selecione um cliente para ver os projetos dele.
-                </p>
-              ) : projectsForClient.loading ? (
-                <p className="rounded-lg border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground">
-                  Carregando projetos…
-                </p>
-              ) : (projectsForClient.data ?? []).length === 0 ? (
-                <p className="rounded-lg border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground">
-                  Esse cliente ainda não tem nenhum projeto. Use &quot;Novo projeto&quot;.
-                </p>
-              ) : (
-                <select
-                  value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
-                  disabled={busy}
-                  aria-invalid={!!fieldErrors.project}
-                  className={cn(
-                    'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-60',
-                    fieldErrors.project ? 'border-destructive' : 'border-border',
+                  {fieldErrors.client && (
+                    <span className="text-xs text-destructive">{fieldErrors.client}</span>
                   )}
-                >
-                  <option value="" disabled>
-                    Selecione o projeto
-                  </option>
-                  {(projectsForClient.data ?? []).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-              {fieldErrors.title && projectMode === 'novo' && (
-                <span className="text-xs text-destructive">{fieldErrors.title}</span>
-              )}
-              {fieldErrors.project && projectMode === 'existente' && (
-                <span className="text-xs text-destructive">{fieldErrors.project}</span>
-              )}
-            </div>
+                  {clients.error && (
+                    <span className="text-xs text-destructive">
+                      Falha ao carregar clientes.{' '}
+                      <button type="button" onClick={clients.refetch} className="underline">
+                        Tentar de novo
+                      </button>
+                    </span>
+                  )}
+                </label>
+
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <span className="text-sm font-medium text-foreground">Projeto</span>
+                  <div className="flex gap-1 rounded-lg bg-secondary p-1">
+                    <button
+                      type="button"
+                      onClick={() => setProjectMode('novo')}
+                      disabled={busy}
+                      className={cn(
+                        'min-h-9 flex-1 rounded-md text-sm font-medium transition-colors disabled:opacity-60',
+                        projectMode === 'novo'
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      Novo projeto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProjectMode('existente')}
+                      disabled={busy}
+                      className={cn(
+                        'min-h-9 flex-1 rounded-md text-sm font-medium transition-colors disabled:opacity-60',
+                        projectMode === 'existente'
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      Projeto existente
+                    </button>
+                  </div>
+
+                  {projectMode === 'novo' ? (
+                    <input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      disabled={busy}
+                      placeholder="Ex: Reel lançamento batom"
+                      aria-invalid={!!fieldErrors.title}
+                      className={cn(
+                        'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary disabled:opacity-60',
+                        fieldErrors.title ? 'border-destructive' : 'border-border',
+                      )}
+                    />
+                  ) : !clientId ? (
+                    <p className="rounded-lg border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground">
+                      Selecione um cliente para ver os projetos dele.
+                    </p>
+                  ) : projectsForClient.loading ? (
+                    <p className="rounded-lg border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground">
+                      Carregando projetos…
+                    </p>
+                  ) : (projectsForClient.data ?? []).length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground">
+                      Esse cliente ainda não tem nenhum projeto. Use &quot;Novo projeto&quot;.
+                    </p>
+                  ) : (
+                    <select
+                      value={projectId}
+                      onChange={(e) => setProjectId(e.target.value)}
+                      disabled={busy}
+                      aria-invalid={!!fieldErrors.project}
+                      className={cn(
+                        'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-60',
+                        fieldErrors.project ? 'border-destructive' : 'border-border',
+                      )}
+                    >
+                      <option value="" disabled>
+                        Selecione o projeto
+                      </option>
+                      {(projectsForClient.data ?? []).map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {fieldErrors.title && projectMode === 'novo' && (
+                    <span className="text-xs text-destructive">{fieldErrors.title}</span>
+                  )}
+                  {fieldErrors.project && projectMode === 'existente' && (
+                    <span className="text-xs text-destructive">{fieldErrors.project}</span>
+                  )}
+                </div>
+              </>
+            )}
 
             {assignableMembers.length > 0 && (
               <label className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
