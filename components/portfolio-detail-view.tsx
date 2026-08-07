@@ -11,6 +11,7 @@ import {
   Copy,
   ExternalLink,
   Film,
+  ImageIcon,
   Link2,
   Loader2,
   Pencil,
@@ -21,11 +22,11 @@ import {
   X,
 } from 'lucide-react'
 import { portfolioService, videoService } from '@/lib/services'
-import type { Portfolio, PortfolioVideoItem, Video } from '@/lib/types'
+import type { Portfolio, PortfolioItem, PortfolioItemMediaType, Video } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
-import { UploadError, uploadToPresignedUrl, validateVideoFile } from '@/lib/upload'
+import { UploadError, uploadToPresignedUrl, validateImageFile, validateVideoFile } from '@/lib/upload'
 import { isDemo } from '@/lib/demo'
 import { AnimatePresence, motion, FadeIn } from '@/components/motion'
 import { toast } from '@/lib/toast'
@@ -142,7 +143,7 @@ function PortfolioDetailBody({
       </div>
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-2xl tracking-wide">VÍDEOS DO PORTFÓLIO</h2>
+        <h2 className="font-display text-2xl tracking-wide">ITENS DO PORTFÓLIO</h2>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -156,13 +157,13 @@ function PortfolioDetailBody({
             onClick={() => setUploadOpen((v) => !v)}
             className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
-            <UploadCloud className="size-4" /> Enviar vídeo
+            <UploadCloud className="size-4" /> Enviar vídeo ou foto
           </button>
         </div>
       </div>
 
       {uploadOpen && (
-        <UploadPortfolioVideoForm
+        <UploadPortfolioMediaForm
           portfolioId={portfolio.id}
           onDone={(updated) => {
             onChange(updated)
@@ -176,13 +177,13 @@ function PortfolioDetailBody({
         {sortedVideos.length === 0 ? (
           <EmptyState
             icon={<Film className="size-7" />}
-            title="Nenhum vídeo neste portfólio"
-            description="Selecione um vídeo já existente ou envie um novo direto para este portfólio."
+            title="Nenhum item neste portfólio"
+            description="Selecione um vídeo já existente ou envie um vídeo/foto novo direto para este portfólio."
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             {sortedVideos.map((v, i) => (
-              <PortfolioVideoCard
+              <PortfolioItemCard
                 key={v.id}
                 portfolioId={portfolio.id}
                 video={v}
@@ -522,7 +523,7 @@ function SelectExistingVideoModal({
   )
 }
 
-function UploadPortfolioVideoForm({
+function UploadPortfolioMediaForm({
   portfolioId,
   onDone,
   onCancel,
@@ -533,6 +534,7 @@ function UploadPortfolioVideoForm({
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
+  const [mediaType, setMediaType] = useState<PortfolioItemMediaType>('video')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [progress, setProgress] = useState(0)
@@ -541,19 +543,21 @@ function UploadPortfolioVideoForm({
 
   function handleFile(f: File | undefined | null) {
     if (!f) return
-    const invalid = validateVideoFile(f)
+    const detectedType: PortfolioItemMediaType = f.type.startsWith('image/') ? 'foto' : 'video'
+    const invalid = detectedType === 'foto' ? validateImageFile(f) : validateVideoFile(f)
     if (invalid) {
       setError(invalid)
       return
     }
     setError(null)
     setFile(f)
+    setMediaType(detectedType)
     setTitle((prev) => prev || f.name.replace(/\.[^.]+$/, ''))
   }
 
   async function submit() {
     if (!file) {
-      setError('Selecione um vídeo para enviar.')
+      setError('Selecione um vídeo ou foto para enviar.')
       return
     }
     setBusy(true)
@@ -570,11 +574,12 @@ function UploadPortfolioVideoForm({
         const updated = await portfolioService.confirmUpload(portfolioId, {
           urlStorage: URL.createObjectURL(file),
           nomeArquivo: file.name,
+          mediaType,
           title: title.trim() || file.name,
           description: description.trim() || undefined,
         })
         onDone(updated)
-        toast.success('Vídeo enviado')
+        toast.success(mediaType === 'foto' ? 'Foto enviada' : 'Vídeo enviado')
         return
       }
 
@@ -595,16 +600,17 @@ function UploadPortfolioVideoForm({
       const updated = await portfolioService.confirmUpload(portfolioId, {
         urlStorage: presigned.publicUrl,
         nomeArquivo: file.name,
+        mediaType,
         title: title.trim() || file.name,
         description: description.trim() || undefined,
       })
       onDone(updated)
-      toast.success('Vídeo enviado')
+      toast.success(mediaType === 'foto' ? 'Foto enviada' : 'Vídeo enviado')
     } catch (err) {
       setError(
         err instanceof UploadError || err instanceof ApiError
           ? err.message
-          : 'Falha ao enviar o vídeo. Tente novamente.',
+          : 'Falha ao enviar o arquivo. Tente novamente.',
       )
     } finally {
       setBusy(false)
@@ -614,7 +620,7 @@ function UploadPortfolioVideoForm({
   return (
     <FadeIn y={6} className="mt-4 rounded-xl border border-border bg-card p-4">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-foreground">Enviar vídeo para o portfólio</span>
+        <span className="text-sm font-medium text-foreground">Enviar vídeo ou foto para o portfólio</span>
         <button
           type="button"
           onClick={onCancel}
@@ -633,15 +639,19 @@ function UploadPortfolioVideoForm({
         <input
           ref={inputRef}
           type="file"
-          accept="video/mp4,video/quicktime,video/webm"
+          accept="video/mp4,video/quicktime,video/webm,image/png,image/jpeg,image/webp"
           className="hidden"
           onChange={(e) => handleFile(e.target.files?.[0])}
         />
         <span className="grid size-10 place-items-center rounded-full bg-primary/15 text-primary">
-          <UploadCloud className="size-5" />
+          {mediaType === 'foto' && file ? (
+            <ImageIcon className="size-5" />
+          ) : (
+            <UploadCloud className="size-5" />
+          )}
         </span>
         <p className="mt-2 text-sm font-medium text-foreground">
-          {file ? file.name : 'Clique para selecionar um vídeo (MP4, MOV ou WEBM)'}
+          {file ? file.name : 'Clique para selecionar um vídeo (MP4, MOV, WEBM) ou foto (PNG, JPG, WEBP)'}
         </p>
       </div>
 
@@ -695,7 +705,7 @@ function UploadPortfolioVideoForm({
   )
 }
 
-function PortfolioVideoCard({
+function PortfolioItemCard({
   portfolioId,
   video,
   isFirst,
@@ -705,7 +715,7 @@ function PortfolioVideoCard({
   onUpdated,
 }: {
   portfolioId: string
-  video: PortfolioVideoItem
+  video: PortfolioItem
   isFirst: boolean
   isLast: boolean
   onMove: (direction: -1 | 1) => void
@@ -761,6 +771,17 @@ function PortfolioVideoCard({
             <Loader2 className="size-6 animate-spin text-white" />
           </div>
         )}
+        <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white">
+          {video.mediaType === 'foto' ? (
+            <>
+              <ImageIcon className="size-3" /> Foto
+            </>
+          ) : (
+            <>
+              <Film className="size-3" /> Vídeo
+            </>
+          )}
+        </span>
         <div className="absolute right-2 top-2 flex flex-col gap-1">
           <button
             type="button"

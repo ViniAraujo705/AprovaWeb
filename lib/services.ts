@@ -72,7 +72,8 @@ import type {
   PlanId,
   PlanStatus,
   Portfolio,
-  PortfolioVideoItem,
+  PortfolioItem,
+  PortfolioItemMediaType,
   Project,
   ProjectGallery,
   ProjectMember,
@@ -465,9 +466,15 @@ function hideSupersededGalleryVideos(videos: GalleryVideoItem[]): GalleryVideoIt
   return videos.filter((v) => !supersededIds.has(v.id))
 }
 
-function mapPortfolioVideoItem(raw: Raw): PortfolioVideoItem {
+function normalizePortfolioMediaType(raw: unknown): PortfolioItemMediaType {
+  const s = String(raw ?? '').toLowerCase()
+  return ['foto', 'photo', 'image', 'imagem'].includes(s) ? 'foto' : 'video'
+}
+
+function mapPortfolioItem(raw: Raw): PortfolioItem {
   return {
     id: String(pick(raw, ['id', '_id'], '')),
+    mediaType: normalizePortfolioMediaType(pick(raw, ['tipoMidia', 'tipo_midia', 'mediaType'], 'video')),
     title: pick(raw, ['titulo', 'title', 'nomeArquivo', 'nome_arquivo', 'name'], 'Sem título'),
     description: pick<string | null>(raw, ['descricao', 'description'], null),
     videoUrl: pick<string | null>(raw, ['videoUrl', 'video_url', 'url', 'urlStorage'], null),
@@ -482,7 +489,7 @@ function mapPortfolioVideoItem(raw: Raw): PortfolioVideoItem {
 
 function mapPortfolio(raw: Raw): Portfolio {
   const videos = asArray(pick(raw, ['videos'], []))
-    .map(mapPortfolioVideoItem)
+    .map(mapPortfolioItem)
     .sort((a, b) => a.order - b.order)
   return {
     id: String(pick(raw, ['id', '_id'], '')),
@@ -1119,24 +1126,35 @@ export const portfolioService = {
       headers: pick<Record<string, string> | undefined>(res, ['headers'], undefined),
     }
   },
-  /** Passo 3/3: registra o vídeo enviado direto pro portfólio (sem projeto/cliente por trás). */
+  /** Passo 3/3: registra o vídeo ou foto enviado direto pro portfólio (sem projeto/cliente por trás). */
   async confirmUpload(
     portfolioId: string,
-    input: { urlStorage: string; nomeArquivo: string; title?: string; description?: string },
+    input: {
+      urlStorage: string
+      nomeArquivo: string
+      mediaType: PortfolioItemMediaType
+      title?: string
+      description?: string
+    },
   ): Promise<Portfolio> {
     if (isDemo())
       return delay(
         demoAddUploadedPortfolioVideo(portfolioId, {
+          mediaType: input.mediaType,
           title: input.title || input.nomeArquivo,
           description: input.description ?? null,
-          videoUrl: input.urlStorage,
-          posterUrl: null,
+          // Foto: `urlStorage` já É a imagem a mostrar (thumbnail e tela cheia
+          // são a mesma URL, sem pipeline de otimização separado). Vídeo:
+          // fica em `videoUrl`, o poster só chega depois do processamento.
+          videoUrl: input.mediaType === 'foto' ? null : input.urlStorage,
+          posterUrl: input.mediaType === 'foto' ? input.urlStorage : null,
         }),
         300,
       )
     const res = await api.post<Raw>(`/portfolios/${portfolioId}/videos/upload-complete`, {
       urlStorage: input.urlStorage,
       nomeArquivo: input.nomeArquivo,
+      tipoMidia: input.mediaType,
       titulo: input.title,
       descricao: input.description,
     })
@@ -1350,7 +1368,7 @@ export const publicService = {
       description: pick<string | null>(res, ['descricao', 'description'], null),
       branding: mapBranding(agenciaRaw),
       videos: asArray(pick(res, ['videos'], []))
-        .map(mapPortfolioVideoItem)
+        .map(mapPortfolioItem)
         .sort((a, b) => a.order - b.order),
     }
   },

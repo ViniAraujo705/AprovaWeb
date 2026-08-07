@@ -2,8 +2,8 @@
 
 import Image from 'next/image'
 import { useState } from 'react'
-import { Check, Film, Loader2, Play, Share2, X } from 'lucide-react'
-import type { PortfolioVideoItem, PublicPortfolio } from '@/lib/types'
+import { Check, Film, ImageIcon, Loader2, Play, Share2, X } from 'lucide-react'
+import type { PortfolioItem, PublicPortfolio } from '@/lib/types'
 import { AgencyLogo } from '@/components/agency-logo'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { EmptyState } from '@/components/states'
@@ -19,7 +19,7 @@ import { brandAccentStyle } from '@/lib/theme'
  */
 export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPortfolio; link: string }) {
   const count = portfolio.videos.length
-  const [active, setActive] = useState<PortfolioVideoItem | null>(null)
+  const [active, setActive] = useState<PortfolioItem | null>(null)
   const [sharing, setSharing] = useState(false)
   const [shareCopied, setShareCopied] = useState(false)
 
@@ -85,7 +85,7 @@ export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPort
 
       <FadeIn className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">
-          {count} {count === 1 ? 'vídeo' : 'vídeos'}
+          {count} {count === 1 ? 'item' : 'itens'}
         </p>
         <h1 className="mt-1 font-display text-4xl leading-none tracking-wide sm:text-5xl">
           {portfolio.name}
@@ -100,8 +100,8 @@ export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPort
           {count === 0 ? (
             <EmptyState
               icon={<Film className="size-7" />}
-              title="Nenhum vídeo neste portfólio"
-              description="Os vídeos em destaque vão aparecer aqui assim que forem adicionados."
+              title="Nenhum item neste portfólio"
+              description="Os vídeos e fotos em destaque vão aparecer aqui assim que forem adicionados."
             />
           ) : (
             <StaggerList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -132,13 +132,13 @@ export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPort
                       <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50">
                         <Loader2 className="size-6 animate-spin text-white" />
                       </div>
-                    ) : (
+                    ) : v.mediaType === 'video' ? (
                       <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/30">
                         <span className="grid size-11 scale-90 place-items-center rounded-full bg-white/90 text-foreground opacity-0 transition-all group-hover:scale-100 group-hover:opacity-100">
                           <Play className="size-5 fill-current" />
                         </span>
                       </span>
-                    )}
+                    ) : null}
                   </div>
                   <div className="p-3">
                     <h3 className="truncate text-sm font-medium text-foreground" title={v.title}>
@@ -153,13 +153,13 @@ export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPort
       </FadeIn>
 
       <AnimatePresence>
-        {active && <VideoLightbox video={active} onClose={() => setActive(null)} />}
+        {active && <PortfolioItemLightbox item={active} onClose={() => setActive(null)} />}
       </AnimatePresence>
     </div>
   )
 }
 
-function VideoLightbox({ video, onClose }: { video: PortfolioVideoItem; onClose: () => void }) {
+function PortfolioItemLightbox({ item, onClose }: { item: PortfolioItem; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
       <motion.div
@@ -187,10 +187,19 @@ function VideoLightbox({ video, onClose }: { video: PortfolioVideoItem; onClose:
           <X className="size-5" />
         </button>
         <div className="overflow-hidden rounded-xl bg-black">
-          {video.videoUrl ? (
+          {item.mediaType === 'foto' ? (
+            item.posterUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- lightbox: URL pode ser um blob: local (upload em modo demo), o loader de Image não aceita.
+              <img src={item.posterUrl} alt={item.title} className="max-h-[80vh] w-full object-contain" />
+            ) : (
+              <div className="grid aspect-video w-full place-items-center text-white/60">
+                <ImageIcon className="size-8" />
+              </div>
+            )
+          ) : item.videoUrl ? (
             <video
-              src={video.videoUrl}
-              poster={video.posterUrl ?? undefined}
+              src={item.videoUrl}
+              poster={item.posterUrl ?? undefined}
               controls
               autoPlay
               playsInline
@@ -203,8 +212,8 @@ function VideoLightbox({ video, onClose }: { video: PortfolioVideoItem; onClose:
           )}
         </div>
         <div className="mt-3 text-white">
-          <h3 className="text-lg font-medium">{video.title}</h3>
-          {video.description && <p className="mt-1 text-sm text-white/70">{video.description}</p>}
+          <h3 className="text-lg font-medium">{item.title}</h3>
+          {item.description && <p className="mt-1 text-sm text-white/70">{item.description}</p>}
         </div>
       </motion.div>
     </div>

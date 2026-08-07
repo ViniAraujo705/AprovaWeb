@@ -23,7 +23,8 @@ import type {
   PlanId,
   PlanStatus,
   Portfolio,
-  PortfolioVideoItem,
+  PortfolioItem,
+  PortfolioItemMediaType,
   Project,
   ProjectGallery,
   ProjectMember,
@@ -545,6 +546,7 @@ export const demoPortfolios: Portfolio[] = [
     videos: [
       {
         id: 'pfv1',
+        mediaType: 'video',
         title: 'Reel lançamento batom matte',
         description: 'Case para Bela Cosméticos — lançamento de produto.',
         videoUrl: DEMO_SAMPLE_URL,
@@ -555,6 +557,7 @@ export const demoPortfolios: Portfolio[] = [
       },
       {
         id: 'pfv2',
+        mediaType: 'video',
         title: 'Reel promoção de verão',
         description: 'Case para Moda Rara — campanha sazonal.',
         videoUrl: DEMO_SAMPLE_URL,
@@ -562,6 +565,17 @@ export const demoPortfolios: Portfolio[] = [
         processingStatus: 'pronto',
         order: 1,
         createdAt: iso(150),
+      },
+      {
+        id: 'pfv4',
+        mediaType: 'foto',
+        title: 'Still campanha batom matte',
+        description: 'Foto still usada nos stories da campanha.',
+        videoUrl: null,
+        posterUrl: '/videos/reel-cosmetics.png',
+        processingStatus: 'pronto',
+        order: 2,
+        createdAt: iso(140),
       },
     ],
     createdAt: iso(300),
@@ -576,6 +590,7 @@ export const demoPortfolios: Portfolio[] = [
     videos: [
       {
         id: 'pfv3',
+        mediaType: 'video',
         title: 'Institucional restaurante',
         description: null,
         videoUrl: DEMO_SAMPLE_URL,
@@ -652,8 +667,9 @@ export function demoAddExistingPortfolioVideo(
   const portfolio = demoPortfolios.find((p) => p.id === portfolioId)
   if (!portfolio) throw new Error('Portfólio não encontrado.')
   const source = demoVideos.find((v) => v.id === videoId)
-  const item: PortfolioVideoItem = {
+  const item: PortfolioItem = {
     id: `pfv-${++portfolioVideoIdSeq}-${Date.now()}`,
+    mediaType: 'video',
     title: input.title || source?.title || 'Sem título',
     description: input.description ?? null,
     videoUrl: DEMO_SAMPLE_URL,
@@ -669,12 +685,19 @@ export function demoAddExistingPortfolioVideo(
 
 export function demoAddUploadedPortfolioVideo(
   portfolioId: string,
-  input: { title: string; description: string | null; videoUrl: string | null; posterUrl: string | null },
+  input: {
+    mediaType: PortfolioItemMediaType
+    title: string
+    description: string | null
+    videoUrl: string | null
+    posterUrl: string | null
+  },
 ): Portfolio {
   const portfolio = demoPortfolios.find((p) => p.id === portfolioId)
   if (!portfolio) throw new Error('Portfólio não encontrado.')
-  const item: PortfolioVideoItem = {
+  const item: PortfolioItem = {
     id: `pfv-${++portfolioVideoIdSeq}-${Date.now()}`,
+    mediaType: input.mediaType,
     title: input.title,
     description: input.description,
     videoUrl: input.videoUrl,

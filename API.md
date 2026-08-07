@@ -260,11 +260,13 @@ Resposta: o `Video` atualizado (mesmo shape de `status`/`deadline`).
 
 Vitrine da agência, distinta da galeria de projeto
 ([Galeria pública do projeto](#galeria-pública-do-projeto)): uma coleção de
-vídeos escolhida manualmente pelo owner (não espelha uma entrega inteira),
-sem `status` de aprovação, com link público próprio para atrair novos
-clientes (`/p/:linkPublico` no frontend). Um vídeo entra de duas formas: (1)
-referenciando um vídeo já existente em algum projeto, ou (2) upload dedicado
-direto pro portfólio, sem vínculo com projeto/cliente.
+vídeos **e fotos** escolhida manualmente pelo owner (não espelha uma entrega
+inteira), sem `status` de aprovação, com link público próprio para atrair
+novos clientes (`/p/:linkPublico` no frontend). Um item entra de três formas:
+(1) referenciando um vídeo já existente em algum projeto (sempre vira um item
+`tipoMidia: "video"`), (2) upload de vídeo dedicado direto pro portfólio, ou
+(3) upload de foto dedicada — nos dois últimos casos, sem vínculo com
+projeto/cliente.
 
 | Método | Rota | Body | Retorno |
 |---|---|---|---|
@@ -274,17 +276,26 @@ direto pro portfólio, sem vínculo com projeto/cliente.
 | `PATCH` | `/portfolios/:id` | `{ nome?, descricao? }` | `Portfolio` atualizado |
 | `DELETE` | `/portfolios/:id` | — | `{ "deleted": true }` |
 
-`Portfolio`: `{ id, nome, descricao, linkPublico, capaUrl, videos: PortfolioVideo[], criadoEm, atualizadoEm }`.
-`capaUrl` pode ser `null` — o frontend usa o poster do primeiro vídeo como
-fallback quando ausente.
+`Portfolio`: `{ id, nome, descricao, linkPublico, capaUrl, videos: PortfolioItem[], criadoEm, atualizadoEm }`.
+`capaUrl` pode ser `null` — o frontend usa o poster/foto do primeiro item como
+fallback quando ausente. O campo continua se chamando `videos` por
+compatibilidade com o que já foi combinado, mas a lista mistura vídeos e fotos.
 
-`PortfolioVideo`: `{ id, titulo, descricao, urlStorage (ou urlOtimizada, o
-que estiver pronto para tocar), posterUrl, statusProcessamento, ordem,
-criadoEm }`. Sem `status` de aprovação — não faz sentido fora do fluxo
-cliente↔projeto.
+`PortfolioItem`: `{ id, tipoMidia: "video" | "foto", titulo, descricao,
+urlStorage (ou urlOtimizada, o que estiver pronto para tocar — sempre `null`
+quando `tipoMidia: "foto"`), posterUrl, statusProcessamento, ordem, criadoEm }`.
+Sem `status` de aprovação — não faz sentido fora do fluxo cliente↔projeto.
+
+Quando `tipoMidia: "foto"`: `posterUrl` é a própria foto em alta resolução
+(usada tanto como thumbnail na grade pública quanto em tela cheia no
+lightbox) — **não** existe pipeline de otimização/thumbnail separado pra
+fotos, ao contrário de vídeo. `statusProcessamento` deve vir sempre `"pronto"`
+nesse caso (não há processamento em background pra foto).
 
 ### `POST /portfolios/:id/videos`
-Adiciona ao portfólio um vídeo **já existente** em algum projeto da conta.
+Adiciona ao portfólio um vídeo **já existente** em algum projeto da conta
+(sempre `tipoMidia: "video"` — não existe equivalente pra foto, já que o app
+não tem um acervo de fotos fora do portfólio).
 
 Body: `{ "videoId": "uuid", "titulo"?: "...", "descricao"?: "..." }`
 `titulo`/`descricao` são opcionais — se omitidos, sugerimos usar o
@@ -299,33 +310,37 @@ Resposta: o `Portfolio` completo atualizado (mesmo shape de `GET /portfolios/:id
 
 ### `POST /portfolios/:id/upload-url`
 Presigned URL pro upload direto no R2, mesmo contrato de
-`POST /videos/upload-url` (ver seção Vídeos) — só muda o path.
+`POST /videos/upload-url` (ver seção Vídeos) — só muda o path. Agora também
+usado pra fotos: `contentType` aceita, além dos tipos de vídeo já
+documentados, `image/png`, `image/jpeg` e `image/webp`.
 
-Body: `{ "nomeArquivo": "video.mp4", "contentType": "video/mp4" }`
+Body: `{ "nomeArquivo": "foto.jpg", "contentType": "image/jpeg" }`
 
 Resposta `200`: `{ "uploadUrl": "...", "key": "...", "publicUrl": "...", "expiresIn": 600 }`
 
 ### `POST /portfolios/:id/videos/upload-complete`
-Registra, direto no portfólio, um vídeo enviado pelo passo acima — **sem**
-projeto/cliente por trás (diferente de `POST /videos`).
+Registra, direto no portfólio, um vídeo **ou foto** enviado pelo passo acima
+— **sem** projeto/cliente por trás (diferente de `POST /videos`).
 
-Body: `{ "urlStorage": "<publicUrl do passo anterior>", "nomeArquivo": "video.mp4", "titulo"?: "...", "descricao"?: "..." }`
+Body: `{ "urlStorage": "<publicUrl do passo anterior>", "nomeArquivo": "video.mp4", "tipoMidia": "video" | "foto", "titulo"?: "...", "descricao"?: "..." }`
+Quando `tipoMidia: "foto"`, o backend deve gravar `posterUrl = urlStorage`
+(a própria foto) e deixar `urlStorage`/`urlOtimizada` do item como `null`.
 
 Resposta: o `Portfolio` completo atualizado.
 
 ### `PATCH /portfolios/:id/videos/:videoId`
-Edita título/descrição de um vídeo já no portfólio.
+Edita título/descrição de um item (vídeo ou foto) já no portfólio.
 
 Body: `{ "titulo"?: "...", "descricao"?: "..." }`
 
 Resposta: o `Portfolio` completo atualizado.
 
 ### `DELETE /portfolios/:id/videos/:videoId`
-Remove um vídeo do portfólio (não afeta o vídeo original, se veio de um
-projeto). Resposta: o `Portfolio` completo atualizado.
+Remove um item (vídeo ou foto) do portfólio (não afeta o vídeo original, se
+veio de um projeto). Resposta: o `Portfolio` completo atualizado.
 
 ### `PATCH /portfolios/:id/videos/order`
-Reordena os vídeos do portfólio (usado pelos botões subir/descer na UI).
+Reordena os itens do portfólio (usado pelos botões subir/descer na UI).
 
 Body: `{ "videoIds": ["uuid1", "uuid2", "..."] }` — a nova ordem completa,
 na sequência desejada. Resposta: o `Portfolio` completo atualizado, com
@@ -624,13 +639,15 @@ Resposta:
   "descricao": "Seleção de reels de curta duração... ou null",
   "agencia": { "nome": "Agencia Teste", "logoUrl": "https://...", "corDestaque": "#ff0000" },
   "videos": [
-    { "id": "uuid", "titulo": "Reel lançamento batom matte", "descricao": "... ou null", "urlStorage": "https://...", "posterUrl": "https://... ou null", "statusProcessamento": "pronto", "ordem": 0, "criadoEm": "..." }
+    { "id": "uuid", "tipoMidia": "video", "titulo": "Reel lançamento batom matte", "descricao": "... ou null", "urlStorage": "https://...", "posterUrl": "https://... ou null", "statusProcessamento": "pronto", "ordem": 0, "criadoEm": "..." },
+    { "id": "uuid", "tipoMidia": "foto", "titulo": "Still campanha", "descricao": null, "urlStorage": null, "posterUrl": "https://...", "statusProcessamento": "pronto", "ordem": 1, "criadoEm": "..." }
   ]
 }
 ```
-O frontend abre cada vídeo num player simples (lightbox com `<video>`
-nativo), sem navegar para `/v/:linkPublico` — a tela de aprovação do cliente
-não faz sentido aqui.
+O frontend abre cada item num lightbox — `<video>` nativo pra
+`tipoMidia: "video"`, a imagem em tela cheia pra `tipoMidia: "foto"` — sem
+navegar para `/v/:linkPublico` — a tela de aprovação do cliente não faz
+sentido aqui.
 
 ### `POST /public/videos/:linkPublico/comments`
 Rate limit: **20/min**.

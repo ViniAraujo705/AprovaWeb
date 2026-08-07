@@ -253,16 +253,25 @@ export interface ProjectGallery {
   videos: GalleryVideoItem[]
 }
 
+/** Um item de portfólio é um vídeo ou uma foto — `mediaType` distingue os dois. */
+export type PortfolioItemMediaType = 'video' | 'foto'
+
 /**
- * Um vídeo dentro de um portfólio (vitrine da agência, distinta da galeria de
- * projeto/aprovação). Sem `status` de aprovação: aqui o vídeo já é um "case"
- * pronto para mostrar a possíveis clientes, não algo em fluxo de revisão.
- * `videoUrl`/`posterUrl` são denormalizados no momento em que o vídeo entra no
- * portfólio (seja selecionado de um projeto existente, seja enviado direto),
- * então a rota pública não precisa resolver o `Video` original.
+ * Um item (vídeo ou foto) dentro de um portfólio (vitrine da agência,
+ * distinta da galeria de projeto/aprovação). Sem `status` de aprovação: aqui
+ * o item já é um "case" pronto para mostrar a possíveis clientes, não algo em
+ * fluxo de revisão. `videoUrl`/`posterUrl` são denormalizados no momento em
+ * que o item entra no portfólio (vídeo selecionado de um projeto existente,
+ * ou vídeo/foto enviado direto), então a rota pública não precisa resolver o
+ * `Video` original.
+ *
+ * Para `mediaType: 'foto'`, `videoUrl` é sempre `null` e `posterUrl` é a
+ * própria foto (usada tanto como thumbnail na grade quanto em tela cheia no
+ * lightbox) — sem pipeline de otimização separado, como existe pra vídeo.
  */
-export interface PortfolioVideoItem {
+export interface PortfolioItem {
   id: string
+  mediaType: PortfolioItemMediaType
   title: string
   description: string | null
   videoUrl: string | null
@@ -272,16 +281,16 @@ export interface PortfolioVideoItem {
   createdAt: string | null
 }
 
-/** Portfólio da agência (owner): coleção curada de vídeos com link público próprio, para atrair novos clientes. */
+/** Portfólio da agência (owner): coleção curada de vídeos/fotos com link público próprio, para atrair novos clientes. */
 export interface Portfolio {
   id: string
   name: string
   description: string | null
   /** Link público (slug) para a rota /p/:link. */
   link: string
-  /** Poster do primeiro vídeo, usado como capa nos cards de listagem. */
+  /** Poster do primeiro item, usado como capa nos cards de listagem. */
   coverUrl: string | null
-  videos: PortfolioVideoItem[]
+  videos: PortfolioItem[]
   createdAt: string | null
   updatedAt: string | null
 }
@@ -291,7 +300,7 @@ export interface PublicPortfolio {
   name: string
   description: string | null
   branding: Branding | null
-  videos: PortfolioVideoItem[]
+  videos: PortfolioItem[]
 }
 
 /** Cards de destaque do dashboard (GET /dashboard/insights). */
