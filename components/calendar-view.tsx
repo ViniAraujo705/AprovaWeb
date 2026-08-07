@@ -163,88 +163,92 @@ export function CalendarView() {
         </div>
       ) : (
         <FadeIn className="mt-4 overflow-hidden rounded-2xl border border-border bg-card">
-          <div className="grid grid-cols-7 border-b border-border bg-secondary/50">
-            {WEEKDAYS.map((w) => (
-              <div
-                key={w}
-                className="px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-              >
-                {w}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7">
-            {grid.map((d) => {
-              const key = dateKey(d)
-              const inMonth = d.getMonth() === monthStart.getMonth()
-              const isToday = key === today
-              const dayEvents = eventsByDay.get(key) ?? []
-              const visible = dayEvents.slice(0, 3)
-              const overflow = dayEvents.length - visible.length
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setModal({ date: d, event: null })}
-                  className={cn(
-                    'flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-border p-1.5 text-left transition-colors last:border-r-0 hover:bg-secondary/40 sm:min-h-[120px] sm:p-2',
-                    !inMonth && 'bg-secondary/20',
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'inline-flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium',
-                      isToday
-                        ? 'bg-primary text-primary-foreground'
-                        : inMonth
-                          ? 'text-foreground'
-                          : 'text-muted-foreground/50',
-                    )}
+          <div className="overflow-x-auto">
+            <div className="min-w-[700px]">
+              <div className="grid grid-cols-[repeat(7,minmax(100px,1fr))] border-b border-border bg-secondary/50">
+                {WEEKDAYS.map((w) => (
+                  <div
+                    key={w}
+                    className="px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                   >
-                    {d.getDate()}
-                  </span>
-                  <div className="flex flex-col gap-1">
-                    {visible.map((ev) => {
-                      const crewLabel = ev.crew.map((c) => c.name).join(', ')
-                      const extra = [crewLabel || null, ev.notes || null].filter(Boolean).join(' · ')
-                      return (
-                        <div
-                          key={ev.id}
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setModal({ date: new Date(ev.startAt), event: ev })
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.stopPropagation()
-                              setModal({ date: new Date(ev.startAt), event: ev })
-                            }
-                          }}
-                          className="flex flex-col rounded-md bg-primary/15 px-1.5 py-0.5 hover:bg-primary/25"
-                          title={[ev.title, extra].filter(Boolean).join(' — ')}
-                        >
-                          <span className="truncate text-[10px] font-medium text-primary sm:text-xs">
-                            {timeLabel(ev.startAt)} {ev.title}
-                          </span>
-                          {extra && (
-                            <span className="truncate text-[9px] text-muted-foreground sm:text-[10px]">
-                              {extra}
-                            </span>
-                          )}
-                        </div>
-                      )
-                    })}
-                    {overflow > 0 && (
-                      <span className="px-1.5 text-[10px] text-muted-foreground">
-                        +{overflow} mais
-                      </span>
-                    )}
+                    {w}
                   </div>
-                </button>
-              )
-            })}
+                ))}
+              </div>
+              <div className="grid grid-cols-[repeat(7,minmax(100px,1fr))]">
+                {grid.map((d) => {
+                  const key = dateKey(d)
+                  const inMonth = d.getMonth() === monthStart.getMonth()
+                  const isToday = key === today
+                  const dayEvents = eventsByDay.get(key) ?? []
+                  const visible = dayEvents.slice(0, 3)
+                  const overflow = dayEvents.length - visible.length
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setModal({ date: d, event: null })}
+                      className={cn(
+                        'flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-border p-1.5 text-left transition-colors last:border-r-0 hover:bg-secondary/40 sm:min-h-[120px] sm:p-2',
+                        !inMonth && 'bg-secondary/20',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'inline-flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium',
+                          isToday
+                            ? 'bg-primary text-primary-foreground'
+                            : inMonth
+                              ? 'text-foreground'
+                              : 'text-muted-foreground/50',
+                        )}
+                      >
+                        {d.getDate()}
+                      </span>
+                      <div className="flex flex-col gap-1">
+                        {visible.map((ev) => {
+                          const crewLabel = ev.crew.map((c) => c.name).join(', ')
+                          const extra = [crewLabel || null, ev.notes || null].filter(Boolean).join(' · ')
+                          return (
+                            <div
+                              key={ev.id}
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setModal({ date: new Date(ev.startAt), event: ev })
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.stopPropagation()
+                                  setModal({ date: new Date(ev.startAt), event: ev })
+                                }
+                              }}
+                              className="flex flex-col rounded-md bg-primary/15 px-1.5 py-0.5 hover:bg-primary/25"
+                              title={[ev.title, extra].filter(Boolean).join(' — ')}
+                            >
+                              <span className="truncate text-[10px] font-medium text-primary sm:text-xs">
+                                {timeLabel(ev.startAt)} {ev.title}
+                              </span>
+                              {extra && (
+                                <span className="truncate text-[9px] text-muted-foreground sm:text-[10px]">
+                                  {extra}
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })}
+                        {overflow > 0 && (
+                          <span className="px-1.5 text-[10px] text-muted-foreground">
+                            +{overflow} mais
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </FadeIn>
       )}
