@@ -227,11 +227,11 @@ export function CalendarView() {
                               className="flex flex-col rounded-md bg-primary/15 px-1.5 py-0.5 hover:bg-primary/25"
                               title={[ev.title, extra].filter(Boolean).join(' — ')}
                             >
-                              <span className="truncate text-[10px] font-medium text-primary sm:text-xs">
+                              <span className="break-words text-[10px] font-medium text-primary sm:text-xs">
                                 {timeLabel(ev.startAt)} {ev.title}
                               </span>
                               {extra && (
-                                <span className="truncate text-[9px] text-muted-foreground sm:text-[10px]">
+                                <span className="break-words text-[9px] text-muted-foreground sm:text-[10px]">
                                   {extra}
                                 </span>
                               )}
