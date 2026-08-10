@@ -365,7 +365,7 @@ function PortfolioDetailsForm({
             className="group relative mt-1.5 block aspect-video w-40 overflow-hidden rounded-lg border border-border bg-secondary disabled:opacity-70"
           >
             {portfolio.coverUrl ? (
-              <Image src={portfolio.coverUrl} alt="" fill className="object-cover" sizes="160px" unoptimized />
+              <Image src={portfolio.coverUrl} alt="" fill className="object-contain" sizes="160px" unoptimized />
             ) : (
               <span className="grid h-full w-full place-items-center text-muted-foreground/60">
                 <ImageIcon className="size-6" />
