@@ -97,10 +97,13 @@ export const demoClients: Client[] = [
     isExample: true,
     description: 'Gostou do resultado?💛',
     photoUrl: null,
+    // Marca própria já configurada, pra exercitar de cara a sobreposição na
+    // galeria pública do projeto de exemplo (p1) sem precisar subir logo.
+    branding: { logoUrl: null, agencyName: 'Bela Cosméticos', accentColor: '#d6336c' },
   },
-  { id: 'c2', name: 'Burger House', email: 'contato@burgerhouse.com', isExample: false, description: null, photoUrl: null },
-  { id: 'c3', name: 'Studio Moda', email: 'contato@studiomoda.com', isExample: false, description: null, photoUrl: null },
-  { id: 'c4', name: 'Café Aurora', email: 'contato@cafeaurora.com', isExample: false, description: null, photoUrl: null },
+  { id: 'c2', name: 'Burger House', email: 'contato@burgerhouse.com', isExample: false, description: null, photoUrl: null, branding: null },
+  { id: 'c3', name: 'Studio Moda', email: 'contato@studiomoda.com', isExample: false, description: null, photoUrl: null, branding: null },
+  { id: 'c4', name: 'Café Aurora', email: 'contato@cafeaurora.com', isExample: false, description: null, photoUrl: null, branding: null },
 ]
 
 export const demoProjects: Project[] = [
@@ -528,8 +531,10 @@ export function demoProjectGallery(link: string): ProjectGallery {
   return {
     projectName: project.name,
     clientName: project.client?.name ?? '',
-    // branding null → a galeria usa o logo padrão do sistema (fallback).
-    branding: null,
+    // A agência demo nunca tem branding configurado nestes fixtures; se o
+    // cliente do projeto tiver marca própria (ex: c1/Bela Cosméticos), ela
+    // aparece aqui — mesma regra de sobreposição de `resolveBranding`.
+    branding: project.client?.branding ?? null,
     videos,
   }
 }
@@ -557,6 +562,7 @@ export const demoPortfolios: Portfolio[] = [
     link: 'demo-reels',
     categoryId: 'pfc-video',
     coverUrl: '/videos/reel-cosmetics.png',
+    clientId: null,
     videos: [
       {
         id: 'pfv1',
@@ -602,6 +608,7 @@ export const demoPortfolios: Portfolio[] = [
     link: 'demo-institucional',
     categoryId: 'pfc-video',
     coverUrl: '/videos/reel-food.png',
+    clientId: null,
     videos: [
       {
         id: 'pfv3',
@@ -627,11 +634,13 @@ export function isDemoPortfolioLink(link: string): boolean {
 /** Portfólio público de exemplo (rota /p/:link). */
 export function demoPublicPortfolio(link: string): PublicPortfolio {
   const portfolio = demoPortfolios.find((p) => p.link === link) ?? demoPortfolios[0]
+  const client = portfolio.clientId ? demoClients.find((c) => c.id === portfolio.clientId) : null
   return {
     name: portfolio.name,
     description: portfolio.description,
-    // branding null → a página pública usa o logo padrão do sistema (fallback).
-    branding: null,
+    // Sem cliente associado (o caso comum), usa o logo padrão do sistema.
+    // Associado a um cliente com marca própria, a marca dele sobrepõe.
+    branding: client?.branding ?? null,
     videos: [...portfolio.videos].sort((a, b) => a.order - b.order),
   }
 }
@@ -648,6 +657,7 @@ export function demoCreatePortfolio(input: {
     link: `demo-portfolio-${portfolioIdSeq}`,
     categoryId: input.categoryId ?? null,
     coverUrl: null,
+    clientId: null,
     videos: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -663,6 +673,7 @@ export function demoUpdatePortfolio(
     description?: string | null
     categoryId?: string | null
     coverUrl?: string | null
+    clientId?: string | null
   },
 ): Portfolio {
   const found = demoPortfolios.find((p) => p.id === id)
@@ -671,6 +682,7 @@ export function demoUpdatePortfolio(
   if (input.description !== undefined) found.description = input.description
   if (input.categoryId !== undefined) found.categoryId = input.categoryId
   if (input.coverUrl !== undefined) found.coverUrl = input.coverUrl
+  if (input.clientId !== undefined) found.clientId = input.clientId
   found.updatedAt = new Date().toISOString()
   return found
 }

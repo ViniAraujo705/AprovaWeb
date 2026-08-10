@@ -190,6 +190,7 @@ function mapClient(raw: Raw): Client {
     isExample: Boolean(pick(raw, ['isExemplo', 'is_exemplo', 'isExample'], false)),
     description: pick<string | null>(raw, ['descricao', 'description', 'bio'], null),
     photoUrl: pick<string | null>(raw, ['fotoUrl', 'foto_url', 'foto', 'photoUrl', 'avatarUrl'], null),
+    branding: mapBranding(pick<Raw | null>(raw, ['branding'], null)),
   }
 }
 
@@ -242,6 +243,22 @@ function mapBranding(raw: Raw | null | undefined): Branding | null {
   )
   if (!logoUrl && !agencyName && !accentColor) return null
   return { logoUrl, agencyName, accentColor }
+}
+
+/**
+ * Combina a marca da agência com a de um cliente específico, campo a campo —
+ * o cliente sobrepõe a agência onde tiver algo definido, senão herda dela.
+ * `null` nos dois níveis vira `null` (a UI então cai no logo/cor padrão do
+ * sistema). Usado nos links públicos que pertencem a um cliente (galeria do
+ * projeto, portfólio personalizado) pra decidir qual marca mostrar.
+ */
+function resolveBranding(agency: Branding | null, client: Branding | null): Branding | null {
+  if (!agency && !client) return null
+  return {
+    logoUrl: client?.logoUrl ?? agency?.logoUrl ?? null,
+    agencyName: client?.agencyName ?? agency?.agencyName ?? null,
+    accentColor: client?.accentColor ?? agency?.accentColor ?? null,
+  }
 }
 
 /**
@@ -515,6 +532,7 @@ function mapPortfolio(raw: Raw): Portfolio {
       ['capaUrl', 'coverUrl', 'cover_url'],
       videos[0]?.posterUrl ?? null,
     ),
+    clientId: pick<string | null>(raw, ['clienteId', 'cliente_id', 'clientId'], null),
     videos,
     createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
     updatedAt: pick<string | null>(raw, ['atualizadoEm', 'atualizado_em', 'updatedAt'], null),
@@ -979,6 +997,7 @@ export const clientService = {
         isExample: false,
         description: null,
         photoUrl: null,
+        branding: null,
       }
       demoClients.push(created)
       return delay(created, 300)
@@ -1031,6 +1050,59 @@ export const clientService = {
       publicUrl: pick<string | null>(res, ['publicUrl'], null),
       headers: pick<Record<string, string> | undefined>(res, ['headers'], undefined),
     }
+  },
+
+  /**
+   * Passo 1 do upload do logo (marca própria) deste cliente — mesmo fluxo
+   * presigned URL de `userService.getBrandingUploadUrl`, escopado ao cliente.
+   * Endpoint ainda não existe no backend, ver `scratchpad/mensagem-backend-branding-cliente.md`.
+   */
+  async getBrandingUploadUrl(input: {
+    clientId: string
+    fileName: string
+    contentType: string
+  }): Promise<{ uploadUrl: string; key: string; publicUrl: string | null; headers?: Record<string, string> }> {
+    const res = await api.post<Raw>(`/clients/${input.clientId}/branding/logo-upload-url`, {
+      nomeArquivo: input.fileName,
+      contentType: input.contentType,
+    })
+    return {
+      uploadUrl: pick(res, ['uploadUrl'], ''),
+      key: pick(res, ['key'], ''),
+      publicUrl: pick<string | null>(res, ['publicUrl'], null),
+      headers: pick<Record<string, string> | undefined>(res, ['headers'], undefined),
+    }
+  },
+
+  /**
+   * Passo 2: salva a marca própria do cliente (logo + cor de destaque).
+   * Mesmo contrato de `userService.updateBranding`, escopado ao cliente —
+   * sobrepõe a marca da agência nos links públicos deste cliente quando
+   * definida (ver `resolveBranding`).
+   */
+  async updateBranding(
+    clientId: string,
+    input: { logoUrl?: string | null; accentColor?: string | null },
+  ): Promise<Branding> {
+    if (isDemo()) {
+      const found = demoClients.find((c) => c.id === clientId)
+      if (!found) throw new ApiError('Cliente não encontrado.', 404)
+      const branding: Branding = {
+        logoUrl: input.logoUrl !== undefined ? input.logoUrl : (found.branding?.logoUrl ?? null),
+        agencyName: found.branding?.agencyName ?? null,
+        accentColor:
+          input.accentColor !== undefined ? input.accentColor : (found.branding?.accentColor ?? null),
+      }
+      found.branding = branding.logoUrl || branding.accentColor ? branding : null
+      return delay(branding, 300)
+    }
+    const res = await api.patch<Raw>(`/clients/${clientId}/branding`, {
+      logoUrl: input.logoUrl,
+      corDestaque: input.accentColor,
+    })
+    return (
+      mapBranding(res) ?? { logoUrl: input.logoUrl ?? null, agencyName: null, accentColor: input.accentColor ?? null }
+    )
   },
 }
 
@@ -1115,7 +1187,13 @@ export const portfolioService = {
   },
   async update(
     id: string,
-    input: { name?: string; description?: string | null; categoryId?: string | null; coverUrl?: string | null },
+    input: {
+      name?: string
+      description?: string | null
+      categoryId?: string | null
+      coverUrl?: string | null
+      clientId?: string | null
+    },
   ): Promise<Portfolio> {
     if (isDemo()) return delay(demoUpdatePortfolio(id, input), 300)
     const res = await api.patch<Raw>(`/portfolios/${id}`, {
@@ -1123,6 +1201,7 @@ export const portfolioService = {
       descricao: input.description,
       categoriaId: input.categoryId,
       capaUrl: input.coverUrl,
+      clienteId: input.clientId,
     })
     return mapPortfolio(res)
   },
@@ -1463,10 +1542,13 @@ export const publicService = {
     const projetoRaw = pick<Raw | null>(res, ['projeto', 'project'], null)
     const clienteRaw = pick<Raw | null>(res, ['cliente', 'client'], null)
     const agenciaRaw = pick<Raw | null>(res, ['agencia', 'agency', 'branding'], null)
+    // Marca própria do cliente (se configurada) sobrepõe a da agência nesta
+    // galeria — é o link que o cliente dono do projeto abre.
+    const clienteBrandingRaw = pick<Raw | null>(clienteRaw, ['branding'], null)
     return {
       projectName: pick(projetoRaw, ['nome', 'name'], ''),
       clientName: pick(clienteRaw, ['nome', 'name'], ''),
-      branding: mapBranding(agenciaRaw),
+      branding: resolveBranding(mapBranding(agenciaRaw), mapBranding(clienteBrandingRaw)),
       videos: hideSupersededGalleryVideos(
         asArray(pick(res, ['videos'], []))
           .map(mapGalleryVideoItem)
@@ -1478,7 +1560,12 @@ export const publicService = {
     }
   },
 
-  /** Portfólio público da agência (vitrine): grade de vídeos sem nenhum dado de cliente/projeto. */
+  /**
+   * Portfólio público da agência (vitrine): grade de vídeos sem nenhum dado
+   * de cliente/projeto exposto — exceto a marca, quando o álbum foi
+   * personalizado pra um cliente (`Portfolio.clientId`), caso em que a marca
+   * desse cliente sobrepõe a da agência.
+   */
   async getPortfolioByLink(link: string, signal?: AbortSignal): Promise<PublicPortfolio> {
     if (isDemoPortfolioLink(link)) return delay(demoPublicPortfolio(link))
     const res = await api.get<Raw>(`/public/portfolios/${encodeURIComponent(link)}`, {
@@ -1486,10 +1573,14 @@ export const publicService = {
       signal,
     })
     const agenciaRaw = pick<Raw | null>(res, ['agencia', 'agency', 'branding'], null)
+    const clienteBrandingRaw = pick<Raw | null>(res, ['cliente', 'client'], null)
     return {
       name: pick(res, ['nome', 'name'], ''),
       description: pick<string | null>(res, ['descricao', 'description'], null),
-      branding: mapBranding(agenciaRaw),
+      branding: resolveBranding(
+        mapBranding(agenciaRaw),
+        mapBranding(pick<Raw | null>(clienteBrandingRaw, ['branding'], null)),
+      ),
       videos: asArray(pick(res, ['videos'], []))
         .map(mapPortfolioItem)
         .sort((a, b) => a.order - b.order),
@@ -1961,19 +2052,21 @@ export const planService = {
 
 export const billingService = {
   /**
-   * Inicia o checkout recorrente na Mercado Pago. A resposta é a URL da
-   * própria tela hospedada da Mercado Pago — o front deve navegar o
-   * navegador inteiro pra lá (`window.location.href`), não abrir como
-   * modal/iframe.
+   * Inicia o checkout recorrente na Asaas. A resposta é a URL da fatura
+   * hospedada na Asaas — o front deve navegar o navegador inteiro pra lá
+   * (`window.location.href`), não abrir como modal/iframe.
+   *
+   * `cpfCnpj` precisa ir só com dígitos (11 pra CPF, 14 pra CNPJ) — a API
+   * rejeita com 400 se vier formatado ou com contagem errada.
    */
-  async checkout(plan: PlanId, cycle: BillingCycle): Promise<{ url: string }> {
+  async checkout(plan: PlanId, cycle: BillingCycle, cpfCnpj: string): Promise<{ url: string }> {
     if (isDemo()) {
       // Sem gateway de verdade no demo: simula sucesso imediato navegando
       // direto pra tela de retorno, e já troca o plano localmente.
       demoSetPlan(plan)
       return delay({ url: '/configuracoes/plano?status=sucesso' }, 400)
     }
-    const res = await api.post<Raw>('/billing/checkout', { plan, cycle })
+    const res = await api.post<Raw>('/billing/checkout', { plan, cycle, cpfCnpj })
     return { url: pick(res, ['url'], '') }
   },
 

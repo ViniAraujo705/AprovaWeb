@@ -59,6 +59,14 @@ export interface Client {
   description: string | null
   /** Foto de perfil do cliente, exibida como avatar no modo Reels. */
   photoUrl: string | null
+  /**
+   * Marca própria deste cliente (logo + cor), distinta da foto de perfil
+   * acima (que é um avatar pro modo Reels, não uma logomarca). Quando
+   * definida, sobrepõe a marca da agência nos links públicos que pertencem
+   * a este cliente (galeria do projeto, e portfólio quando associado a ele) —
+   * ver `resolveBranding` em `lib/services.ts`.
+   */
+  branding: Branding | null
 }
 
 export interface Project {
@@ -187,13 +195,18 @@ export interface RatingQuestion {
   active: boolean
 }
 
-/** Identidade visual da agência exibida na tela pública do cliente. */
+/**
+ * Identidade visual (logo + cor de destaque) exibida numa tela pública.
+ * Mesmo shape usado tanto para a marca da agência (`User.branding`) quanto
+ * para a marca própria de um cliente (`Client.branding`) — ver
+ * `resolveBranding` em `lib/services.ts` para como as duas se combinam.
+ */
 export interface Branding {
-  /** URL do logo enviado pela agência (null = usar logo padrão do sistema). */
+  /** URL do logo enviado (null = usar o fallback: logo do cliente, senão o padrão do sistema). */
   logoUrl: string | null
-  /** Nome de exibição da agência (opcional, usado como alt/label). */
+  /** Nome de exibição (opcional, usado como alt/label). */
   agencyName: string | null
-  /** Cor de destaque da agência em hex (ex: "#ff5a36"), null = cor padrão do sistema. */
+  /** Cor de destaque em hex (ex: "#ff5a36"), null = cair no próximo nível (cliente → agência → padrão do sistema). */
   accentColor: string | null
 }
 
@@ -292,12 +305,20 @@ export interface Portfolio {
   categoryId: string | null
   /** Capa explícita definida pelo owner; se null, o frontend usa o poster do primeiro item como fallback. */
   coverUrl: string | null
+  /**
+   * Cliente ao qual este álbum foi personalizado (opcional) — quando definido,
+   * a página pública deste álbum usa a marca desse cliente (`Client.branding`)
+   * em vez da marca da agência. Útil para montar um case personalizado pra
+   * apresentar a um prospect com a cara dele. `null` = álbum genérico da
+   * vitrine, sem vínculo com cliente (o caso comum).
+   */
+  clientId: string | null
   videos: PortfolioItem[]
   createdAt: string | null
   updatedAt: string | null
 }
 
-/** Portfólio como visto na rota pública /p/:link (GET /public/portfolios/:link) — sem nenhum dado de cliente/projeto. */
+/** Portfólio como visto na rota pública /p/:link (GET /public/portfolios/:link) — sem dado de cliente exposto, exceto a marca quando o álbum foi personalizado para um. */
 export interface PublicPortfolio {
   name: string
   description: string | null
@@ -376,8 +397,8 @@ export const planLabel: Record<PlanId, string> = {
   agencia: 'Agência',
 }
 
-/** Ciclo de cobrança da assinatura (Mercado Pago). */
-export type BillingCycle = 'MONTHLY' | 'ANNUALLY'
+/** Ciclo de cobrança da assinatura (Asaas). */
+export type BillingCycle = 'MONTHLY' | 'YEARLY'
 
 /** `null` em qualquer campo = ilimitado (Pro e Agência não têm teto nesses eixos). */
 export interface PlanLimits {

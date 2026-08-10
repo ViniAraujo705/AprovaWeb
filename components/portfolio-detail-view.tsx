@@ -22,8 +22,8 @@ import {
   UploadCloud,
   X,
 } from 'lucide-react'
-import { portfolioProfileService, portfolioService, videoService } from '@/lib/services'
-import type { Portfolio, PortfolioCategory, PortfolioItem, PortfolioItemMediaType, Video } from '@/lib/types'
+import { clientService, portfolioProfileService, portfolioService, videoService } from '@/lib/services'
+import type { Client, Portfolio, PortfolioCategory, PortfolioItem, PortfolioItemMediaType, Video } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
@@ -260,11 +260,13 @@ function PortfolioDetailsForm({
   const [coverBusy, setCoverBusy] = useState(false)
   const [coverError, setCoverError] = useState<string | null>(null)
   const [categoryBusy, setCategoryBusy] = useState(false)
+  const [clientBusy, setClientBusy] = useState(false)
 
   const categories = useQuery<PortfolioCategory[]>(
     (signal) => portfolioProfileService.listCategories(signal),
     [],
   )
+  const clients = useQuery<Client[]>((signal) => clientService.list(signal), [])
 
   const dirty = name !== portfolio.name || description !== (portfolio.description ?? '')
 
@@ -338,6 +340,18 @@ function PortfolioDetailsForm({
     }
   }
 
+  async function changeClient(clientId: string) {
+    setClientBusy(true)
+    try {
+      const updated = await portfolioService.update(portfolio.id, { clientId: clientId || null })
+      onUpdated(updated)
+    } catch (err) {
+      toast.error('Não foi possível mudar o cliente', err instanceof ApiError ? err.message : undefined)
+    } finally {
+      setClientBusy(false)
+    }
+  }
+
   return (
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
       <div className="flex flex-col gap-4 sm:flex-row">
@@ -406,6 +420,28 @@ function PortfolioDetailsForm({
                   </option>
                 ))}
               </select>
+            </label>
+          )}
+          {!clients.loading && !clients.error && (clients.data ?? []).length > 0 && (
+            <label className="mt-4 flex flex-col gap-1.5 sm:max-w-md">
+              <span className="text-sm font-medium text-foreground">Cliente</span>
+              <select
+                value={portfolio.clientId ?? ''}
+                onChange={(e) => changeClient(e.target.value)}
+                disabled={clientBusy}
+                className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-50"
+              >
+                <option value="">Vitrine geral (sem cliente)</option>
+                {(clients.data ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-muted-foreground">
+                Ao marcar um cliente, a página pública deste portfólio passa a usar a marca própria
+                dele (se configurada), no lugar da marca da agência.
+              </span>
             </label>
           )}
           {error && (

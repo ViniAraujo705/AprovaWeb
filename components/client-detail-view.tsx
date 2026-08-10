@@ -13,6 +13,8 @@ import {
   FolderOpen,
   Plus,
   X,
+  Building2,
+  Lock,
 } from 'lucide-react'
 import { clientService, projectService } from '@/lib/services'
 import type { Client, Project } from '@/lib/types'
@@ -25,6 +27,7 @@ import { cn } from '@/lib/utils'
 import { FadeIn, AnimatePresence, motion, StaggerList, staggerItem } from '@/components/motion'
 import { useRouter } from 'next/navigation'
 import { toast } from '@/lib/toast'
+import { usePlanLimit } from '@/components/plan-limit-provider'
 
 /** Lê um arquivo como Data URL (usado só no preview/modo demo). */
 function readAsDataUrl(file: File): Promise<string> {
@@ -84,6 +87,10 @@ export function ClientDetailView({ id }: { id: string }) {
 
           <div className="mt-8">
             <ClientForm client={client.data} onUpdated={client.setData} />
+          </div>
+
+          <div className="mt-8">
+            <ClientBrandingForm client={client.data} onUpdated={client.setData} />
           </div>
 
           <div className="mt-8">
@@ -390,6 +397,297 @@ function ClientForm({
           disabled={busy}
           className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
+          Salvar
+        </button>
+
+        {error && (
+          <p className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <AlertTriangle className="size-4 shrink-0" /> {error}
+          </p>
+        )}
+
+        <AnimatePresence>
+          {saved && (
+            <motion.p
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="mt-4 flex items-center gap-1.5 text-sm font-medium text-emerald-400"
+            >
+              <Check className="size-4" /> Alterações salvas
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
+    </FadeIn>
+  )
+}
+
+const DEFAULT_ACCENT_COLOR = '#0b0b0d'
+
+function ClientBrandingForm({
+  client,
+  onUpdated,
+}: {
+  client: Client
+  onUpdated: (updater: Client | ((prev: Client | null) => Client)) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const [logoUrl, setLogoUrl] = useState<string | null>(client.branding?.logoUrl ?? null)
+  const [accentColor, setAccentColor] = useState(client.branding?.accentColor ?? DEFAULT_ACCENT_COLOR)
+  const [dragging, setDragging] = useState(false)
+  const [fileError, setFileError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+  const { handlePlanLimitError, planStatus, openUpgradeModal } = usePlanLimit()
+  // Enquanto o plano ainda não carregou, não bloqueia (o 403 real continua
+  // sendo o backstop) — evita prender a UI atrás de um estado de loading.
+  const locked = planStatus ? !planStatus.limits.whiteLabel : false
+
+  function requireUpgrade() {
+    openUpgradeModal(
+      'Marca própria por cliente (logo e cor de destaque exclusivos dele nos links públicos) é exclusiva dos planos pagos.',
+    )
+  }
+
+  function flashSaved() {
+    setSaved(true)
+    toast.success('Configuração salva')
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  function applyBranding(branding: { logoUrl: string | null; accentColor: string | null }) {
+    onUpdated((prev) => ({
+      ...(prev ?? client),
+      branding:
+        branding.logoUrl || branding.accentColor
+          ? { logoUrl: branding.logoUrl, agencyName: null, accentColor: branding.accentColor }
+          : null,
+    }))
+  }
+
+  async function handleFile(file: File | undefined | null) {
+    if (locked) {
+      requireUpgrade()
+      return
+    }
+    if (!file) return
+    const invalid = validateImageFile(file)
+    if (invalid) {
+      setFileError(invalid)
+      return
+    }
+    setFileError(null)
+    setError(null)
+    setBusy(true)
+    try {
+      // Modo demo: preview local, sem tocar no backend/R2.
+      if (isDemo()) {
+        const dataUrl = await readAsDataUrl(file)
+        const branding = await clientService.updateBranding(client.id, { logoUrl: dataUrl })
+        setLogoUrl(branding.logoUrl)
+        applyBranding(branding)
+        flashSaved()
+        return
+      }
+
+      // 1) presigned URL
+      const presigned = await clientService.getBrandingUploadUrl({
+        clientId: client.id,
+        fileName: file.name,
+        contentType: file.type || 'application/octet-stream',
+      })
+      if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
+
+      // 2) upload direto pro R2
+      await uploadToPresignedUrl({ url: presigned.uploadUrl, file, headers: presigned.headers })
+
+      // 3) salva o branding do cliente
+      const branding = await clientService.updateBranding(client.id, { logoUrl: presigned.publicUrl })
+      setLogoUrl(branding.logoUrl)
+      applyBranding(branding)
+      flashSaved()
+    } catch (err) {
+      if (handlePlanLimitError(err)) return
+      if (err instanceof UploadError || err instanceof ApiError) setError(err.message)
+      else setError('Falha ao enviar o logo. Tente novamente.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveAppearance() {
+    if (locked) {
+      requireUpgrade()
+      return
+    }
+    setError(null)
+    setBusy(true)
+    try {
+      const nextAccentColor = accentColor === DEFAULT_ACCENT_COLOR ? null : accentColor
+      const branding = await clientService.updateBranding(client.id, {
+        logoUrl,
+        accentColor: nextAccentColor,
+      })
+      applyBranding(branding)
+      flashSaved()
+    } catch (err) {
+      if (handlePlanLimitError(err)) return
+      setError(err instanceof ApiError ? err.message : 'Falha ao salvar. Tente novamente.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function removeLogo() {
+    setError(null)
+    setBusy(true)
+    try {
+      const branding = await clientService.updateBranding(client.id, { logoUrl: null })
+      setLogoUrl(null)
+      applyBranding(branding)
+      flashSaved()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Falha ao remover o logo.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <FadeIn y={6}>
+      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Building2 className="size-4 text-primary" />
+          Marca própria deste cliente
+          {locked && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+              <Lock className="size-3" /> Pro
+            </span>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Opcional. Quando definida, substitui a marca da agência nos links públicos deste cliente
+          (galeria de entrega e portfólio marcado pra ele) — logo no topo à esquerda e cor de
+          destaque. Deixe em branco pra usar a marca da agência normalmente.
+        </p>
+
+        {/* Preview atual */}
+        <div className="mt-4 flex items-center gap-4">
+          <div className="grid h-16 w-40 place-items-center overflow-hidden rounded-lg border border-border bg-secondary">
+            {logoUrl ? (
+              <span className="relative h-12 w-36">
+                <Image
+                  src={logoUrl}
+                  alt={`Logo de ${client.name}`}
+                  fill
+                  className="object-contain"
+                  sizes="144px"
+                  unoptimized
+                />
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">Usa a logo da agência</span>
+            )}
+          </div>
+          {logoUrl && (
+            <button
+              type="button"
+              onClick={removeLogo}
+              disabled={busy}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+            >
+              <Trash2 className="size-3.5" /> Remover
+            </button>
+          )}
+        </div>
+
+        {/* Dropzone */}
+        <div
+          onDragOver={(e) => {
+            e.preventDefault()
+            if (!busy && !locked) setDragging(true)
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragging(false)
+            if (locked) requireUpgrade()
+            else if (!busy) handleFile(e.dataTransfer.files?.[0])
+          }}
+          onClick={() => {
+            if (locked) requireUpgrade()
+            else if (!busy) inputRef.current?.click()
+          }}
+          className={cn(
+            'mt-4 flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition-colors',
+            busy ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
+            fileError
+              ? 'border-destructive/60 bg-destructive/5'
+              : dragging
+                ? 'border-primary bg-primary/10'
+                : 'border-primary/50 bg-background hover:border-primary hover:bg-primary/5',
+          )}
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/svg+xml,image/webp"
+            className="hidden"
+            onChange={(e) => handleFile(e.target.files?.[0])}
+          />
+          <span className="grid size-12 place-items-center rounded-full bg-primary/15 text-primary">
+            {busy ? <Loader2 className="size-6 animate-spin" /> : <ImagePlus className="size-6" />}
+          </span>
+          <p className="mt-2 text-sm font-medium text-foreground">
+            {busy ? 'Enviando…' : 'Arraste um logo ou clique para selecionar'}
+          </p>
+        </div>
+        {fileError && (
+          <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
+            <AlertTriangle className="size-4" /> {fileError}
+          </p>
+        )}
+
+        {/* Cor de destaque */}
+        <label className="mt-6 flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">Cor de destaque</span>
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={accentColor}
+              onChange={(e) => setAccentColor(e.target.value)}
+              aria-label="Cor de destaque do cliente"
+              className="size-11 cursor-pointer rounded-lg border border-border bg-secondary p-1"
+            />
+            <input
+              value={accentColor}
+              onChange={(e) => setAccentColor(e.target.value)}
+              placeholder={DEFAULT_ACCENT_COLOR}
+              className="min-h-11 w-32 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+            />
+            {accentColor !== DEFAULT_ACCENT_COLOR && (
+              <button
+                type="button"
+                onClick={() => setAccentColor(DEFAULT_ACCENT_COLOR)}
+                className="text-xs text-muted-foreground underline hover:text-foreground"
+              >
+                Usar da agência
+              </button>
+            )}
+          </div>
+        </label>
+
+        <button
+          type="button"
+          onClick={saveAppearance}
+          disabled={busy}
+          className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+        >
+          {busy && <Loader2 className="size-3.5 animate-spin" />}
           Salvar
         </button>
 
