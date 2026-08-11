@@ -213,15 +213,15 @@ export function PortfoliosView() {
             }
           />
         ) : (
-          <div className="flex flex-col gap-8">
+          <div className="columns-1 gap-6 sm:columns-2 lg:columns-3">
             {categoriesWithPortfolios
               .filter((g) => g.items.length > 0)
               .map((g) => (
-                <div key={g.category.id}>
+                <div key={g.category.id} className="mb-6 break-inside-avoid-column">
                   <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                     {g.category.name}
                   </h2>
-                  <StaggerList className="grid w-full gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <StaggerList className="grid grid-cols-2 gap-3">
                     {g.items.map((p) => (
                       <PortfolioCard key={p.id} portfolio={p} />
                     ))}
@@ -229,13 +229,13 @@ export function PortfoliosView() {
                 </div>
               ))}
             {uncategorized.length > 0 && (
-              <div>
+              <div className="mb-6 break-inside-avoid-column">
                 {allCategories.length > 0 && (
                   <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                     Sem categoria
                   </h2>
                 )}
-                <StaggerList className="grid w-full gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <StaggerList className="flex flex-col gap-4">
                   {uncategorized.map((p) => (
                     <PortfolioCard key={p.id} portfolio={p} />
                   ))}
