@@ -99,43 +99,38 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
           </div>
         ) : (
           <FadeIn>
-            {categories.map((c) => (
-              <section key={c.id} id={`cat-${c.id}`}>
-                <h2 className="px-3 pt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground md:hidden">
-                  {c.name}
-                </h2>
-                <StaggerList className="grid grid-cols-2 sm:grid-cols-3">
-                  {c.portfolios.map((p) => (
-                    <motion.div key={p.id} variants={staggerItem}>
-                      <Link
-                        href={`/p/${p.link}`}
-                        className="group relative block aspect-square w-full overflow-hidden bg-secondary"
-                      >
-                        {p.coverUrl ? (
-                          <Image
-                            src={p.coverUrl}
-                            alt=""
-                            fill
-                            className="object-cover transition-transform duration-500 group-hover:scale-105"
-                            sizes="(min-width: 640px) 33vw, 50vw"
-                            unoptimized
-                          />
-                        ) : (
-                          <span className="grid h-full w-full place-items-center text-muted-foreground/60">
-                            <Film className="size-6" />
-                          </span>
-                        )}
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/0 p-4 text-center opacity-0 transition-all duration-300 group-hover:bg-black/55 group-hover:opacity-100">
-                          <h3 className="font-display text-base tracking-[0.05em] text-white sm:text-xl">
-                            {p.name}
-                          </h3>
-                        </div>
-                      </Link>
-                    </motion.div>
-                  ))}
-                </StaggerList>
-              </section>
-            ))}
+            <StaggerList className="grid grid-cols-2">
+              {categories.flatMap((c) =>
+                c.portfolios.map((p, i) => (
+                  <motion.div key={p.id} id={i === 0 ? `cat-${c.id}` : undefined} variants={staggerItem}>
+                    <Link
+                      href={`/p/${p.link}`}
+                      className="group relative block aspect-square w-full overflow-hidden bg-secondary"
+                    >
+                      {p.coverUrl ? (
+                        <Image
+                          src={p.coverUrl}
+                          alt=""
+                          fill
+                          className="object-cover transition-transform duration-500 group-hover:scale-105"
+                          sizes="50vw"
+                          unoptimized
+                        />
+                      ) : (
+                        <span className="grid h-full w-full place-items-center text-muted-foreground/60">
+                          <Film className="size-6" />
+                        </span>
+                      )}
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/0 p-4 text-center opacity-0 transition-all duration-300 group-hover:bg-black/55 group-hover:opacity-100">
+                        <h3 className="font-display text-base tracking-[0.05em] text-white sm:text-xl">
+                          {p.name}
+                        </h3>
+                      </div>
+                    </Link>
+                  </motion.div>
+                )),
+              )}
+            </StaggerList>
           </FadeIn>
         )}
       </div>
