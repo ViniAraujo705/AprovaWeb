@@ -2,19 +2,25 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Plus,
   Search,
   Play,
   Film,
+  FolderOpen,
+  Megaphone,
+  Camera,
+  ListChecks,
   X,
   Check,
   RotateCcw,
+  Trash2,
   MessageSquare,
   Lock,
   Users,
   ExternalLink,
+  type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
 import { videoService, teamService } from '@/lib/services'
@@ -55,6 +61,103 @@ const stageBadgeStyles: Record<ProductionStage, string> = {
 }
 
 const ALL_CLIENTS = 'Todos os clientes'
+const ALL_KINDS = 'Todos os tipos'
+
+/**
+ * `video` vem do backend real (upload de verdade). Os outros tipos ainda não
+ * têm entidade nenhuma no backend — só existem como cards criados na hora,
+ * guardados no localStorage deste navegador (ver `LOCAL_DEMANDS_KEY`).
+ */
+type DemandKind = 'projeto' | 'campanha' | 'gravacao' | 'demanda'
+type CardKind = 'video' | DemandKind
+
+const DEMAND_KINDS: DemandKind[] = ['projeto', 'campanha', 'gravacao', 'demanda']
+
+const KIND_META: Record<CardKind, { label: string; icon: LucideIcon }> = {
+  video: { label: 'Vídeo', icon: Film },
+  projeto: { label: 'Projeto', icon: FolderOpen },
+  campanha: { label: 'Campanha', icon: Megaphone },
+  gravacao: { label: 'Gravação', icon: Camera },
+  demanda: { label: 'Demanda', icon: ListChecks },
+}
+
+interface LocalDemand {
+  id: string
+  title: string
+  kind: DemandKind
+  clientName: string
+  responsibleId: string | null
+  deadline: string | null
+  stage: ProductionStage
+  createdAt: string
+}
+
+const LOCAL_DEMANDS_KEY = 'aprova_kanban_demandas_locais'
+
+function loadLocalDemands(): LocalDemand[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_DEMANDS_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function cryptoId(): string {
+  try {
+    return crypto.randomUUID()
+  } catch {
+    return Math.random().toString(36).slice(2)
+  }
+}
+
+/** Formato unificado que os cards/coluna consomem, seja o vídeo real ou uma demanda local. */
+interface BoardItem {
+  id: string
+  kind: CardKind
+  title: string
+  clientName: string
+  responsibleName: string | null
+  responsibleSeed: string | null
+  deadline: string | null
+  stage: ProductionStage
+  commentsCount: number
+  posterUrl: string | null
+  duration: number
+}
+
+function videoToItem(v: Video, responsibleName: string | null): BoardItem {
+  return {
+    id: v.id,
+    kind: 'video',
+    title: v.title,
+    clientName: v.clientName,
+    responsibleName,
+    responsibleSeed: v.editorId ?? responsibleName,
+    deadline: v.deadline,
+    stage: v.productionStage,
+    commentsCount: v.commentsCount,
+    posterUrl: v.posterUrl,
+    duration: v.duration,
+  }
+}
+
+function demandToItem(d: LocalDemand, responsibleName: string | null): BoardItem {
+  return {
+    id: d.id,
+    kind: d.kind,
+    title: d.title,
+    clientName: d.clientName,
+    responsibleName,
+    responsibleSeed: d.responsibleId ?? responsibleName,
+    deadline: d.deadline,
+    stage: d.stage,
+    commentsCount: 0,
+    posterUrl: null,
+    duration: 0,
+  }
+}
 
 export function KanbanView() {
   const { user } = useAuth()
@@ -69,27 +172,58 @@ export function KanbanView() {
   // Mesma regra do dashboard: só a versão mais recente de cada vídeo aparece no board.
   const videos = (data ?? []).filter((v) => v.latestVersionId === v.id)
 
+  // Demandas genéricas (não-vídeo) — locais a este navegador até existir uma
+  // entidade real no backend. Hidrata do localStorage só no client. O flag de
+  // hidratação PRECISA ser estado (não ref): com ref, o efeito de salvar roda
+  // com o closure antigo (demands ainda `[]`) antes do setDemands do efeito de
+  // carregar ser commitado, e sobrescreve o localStorage com `[]` — perdendo
+  // tudo que já estava salvo. Como estado, o efeito de salvar só "vê"
+  // hydrated=true depois que o re-render com os dados carregados já aconteceu.
+  const [demands, setDemands] = useState<LocalDemand[]>([])
+  const [hydrated, setHydrated] = useState(false)
+  useEffect(() => {
+    setDemands(loadLocalDemands())
+    setHydrated(true)
+  }, [])
+  useEffect(() => {
+    if (!hydrated) return
+    localStorage.setItem(LOCAL_DEMANDS_KEY, JSON.stringify(demands))
+  }, [demands, hydrated])
+
   const [search, setSearch] = useState('')
   const [client, setClient] = useState(ALL_CLIENTS)
+  const [kindFilter, setKindFilter] = useState<CardKind | typeof ALL_KINDS>(ALL_KINDS)
   const [dragOverColumn, setDragOverColumn] = useState<ProductionStage | null>(null)
-  const [activeVideoId, setActiveVideoId] = useState<string | null>(null)
+  const [activeItem, setActiveItem] = useState<{ kind: 'video' | 'demand'; id: string } | null>(null)
+  const [creatingStage, setCreatingStage] = useState<ProductionStage | null>(null)
+
+  const responsibleName = (id: string | null) =>
+    id ? team.data?.find((m) => m.id === id)?.name ?? null : null
+
+  const items: BoardItem[] = useMemo(() => {
+    const videoItems = videos.map((v) => videoToItem(v, responsibleName(v.editorId)))
+    const demandItems = demands.map((d) => demandToItem(d, responsibleName(d.responsibleId)))
+    return [...videoItems, ...demandItems]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videos, demands, team.data])
 
   const clientNames = useMemo(() => {
     const set = new Set<string>()
-    videos.forEach((v) => v.clientName && set.add(v.clientName))
+    items.forEach((i) => i.clientName && set.add(i.clientName))
     return [ALL_CLIENTS, ...Array.from(set).sort()]
-  }, [videos])
+  }, [items])
 
-  const filtered = videos.filter((v) => {
-    const byClient = client === ALL_CLIENTS || v.clientName === client
-    const bySearch = search.trim() === '' || v.title.toLowerCase().includes(search.trim().toLowerCase())
-    return byClient && bySearch
+  const filtered = items.filter((i) => {
+    const byClient = client === ALL_CLIENTS || i.clientName === client
+    const byKind = kindFilter === ALL_KINDS || i.kind === kindFilter
+    const bySearch = search.trim() === '' || i.title.toLowerCase().includes(search.trim().toLowerCase())
+    return byClient && byKind && bySearch
   })
 
   const counts = {
-    aguardando_aprovacao: videos.filter((v) => v.productionStage === 'aguardando_aprovacao').length,
-    ajustes: videos.filter((v) => v.productionStage === 'ajustes').length,
-    entregue: videos.filter((v) => v.productionStage === 'entregue').length,
+    aguardando_aprovacao: items.filter((i) => i.stage === 'aguardando_aprovacao').length,
+    ajustes: items.filter((i) => i.stage === 'ajustes').length,
+    entregue: items.filter((i) => i.stage === 'entregue').length,
   }
 
   async function moveVideo(id: string, stage: ProductionStage) {
@@ -104,8 +238,31 @@ export function KanbanView() {
     }
   }
 
-  const activeVideo = videos.find((v) => v.id === activeVideoId) ?? null
-  const editorName = (editorId: string | null) => team.data?.find((m) => m.id === editorId)?.name ?? null
+  function moveDemand(id: string, stage: ProductionStage) {
+    setDemands((prev) => prev.map((d) => (d.id === id ? { ...d, stage } : d)))
+  }
+
+  function moveItem(item: BoardItem, stage: ProductionStage) {
+    if (item.kind === 'video') moveVideo(item.id, stage)
+    else moveDemand(item.id, stage)
+  }
+
+  function saveDemand(demand: LocalDemand) {
+    setDemands((prev) => {
+      const idx = prev.findIndex((d) => d.id === demand.id)
+      if (idx === -1) return [...prev, demand]
+      const next = [...prev]
+      next[idx] = demand
+      return next
+    })
+  }
+
+  function deleteDemand(id: string) {
+    setDemands((prev) => prev.filter((d) => d.id !== id))
+  }
+
+  const activeVideo = activeItem?.kind === 'video' ? videos.find((v) => v.id === activeItem.id) ?? null : null
+  const activeDemand = activeItem?.kind === 'demand' ? demands.find((d) => d.id === activeItem.id) ?? null : null
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
@@ -113,16 +270,26 @@ export function KanbanView() {
         <div>
           <h1 className="font-display text-4xl tracking-wide sm:text-5xl">KANBAN</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Do planejamento à entrega, tudo num lugar só. Arraste os vídeos entre as etapas.
+            Do planejamento à entrega, tudo num lugar só. Arraste os cards entre as etapas.
           </p>
         </div>
-        <Link
-          href="/upload"
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 font-display text-lg tracking-wide text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          <Plus className="size-5" />
-          ENVIAR NOVO VÍDEO
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/upload"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:border-primary/50"
+          >
+            <Plus className="size-4" />
+            Enviar vídeo
+          </Link>
+          <button
+            type="button"
+            onClick={() => setCreatingStage('planejado')}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 font-display text-lg tracking-wide text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            <Plus className="size-5" />
+            NOVA DEMANDA
+          </button>
+        </div>
       </div>
 
       {/* Cards de resumo */}
@@ -136,7 +303,7 @@ export function KanbanView() {
         />
         <SummaryCard dot="bg-orange-500" label="Em ajustes" value={counts.ajustes} hint="voltou pra equipe" loading={loading} />
         <SummaryCard dot="bg-foreground" label="Entregues" value={counts.entregue} hint="ciclo completo" loading={loading} />
-        <SummaryCard dot="bg-muted-foreground" label="Total no quadro" value={videos.length} hint="todas as etapas" loading={loading} />
+        <SummaryCard dot="bg-muted-foreground" label="Total no quadro" value={items.length} hint="todas as etapas" loading={loading} />
       </div>
 
       {/* Quadro */}
@@ -151,10 +318,22 @@ export function KanbanView() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por arquivo..."
-              className="min-h-11 w-full rounded-lg border border-border bg-secondary pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary sm:w-56"
+              placeholder="Buscar..."
+              className="min-h-11 w-full rounded-lg border border-border bg-secondary pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary sm:w-52"
             />
           </div>
+          <select
+            value={kindFilter}
+            onChange={(e) => setKindFilter(e.target.value as CardKind | typeof ALL_KINDS)}
+            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value={ALL_KINDS}>{ALL_KINDS}</option>
+            {(Object.keys(KIND_META) as CardKind[]).map((k) => (
+              <option key={k} value={k}>
+                {KIND_META[k].label}
+              </option>
+            ))}
+          </select>
           <select
             value={client}
             onChange={(e) => setClient(e.target.value)}
@@ -183,28 +362,27 @@ export function KanbanView() {
         <div className="mt-4">
           <ErrorState message={error} onRetry={refetch} />
         </div>
-      ) : videos.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="mt-4">
           <EmptyState
             icon={<Film className="size-7" />}
-            title="Nenhum vídeo enviado ainda"
-            description="Envie seu primeiro vídeo pra ver o quadro em ação."
+            title="Nada no quadro ainda"
+            description="Envie um vídeo ou crie uma demanda pra ver o quadro em ação."
             action={
-              isOwner && (
-                <Link
-                  href="/upload"
-                  className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
-                >
-                  <Plus className="size-4" /> Enviar vídeo
-                </Link>
-              )
+              <button
+                type="button"
+                onClick={() => setCreatingStage('planejado')}
+                className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+              >
+                <Plus className="size-4" /> Nova demanda
+              </button>
             }
           />
         </div>
       ) : (
         <div className="mt-4 -mx-4 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
           {COLUMNS.map((col) => {
-            const columnVideos = filtered.filter((v) => v.productionStage === col.stage)
+            const columnItems = filtered.filter((i) => i.stage === col.stage)
             return (
               <div
                 key={col.stage}
@@ -216,7 +394,8 @@ export function KanbanView() {
                 onDrop={(e) => {
                   e.preventDefault()
                   const id = e.dataTransfer.getData('text/plain')
-                  if (id) moveVideo(id, col.stage)
+                  const item = items.find((i) => i.id === id)
+                  if (item) moveItem(item, col.stage)
                   setDragOverColumn(null)
                 }}
                 className={cn(
@@ -230,25 +409,35 @@ export function KanbanView() {
                     {productionStageLabel[col.stage]}
                   </h3>
                   <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-secondary px-1.5 text-xs font-semibold text-foreground">
-                    {columnVideos.length}
+                    {columnItems.length}
                   </span>
                 </div>
 
-                <div className="flex max-h-[65vh] min-h-24 flex-col gap-3 overflow-y-auto pb-1">
-                  {columnVideos.map((v) => (
-                    <VideoCard
-                      key={v.id}
-                      video={v}
-                      editorName={editorName(v.editorId)}
-                      onOpen={() => setActiveVideoId(v.id)}
+                <div className="flex max-h-[60vh] min-h-24 flex-col gap-3 overflow-y-auto pb-1">
+                  {columnItems.map((item) => (
+                    <BoardCard
+                      key={item.id}
+                      item={item}
+                      onOpen={() =>
+                        setActiveItem({ kind: item.kind === 'video' ? 'video' : 'demand', id: item.id })
+                      }
                     />
                   ))}
-                  {columnVideos.length === 0 && (
+                  {columnItems.length === 0 && (
                     <div className="grid min-h-24 place-items-center rounded-xl border border-dashed border-border text-xs text-muted-foreground">
-                      Arraste um vídeo pra cá
+                      Arraste um card pra cá
                     </div>
                   )}
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => setCreatingStage(col.stage)}
+                  className="flex items-center gap-1.5 rounded-lg px-1.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  <Plus className="size-3.5" />
+                  Adicionar
+                </button>
               </div>
             )
           })}
@@ -259,10 +448,33 @@ export function KanbanView() {
         {activeVideo && (
           <VideoDetailModal
             video={activeVideo}
-            editorName={editorName(activeVideo.editorId)}
+            editorName={responsibleName(activeVideo.editorId)}
             isOwner={isOwner}
-            onClose={() => setActiveVideoId(null)}
+            onClose={() => setActiveItem(null)}
             onUpdateStage={(stage) => moveVideo(activeVideo.id, stage)}
+          />
+        )}
+        {activeDemand && (
+          <DemandModal
+            demand={activeDemand}
+            initialStage={activeDemand.stage}
+            teamMembers={team.data ?? []}
+            onClose={() => setActiveItem(null)}
+            onSave={saveDemand}
+            onDelete={(id) => {
+              deleteDemand(id)
+              setActiveItem(null)
+            }}
+          />
+        )}
+        {creatingStage && (
+          <DemandModal
+            demand={null}
+            initialStage={creatingStage}
+            teamMembers={team.data ?? []}
+            onClose={() => setCreatingStage(null)}
+            onSave={saveDemand}
+            onDelete={() => setCreatingStage(null)}
           />
         )}
       </AnimatePresence>
@@ -301,83 +513,94 @@ function SummaryCard({
   )
 }
 
-function VideoThumb({ video, className }: { video: Video; className?: string }) {
+function CardVisual({
+  kind,
+  posterUrl,
+  duration,
+  className,
+}: {
+  kind: CardKind
+  posterUrl: string | null
+  duration: number
+  className?: string
+}) {
+  const KindIcon = KIND_META[kind].icon
   return (
     <div className={cn('relative w-full overflow-hidden rounded-lg bg-secondary', className)}>
-      {video.posterUrl ? (
-        <Image src={video.posterUrl} alt="" fill className="object-cover" sizes="288px" unoptimized />
+      {posterUrl ? (
+        <Image src={posterUrl} alt="" fill className="object-cover" sizes="288px" unoptimized />
       ) : (
         <span className="grid h-full w-full place-items-center text-muted-foreground/60">
-          <Film className="size-6" />
+          <KindIcon className="size-6" />
         </span>
       )}
-      <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <span className="grid size-9 place-items-center rounded-full bg-black/30 text-white backdrop-blur-sm">
-          <Play className="size-4 fill-white" />
-        </span>
+      <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px] font-medium text-white">
+        <KindIcon className="size-3" />
+        {KIND_META[kind].label}
       </span>
-      {video.duration > 0 && (
+      {kind === 'video' && (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className="grid size-9 place-items-center rounded-full bg-black/30 text-white backdrop-blur-sm">
+            <Play className="size-4 fill-white" />
+          </span>
+        </span>
+      )}
+      {duration > 0 && (
         <span className="absolute bottom-1.5 right-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
-          {formatDuration(video.duration)}
+          {formatDuration(duration)}
         </span>
       )}
     </div>
   )
 }
 
-function VideoCard({
-  video,
-  editorName,
-  onOpen,
-}: {
-  video: Video
-  editorName: string | null
-  onOpen: () => void
-}) {
+function BoardCard({ item, onOpen }: { item: BoardItem; onOpen: () => void }) {
   return (
     <button
       type="button"
       draggable
       onDragStart={(e) => {
-        e.dataTransfer.setData('text/plain', video.id)
+        e.dataTransfer.setData('text/plain', item.id)
         e.dataTransfer.effectAllowed = 'move'
       }}
       onClick={onOpen}
       className="group flex cursor-grab flex-col rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:border-primary/50 active:cursor-grabbing"
     >
-      <VideoThumb video={video} className="aspect-video" />
+      <CardVisual kind={item.kind} posterUrl={item.posterUrl} duration={item.duration} className="aspect-video" />
 
       <div className="mt-2.5 flex items-start justify-between gap-2">
-        <h4 className="min-w-0 truncate text-sm font-semibold text-foreground" title={video.title}>
-          {video.title}
+        <h4 className="min-w-0 truncate text-sm font-semibold text-foreground" title={item.title}>
+          {item.title}
         </h4>
         <span
           className={cn(
             'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-            stageBadgeStyles[video.productionStage],
+            stageBadgeStyles[item.stage],
           )}
         >
-          {productionStageLabel[video.productionStage]}
+          {productionStageLabel[item.stage]}
         </span>
       </div>
-      <p className="mt-0.5 truncate text-xs text-muted-foreground">{video.clientName}</p>
+      <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.clientName || 'Sem cliente'}</p>
 
       <div className="mt-2.5 flex items-center justify-between">
-        {editorName ? (
+        {item.responsibleName ? (
           <div className="flex min-w-0 items-center gap-1.5">
-            <ClientAvatar name={editorName} seed={video.editorId ?? editorName} size="sm" />
-            <span className="truncate text-xs font-medium text-foreground">{editorName}</span>
+            <ClientAvatar name={item.responsibleName} seed={item.responsibleSeed ?? item.responsibleName} size="sm" />
+            <span className="truncate text-xs font-medium text-foreground">{item.responsibleName}</span>
           </div>
         ) : (
           <span className="truncate text-xs text-muted-foreground">Sem responsável</span>
         )}
-        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-          <MessageSquare className="size-3.5" fill={video.commentsCount > 0 ? 'currentColor' : 'none'} />
-          {video.commentsCount}
-        </span>
+        {item.kind === 'video' && (
+          <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+            <MessageSquare className="size-3.5" fill={item.commentsCount > 0 ? 'currentColor' : 'none'} />
+            {item.commentsCount}
+          </span>
+        )}
       </div>
 
-      <DeadlineBadge deadline={video.deadline} className="mt-2.5 w-fit" />
+      <DeadlineBadge deadline={item.deadline} className="mt-2.5 w-fit" />
     </button>
   )
 }
@@ -411,7 +634,12 @@ function VideoDetailModal({
         onClick={(e) => e.stopPropagation()}
         className="grid w-full max-w-3xl overflow-hidden rounded-2xl bg-card shadow-2xl md:grid-cols-2"
       >
-        <VideoThumb video={video} className="aspect-video md:aspect-auto md:h-full" />
+        <CardVisual
+          kind="video"
+          posterUrl={video.posterUrl}
+          duration={video.duration}
+          className="aspect-video md:aspect-auto md:h-full"
+        />
 
         <div className="flex max-h-[85vh] flex-col overflow-y-auto p-5">
           <div className="flex items-start justify-between gap-3">
@@ -521,6 +749,205 @@ function VideoDetailModal({
               ))}
             </div>
           </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+const fieldInputClass =
+  'min-h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary'
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
+    </label>
+  )
+}
+
+function DemandModal({
+  demand,
+  initialStage,
+  teamMembers,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  demand: LocalDemand | null
+  initialStage: ProductionStage
+  teamMembers: TeamMember[]
+  onClose: () => void
+  onSave: (demand: LocalDemand) => void
+  onDelete: (id: string) => void
+}) {
+  const isEditing = demand !== null
+  const [title, setTitle] = useState(demand?.title ?? '')
+  const [kind, setKind] = useState<DemandKind>(demand?.kind ?? 'demanda')
+  const [clientName, setClientName] = useState(demand?.clientName ?? '')
+  const [responsibleId, setResponsibleId] = useState(demand?.responsibleId ?? '')
+  const [deadlineInput, setDeadlineInput] = useState(demand?.deadline ? demand.deadline.slice(0, 10) : '')
+  const [stage, setStage] = useState<ProductionStage>(demand?.stage ?? initialStage)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  function handleSave() {
+    if (!title.trim()) return
+    onSave({
+      id: demand?.id ?? cryptoId(),
+      title: title.trim(),
+      kind,
+      clientName: clientName.trim(),
+      responsibleId: responsibleId || null,
+      deadline: deadlineInput ? new Date(`${deadlineInput}T00:00:00`).toISOString() : null,
+      stage,
+      createdAt: demand?.createdAt ?? new Date().toISOString(),
+    })
+    onClose()
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 8 }}
+        transition={{ duration: 0.15 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md overflow-hidden rounded-2xl bg-card p-5 shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-lg font-bold text-foreground">{isEditing ? 'Editar demanda' : 'Nova demanda'}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="grid size-8 shrink-0 place-items-center rounded-full bg-secondary text-foreground transition-colors hover:bg-secondary/70"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Salva só neste navegador por enquanto — ainda não integrado ao backend.
+        </p>
+
+        <div className="mt-4 flex flex-col gap-3">
+          <Field label="Título">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              autoFocus
+              placeholder="Ex: Campanha de aniversário"
+              className={fieldInputClass}
+            />
+          </Field>
+          <Field label="Tipo">
+            <select value={kind} onChange={(e) => setKind(e.target.value as DemandKind)} className={fieldInputClass}>
+              {DEMAND_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {KIND_META[k].label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Cliente">
+            <input
+              type="text"
+              value={clientName}
+              onChange={(e) => setClientName(e.target.value)}
+              placeholder="Nome do cliente"
+              className={fieldInputClass}
+            />
+          </Field>
+          <Field label="Responsável">
+            <select
+              value={responsibleId}
+              onChange={(e) => setResponsibleId(e.target.value)}
+              className={fieldInputClass}
+            >
+              <option value="">Sem responsável</option>
+              {teamMembers.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Prazo">
+            <input
+              type="date"
+              value={deadlineInput}
+              onChange={(e) => setDeadlineInput(e.target.value)}
+              className={fieldInputClass}
+            />
+          </Field>
+          <Field label="Etapa">
+            <select
+              value={stage}
+              onChange={(e) => setStage(e.target.value as ProductionStage)}
+              className={fieldInputClass}
+            >
+              {COLUMNS.map((c) => (
+                <option key={c.stage} value={c.stage}>
+                  {productionStageLabel[c.stage]}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+
+        <div className="mt-5 flex items-center gap-2">
+          {isEditing &&
+            (confirmingDelete ? (
+              <div className="flex flex-1 items-center gap-2">
+                <span className="text-xs text-muted-foreground">Excluir?</span>
+                <button
+                  type="button"
+                  onClick={() => onDelete(demand.id)}
+                  className="inline-flex min-h-8 items-center rounded-lg bg-destructive px-2.5 text-xs font-medium text-white hover:opacity-90"
+                >
+                  Confirmar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  className="inline-flex min-h-8 items-center rounded-lg bg-secondary px-2.5 text-xs font-medium text-foreground hover:bg-secondary/70"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                className="mr-auto inline-flex items-center gap-1.5 text-xs font-medium text-destructive hover:underline"
+              >
+                <Trash2 className="size-3.5" />
+                Excluir
+              </button>
+            ))}
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!title.trim()}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {isEditing ? 'Salvar' : 'Criar demanda'}
+          </button>
         </div>
       </motion.div>
     </motion.div>
