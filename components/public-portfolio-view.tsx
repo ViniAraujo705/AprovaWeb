@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Check, Film, ImageIcon, Loader2, Play, Share2, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Check, ChevronLeft, ChevronRight, Film, ImageIcon, Loader2, Play, Share2, X } from 'lucide-react'
 import type { PortfolioItem, PublicPortfolio } from '@/lib/types'
 import { AgencyLogo } from '@/components/agency-logo'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -19,7 +19,8 @@ import { brandAccentStyle } from '@/lib/theme'
  */
 export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPortfolio; link: string }) {
   const count = portfolio.videos.length
-  const [active, setActive] = useState<PortfolioItem | null>(null)
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const active = activeIndex !== null ? portfolio.videos[activeIndex] : null
   const [sharing, setSharing] = useState(false)
   const [shareCopied, setShareCopied] = useState(false)
 
@@ -69,7 +70,7 @@ export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPort
 
   return (
     <div className="flex min-h-screen bg-background" style={brandAccentStyle(portfolio.branding?.accentColor)}>
-      <aside className="hidden w-72 shrink-0 flex-col items-center justify-center gap-6 bg-sidebar px-10 py-12 text-sidebar-foreground md:flex">
+      <aside className="hidden w-72 shrink-0 flex-col items-center gap-6 bg-sidebar px-10 py-12 text-sidebar-foreground md:flex">
         <AgencyLogo branding={portfolio.branding} size="lg" />
       </aside>
 
@@ -120,12 +121,12 @@ export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPort
               />
             ) : (
               <StaggerList className="columns-2 gap-1.5 sm:columns-3 lg:columns-4">
-                {portfolio.videos.map((v) => (
+                {portfolio.videos.map((v, i) => (
                   <motion.button
                     key={v.id}
                     type="button"
                     variants={staggerItem}
-                    onClick={() => setActive(v)}
+                    onClick={() => setActiveIndex(i)}
                     className="group relative mb-1.5 block w-full overflow-hidden break-inside-avoid-column bg-secondary text-left"
                   >
                     {v.posterUrl ? (
@@ -164,13 +165,46 @@ export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPort
       </div>
 
       <AnimatePresence>
-        {active && <PortfolioItemLightbox item={active} onClose={() => setActive(null)} />}
+        {active && (
+          <PortfolioItemLightbox
+            item={active}
+            hasPrev={count > 1}
+            hasNext={count > 1}
+            onClose={() => setActiveIndex(null)}
+            onPrev={() => setActiveIndex((i) => (i === null ? null : (i - 1 + count) % count))}
+            onNext={() => setActiveIndex((i) => (i === null ? null : (i + 1) % count))}
+          />
+        )}
       </AnimatePresence>
     </div>
   )
 }
 
-function PortfolioItemLightbox({ item, onClose }: { item: PortfolioItem; onClose: () => void }) {
+function PortfolioItemLightbox({
+  item,
+  hasPrev,
+  hasNext,
+  onClose,
+  onPrev,
+  onNext,
+}: {
+  item: PortfolioItem
+  hasPrev: boolean
+  hasNext: boolean
+  onClose: () => void
+  onPrev: () => void
+  onNext: () => void
+}) {
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+      else if (e.key === 'ArrowLeft' && hasPrev) onPrev()
+      else if (e.key === 'ArrowRight' && hasNext) onNext()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [hasPrev, hasNext, onClose, onPrev, onNext])
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
       <motion.div
@@ -182,7 +216,30 @@ function PortfolioItemLightbox({ item, onClose }: { item: PortfolioItem; onClose
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
       />
+
+      {hasPrev && (
+        <button
+          type="button"
+          onClick={onPrev}
+          aria-label="Item anterior"
+          className="absolute left-2 top-1/2 z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20 sm:left-4"
+        >
+          <ChevronLeft className="size-6" />
+        </button>
+      )}
+      {hasNext && (
+        <button
+          type="button"
+          onClick={onNext}
+          aria-label="Próximo item"
+          className="absolute right-2 top-1/2 z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20 sm:right-4"
+        >
+          <ChevronRight className="size-6" />
+        </button>
+      )}
+
       <motion.div
+        key={item.id}
         className="relative w-full max-w-3xl"
         initial={{ opacity: 0, y: 8, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
