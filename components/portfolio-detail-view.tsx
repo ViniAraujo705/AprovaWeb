@@ -27,7 +27,7 @@ import type { Client, Portfolio, PortfolioCategory, PortfolioItem, PortfolioItem
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
-import { UploadError, uploadToPresignedUrl, validateImageFile, validateVideoFile } from '@/lib/upload'
+import { UploadError, uploadToPresignedUrl, validatePhotoFile, validateVideoFile } from '@/lib/upload'
 import { isDemo } from '@/lib/demo'
 import { AnimatePresence, motion, FadeIn } from '@/components/motion'
 import { toast } from '@/lib/toast'
@@ -293,7 +293,7 @@ function PortfolioDetailsForm({
 
   async function handleCoverFile(file: File | undefined | null) {
     if (!file) return
-    const invalid = validateImageFile(file)
+    const invalid = validatePhotoFile(file)
     if (invalid) {
       setCoverError(invalid)
       return
@@ -718,7 +718,7 @@ function UploadPortfolioMediaForm({
     const accepted: PendingPortfolioFile[] = []
     for (const f of files) {
       const detectedType: PortfolioItemMediaType = f.type.startsWith('image/') ? 'foto' : 'video'
-      const invalid = detectedType === 'foto' ? validateImageFile(f) : validateVideoFile(f)
+      const invalid = detectedType === 'foto' ? validatePhotoFile(f) : validateVideoFile(f)
       if (invalid) rejected.push(`${f.name}: ${invalid}`)
       else
         accepted.push({

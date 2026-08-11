@@ -37,6 +37,21 @@ export function validateImageFile(file: File): string | null {
   return null
 }
 
+// Fotos de portfólio (capa de álbum, item de álbum): fotografia de verdade
+// (câmera/celular), precisa de bem mais margem que o logo da agência.
+export const PHOTO_ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp']
+export const PHOTO_MAX_BYTES = 15 * 1024 * 1024 // 15MB
+
+/** Valida uma foto de portfólio (capa ou item) antes de qualquer chamada de rede. */
+export function validatePhotoFile(file: File): string | null {
+  const typeOk =
+    PHOTO_ACCEPTED_TYPES.includes(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name)
+  if (!typeOk) return 'Formato inválido. Envie um PNG, JPG ou WEBP.'
+  if (file.size > PHOTO_MAX_BYTES) return 'Imagem muito grande. O limite é 15MB.'
+  if (file.size === 0) return 'O arquivo está vazio.'
+  return null
+}
+
 /** Bytes por segundo (média desde o início) e ETA em segundos, junto do percentual. */
 export interface UploadProgressInfo {
   loaded: number

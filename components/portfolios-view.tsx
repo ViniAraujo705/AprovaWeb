@@ -24,7 +24,7 @@ import type { Portfolio, PortfolioCategory, PortfolioProfile } from '@/lib/types
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
-import { UploadError, uploadToPresignedUrl, validateImageFile } from '@/lib/upload'
+import { UploadError, uploadToPresignedUrl, validatePhotoFile } from '@/lib/upload'
 import { isDemo } from '@/lib/demo'
 import { StaggerList, staggerItem, motion } from '@/components/motion'
 import { toast } from '@/lib/toast'
@@ -264,7 +264,7 @@ function PortfolioProfileCard({
 
   async function handleFile(file: File | undefined | null) {
     if (!file) return
-    const invalid = validateImageFile(file)
+    const invalid = validatePhotoFile(file)
     if (invalid) {
       setError(invalid)
       return
