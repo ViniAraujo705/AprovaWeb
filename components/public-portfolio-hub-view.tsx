@@ -121,8 +121,8 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
                           <Film className="size-6" />
                         </span>
                       )}
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/0 p-4 text-center opacity-0 transition-all duration-300 group-hover:bg-black/55 group-hover:opacity-100">
-                        <h3 className="font-display text-base tracking-[0.05em] text-white sm:text-xl">
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent p-3 pt-10 transition-opacity duration-300 md:opacity-0 md:group-hover:opacity-100">
+                        <h3 className="truncate font-display text-sm tracking-wide text-white sm:text-base">
                           {p.name}
                         </h3>
                       </div>

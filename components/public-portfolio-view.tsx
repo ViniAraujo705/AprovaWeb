@@ -153,7 +153,7 @@ export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPort
                         </span>
                       </span>
                     ) : null}
-                    <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/0 to-transparent p-3 pt-8 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/0 to-transparent p-3 pt-8 transition-opacity duration-300 md:opacity-0 md:group-hover:opacity-100">
                       <span className="block truncate text-sm font-medium text-white">{v.title}</span>
                     </span>
                   </motion.button>
