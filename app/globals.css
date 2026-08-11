@@ -181,21 +181,6 @@
   background-blend-mode: normal, soft-light;
 }
 
-.aurora-bg {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Glow só no tema escuro — no claro o fundo fica liso, como no design de referência. */
-.dark .aurora-bg {
-  background:
-    radial-gradient(ellipse 700px 500px at 78% 10%, rgba(236, 72, 153, 0.3), transparent 60%),
-    radial-gradient(ellipse 500px 400px at 95% 35%, rgba(217, 70, 239, 0.18), transparent 65%),
-    radial-gradient(ellipse 400px 300px at 10% 90%, rgba(236, 72, 153, 0.1), transparent 65%);
-  filter: blur(40px);
-}
 
 /* Confete sutil da tela de aprovação (desativado em reduced-motion pela regra acima). */
 @keyframes aprova-confetti-fall {

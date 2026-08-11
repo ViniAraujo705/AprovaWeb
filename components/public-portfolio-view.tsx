@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import { useState } from 'react'
 import { Check, Film, ImageIcon, Loader2, Play, Share2, X } from 'lucide-react'
 import type { PortfolioItem, PublicPortfolio } from '@/lib/types'
@@ -15,7 +14,8 @@ import { brandAccentStyle } from '@/lib/theme'
  * destaque escolhidos manualmente pela agência, sem NENHUM dado de
  * cliente/projeto/status: só título, descrição e a marca da agência. O clique
  * abre um player simples num lightbox — nunca navega para /v/:link (tela de
- * aprovação do cliente), que não faz sentido aqui.
+ * aprovação do cliente), que não faz sentido aqui. Mosaico em colunas: cada
+ * capa mantém a proporção original do vídeo/foto enviado, sem recorte forçado.
  */
 export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPortfolio; link: string }) {
   const count = portfolio.videos.length
@@ -48,85 +48,98 @@ export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPort
     }
   }
 
+  const shareButton = (
+    <button
+      type="button"
+      onClick={share}
+      disabled={sharing}
+      aria-label="Compartilhar portfólio"
+      title="Compartilhar portfólio"
+      className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-50"
+    >
+      {sharing ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : shareCopied ? (
+        <Check className="size-4" />
+      ) : (
+        <Share2 className="size-4" />
+      )}
+    </button>
+  )
+
   return (
-    <div className="min-h-screen" style={brandAccentStyle(portfolio.branding?.accentColor)}>
-      <motion.header
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
-        className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/90 px-4 py-3 backdrop-blur"
-      >
-        <AgencyLogo branding={portfolio.branding} />
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={share}
-            disabled={sharing}
-            aria-label="Compartilhar portfólio"
-            title="Compartilhar portfólio"
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-50"
-          >
-            {sharing ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : shareCopied ? (
-              <Check className="size-4" />
-            ) : (
-              <Share2 className="size-4" />
-            )}
-          </button>
+    <div className="flex min-h-screen bg-background" style={brandAccentStyle(portfolio.branding?.accentColor)}>
+      <aside className="hidden w-72 shrink-0 flex-col items-center justify-center gap-6 bg-sidebar px-10 py-12 text-sidebar-foreground md:flex">
+        <AgencyLogo branding={portfolio.branding} size="lg" />
+      </aside>
+
+      <div className="min-w-0 flex-1">
+        <motion.header
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:hidden"
+        >
+          <AgencyLogo branding={portfolio.branding} />
+          <div className="flex shrink-0 items-center gap-2">
+            {shareButton}
+            <ThemeToggle />
+          </div>
+        </motion.header>
+
+        <div className="hidden items-center justify-end gap-2 px-6 pt-6 md:flex">
+          {shareButton}
           <ThemeToggle />
         </div>
-      </motion.header>
-      {shareCopied && (
-        <p className="px-4 pt-2 text-center text-xs text-muted-foreground sm:px-6">
-          Link copiado para a área de transferência.
-        </p>
-      )}
 
-      <FadeIn className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">
-          {count} {count === 1 ? 'item' : 'itens'}
-        </p>
-        <h1 className="mt-1 font-display text-4xl leading-none tracking-wide sm:text-5xl">
-          {portfolio.name}
-        </h1>
-        {portfolio.description && (
-          <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
-            {portfolio.description}
+        {shareCopied && (
+          <p className="px-4 pt-2 text-center text-xs text-muted-foreground sm:px-6">
+            Link copiado para a área de transferência.
           </p>
         )}
 
-        <div className="mt-6">
-          {count === 0 ? (
-            <EmptyState
-              icon={<Film className="size-7" />}
-              title="Nenhum item neste portfólio"
-              description="Os vídeos e fotos em destaque vão aparecer aqui assim que forem adicionados."
-            />
-          ) : (
-            <StaggerList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {portfolio.videos.map((v) => (
-                <motion.button
-                  key={v.id}
-                  type="button"
-                  variants={staggerItem}
-                  onClick={() => setActive(v)}
-                  className="group relative overflow-hidden rounded-xl border border-border bg-card text-left transition-colors hover:border-primary/50"
-                >
-                  <div className="relative aspect-video w-full overflow-hidden bg-secondary">
+        <FadeIn className="px-4 py-6 sm:px-6 md:px-8">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            {count} {count === 1 ? 'item' : 'itens'}
+          </p>
+          <h1 className="mt-1 font-display text-4xl leading-none tracking-wide sm:text-5xl">
+            {portfolio.name}
+          </h1>
+          {portfolio.description && (
+            <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
+              {portfolio.description}
+            </p>
+          )}
+
+          <div className="mt-6">
+            {count === 0 ? (
+              <EmptyState
+                icon={<Film className="size-7" />}
+                title="Nenhum item neste portfólio"
+                description="Os vídeos e fotos em destaque vão aparecer aqui assim que forem adicionados."
+              />
+            ) : (
+              <StaggerList className="columns-2 gap-1.5 sm:columns-3 lg:columns-4">
+                {portfolio.videos.map((v) => (
+                  <motion.button
+                    key={v.id}
+                    type="button"
+                    variants={staggerItem}
+                    onClick={() => setActive(v)}
+                    className="group relative mb-1.5 block w-full overflow-hidden break-inside-avoid-column bg-secondary text-left"
+                  >
                     {v.posterUrl ? (
-                      <Image
+                      // eslint-disable-next-line @next/next/no-img-element -- mosaico: a altura precisa seguir a proporção intrínseca da imagem, o que `next/image` só permite com `fill` (que exige contêiner de tamanho fixo).
+                      <img
                         src={v.posterUrl}
-                        alt=""
-                        fill
-                        className="object-cover transition-transform group-hover:scale-105"
-                        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                        unoptimized
+                        alt={v.title}
+                        loading="lazy"
+                        className="block w-full transition-transform duration-500 group-hover:scale-105"
                       />
                     ) : (
-                      <span className="grid h-full w-full place-items-center text-muted-foreground/60">
+                      <div className="grid aspect-video w-full place-items-center text-muted-foreground/60">
                         <Film className="size-6" />
-                      </span>
+                      </div>
                     )}
                     {v.processingStatus === 'processando' ? (
                       <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50">
@@ -139,18 +152,16 @@ export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPort
                         </span>
                       </span>
                     ) : null}
-                  </div>
-                  <div className="p-3">
-                    <h3 className="truncate text-sm font-medium text-foreground" title={v.title}>
-                      {v.title}
-                    </h3>
-                  </div>
-                </motion.button>
-              ))}
-            </StaggerList>
-          )}
-        </div>
-      </FadeIn>
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/0 to-transparent p-3 pt-8 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                      <span className="block truncate text-sm font-medium text-white">{v.title}</span>
+                    </span>
+                  </motion.button>
+                ))}
+              </StaggerList>
+            )}
+          </div>
+        </FadeIn>
+      </div>
 
       <AnimatePresence>
         {active && <PortfolioItemLightbox item={active} onClose={() => setActive(null)} />}
@@ -203,7 +214,7 @@ function PortfolioItemLightbox({ item, onClose }: { item: PortfolioItem; onClose
               controls
               autoPlay
               playsInline
-              className="aspect-video w-full"
+              className="max-h-[80vh] w-full"
             />
           ) : (
             <div className="grid aspect-video w-full place-items-center text-white/60">

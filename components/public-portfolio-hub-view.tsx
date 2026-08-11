@@ -2,7 +2,6 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useState } from 'react'
 import { Film, User } from 'lucide-react'
 import type { PublicPortfolioHub } from '@/lib/types'
 import { AgencyLogo } from '@/components/agency-logo'
@@ -10,51 +9,88 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { EmptyState } from '@/components/states'
 import { FadeIn, StaggerList, staggerItem, motion } from '@/components/motion'
 import { brandAccentStyle } from '@/lib/theme'
-import { cn } from '@/lib/utils'
 
 /**
  * Hub público da agência (rota /portfolio/:hubLink) — vitrine central com
- * foto de perfil + todos os portfólios (álbuns) agrupados por categoria em
- * abas. Clicar num álbum abre a página que já existe (/p/:link), sem
- * nenhuma mudança ali — nenhum dado de cliente/projeto é exposto aqui.
+ * sidebar fixa listando todos os álbuns por categoria + grid full-bleed de
+ * capas, sem espaçamento entre elas (nome do álbum só aparece no hover).
+ * Clicar num álbum abre a página que já existe (/p/:link), sem nenhuma
+ * mudança ali — nenhum dado de cliente/projeto é exposto aqui.
  */
 export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
   const categories = hub.categories.filter((c) => c.portfolios.length > 0)
-  const [active, setActive] = useState(categories[0]?.id ?? null)
-  const activeCategory = categories.find((c) => c.id === active) ?? categories[0] ?? null
 
   return (
-    <div className="min-h-screen" style={brandAccentStyle(hub.branding?.accentColor)}>
-      <motion.header
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
-        className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/90 px-4 py-3 backdrop-blur"
-      >
-        <AgencyLogo branding={hub.branding} />
-        <ThemeToggle />
-      </motion.header>
+    <div
+      className="flex min-h-screen bg-background"
+      style={brandAccentStyle(hub.branding?.accentColor)}
+    >
+      <aside className="hidden w-72 shrink-0 flex-col overflow-y-auto bg-sidebar px-10 py-12 text-center text-sidebar-foreground md:flex">
+        <div className="flex flex-col items-center gap-4">
+          <AgencyLogo branding={hub.branding} size="lg" />
 
-      <FadeIn className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <div className="relative size-20 shrink-0 overflow-hidden rounded-full border border-border bg-secondary">
-            {hub.photoUrl ? (
-              <Image src={hub.photoUrl} alt="" fill className="object-cover" sizes="80px" unoptimized />
-            ) : (
-              <span className="grid h-full w-full place-items-center text-muted-foreground/60">
-                <User className="size-8" />
-              </span>
-            )}
-          </div>
-          {hub.agencyName && (
-            <h1 className="font-display text-3xl leading-none tracking-wide sm:text-4xl">
-              {hub.agencyName}
-            </h1>
+          {(hub.photoUrl || hub.agencyName) && (
+            <div className="flex flex-col items-center gap-3">
+              <div className="relative size-14 shrink-0 overflow-hidden rounded-full border border-sidebar-border bg-secondary">
+                {hub.photoUrl ? (
+                  <Image src={hub.photoUrl} alt="" fill className="object-cover" sizes="56px" unoptimized />
+                ) : (
+                  <span className="grid h-full w-full place-items-center text-muted-foreground/60">
+                    <User className="size-5" />
+                  </span>
+                )}
+              </div>
+              {hub.agencyName && (
+                <span className="font-display text-lg tracking-wide">{hub.agencyName}</span>
+              )}
+            </div>
           )}
         </div>
 
+        {categories.length > 0 && (
+          <nav className="mt-14 space-y-10">
+            {categories.map((c) => (
+              <div key={c.id}>
+                <a
+                  href={`#cat-${c.id}`}
+                  className="block text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-sidebar-foreground"
+                >
+                  {c.name}
+                </a>
+                <ul className="mt-4 space-y-3">
+                  {c.portfolios.map((p) => (
+                    <li key={p.id}>
+                      <Link
+                        href={`/p/${p.link}`}
+                        className="block truncate text-[15px] text-sidebar-foreground/65 transition-colors hover:text-sidebar-foreground"
+                        title={p.name}
+                      >
+                        {p.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </nav>
+        )}
+
+        <ThemeToggle />
+      </aside>
+
+      <div className="min-w-0 flex-1">
+        <motion.header
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:hidden"
+        >
+          <AgencyLogo branding={hub.branding} />
+          <ThemeToggle />
+        </motion.header>
+
         {categories.length === 0 ? (
-          <div className="mt-8">
+          <div className="flex min-h-[70vh] items-center justify-center px-4">
             <EmptyState
               icon={<Film className="size-7" />}
               title="Nenhum portfólio em destaque"
@@ -62,44 +98,26 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
             />
           </div>
         ) : (
-          <>
-            <div className="mt-8 flex flex-wrap justify-center gap-2">
-              {categories.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setActive(c.id)}
-                  className={cn(
-                    'inline-flex min-h-9 items-center justify-center rounded-full px-4 text-sm font-medium transition-colors',
-                    c.id === activeCategory?.id
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary text-foreground hover:bg-secondary/70',
-                  )}
-                >
+          <FadeIn>
+            {categories.map((c) => (
+              <section key={c.id} id={`cat-${c.id}`}>
+                <h2 className="px-3 pt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground md:hidden">
                   {c.name}
-                </button>
-              ))}
-            </div>
-
-            {activeCategory && (
-              <StaggerList
-                key={activeCategory.id}
-                className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-              >
-                {activeCategory.portfolios.map((p) => (
-                  <motion.div key={p.id} variants={staggerItem}>
-                    <Link
-                      href={`/p/${p.link}`}
-                      className="group relative block overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/50"
-                    >
-                      <div className="relative aspect-video w-full overflow-hidden bg-secondary">
+                </h2>
+                <StaggerList className="grid grid-cols-2 sm:grid-cols-3">
+                  {c.portfolios.map((p) => (
+                    <motion.div key={p.id} variants={staggerItem}>
+                      <Link
+                        href={`/p/${p.link}`}
+                        className="group relative block aspect-square w-full overflow-hidden bg-secondary"
+                      >
                         {p.coverUrl ? (
                           <Image
                             src={p.coverUrl}
                             alt=""
                             fill
-                            className="object-contain transition-transform group-hover:scale-105"
-                            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                            className="object-cover transition-transform duration-500 group-hover:scale-105"
+                            sizes="(min-width: 640px) 33vw, 50vw"
                             unoptimized
                           />
                         ) : (
@@ -107,25 +125,20 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
                             <Film className="size-6" />
                           </span>
                         )}
-                      </div>
-                      <div className="p-3">
-                        <h3 className="truncate text-sm font-medium text-foreground" title={p.name}>
-                          {p.name}
-                        </h3>
-                        {p.description && (
-                          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                            {p.description}
-                          </p>
-                        )}
-                      </div>
-                    </Link>
-                  </motion.div>
-                ))}
-              </StaggerList>
-            )}
-          </>
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/0 p-4 text-center opacity-0 transition-all duration-300 group-hover:bg-black/55 group-hover:opacity-100">
+                          <h3 className="font-display text-base tracking-[0.05em] text-white sm:text-xl">
+                            {p.name}
+                          </h3>
+                        </div>
+                      </Link>
+                    </motion.div>
+                  ))}
+                </StaggerList>
+              </section>
+            ))}
+          </FadeIn>
         )}
-      </FadeIn>
+      </div>
     </div>
   )
 }

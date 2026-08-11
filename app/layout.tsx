@@ -47,7 +47,6 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="bg-background font-sans antialiased" suppressHydrationWarning>
-        <div className="aurora-bg" aria-hidden="true" />
         <div className="relative z-[1]">
           <ThemeProvider>
             <AuthProvider>{children}</AuthProvider>
