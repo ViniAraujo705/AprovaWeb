@@ -179,6 +179,7 @@ export const demoVideos: Video[] = [
     lastCommentAt: iso(1),
     createdAt: iso(3),
     processingStatus: 'pronto',
+    productionStage: 'aguardando_aprovacao',
     isExample: true,
     deadline: futureIso(30), // prazo próximo (< 2 dias)
     editorId: 'm2',
@@ -202,6 +203,7 @@ export const demoVideos: Video[] = [
     lastCommentAt: iso(10),
     createdAt: iso(20),
     processingStatus: 'pronto',
+    productionStage: 'ajustes',
     isExample: false,
     deadline: iso(8), // prazo vencido
     editorId: 'm3',
@@ -225,6 +227,7 @@ export const demoVideos: Video[] = [
     lastCommentAt: null,
     createdAt: iso(48),
     processingStatus: 'pronto',
+    productionStage: 'aprovado',
     isExample: false,
     deadline: null, // já aprovado, sem prazo definido
     editorId: 'm2',
@@ -248,6 +251,7 @@ export const demoVideos: Video[] = [
     lastCommentAt: null,
     createdAt: iso(60),
     processingStatus: 'processando',
+    productionStage: 'edicao',
     isExample: true,
     deadline: futureIso(96), // prazo tranquilo
     editorId: null,
@@ -271,6 +275,7 @@ export const demoVideos: Video[] = [
     lastCommentAt: iso(40),
     createdAt: iso(72),
     processingStatus: 'pronto',
+    productionStage: 'entregue',
     isExample: false,
     deadline: futureIso(240),
     editorId: 'm3',

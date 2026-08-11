@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import {
   LayoutDashboard,
+  Kanban,
   Upload,
   Shield,
   Menu,
@@ -52,6 +53,7 @@ type NavItem = {
 // Itens com teamRole:'owner' ficam escondidos para editores (equipe, branding).
 const nav: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/kanban', label: 'Kanban', icon: Kanban },
   { href: '/upload', label: 'Enviar vídeo', icon: Upload },
   { href: '/projetos', label: 'Projetos', icon: FolderOpen },
   { href: '/calendario', label: 'Calendário', icon: CalendarDays },

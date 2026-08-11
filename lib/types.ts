@@ -49,6 +49,35 @@ export const statusLabel: Record<VideoStatus, string> = {
   erro: 'Erro',
 }
 
+/**
+ * Etapa de produção interna do vídeo (quadro Kanban do dashboard) — eixo
+ * DIFERENTE de `VideoStatus`: `status` é a decisão do CLIENTE (aprovado/
+ * ajuste/pendente) vinda do fluxo de aprovação público; `productionStage` é
+ * o estágio interno da agência, que existe antes do vídeo ir pro cliente
+ * (planejamento, gravação, edição) e depois da aprovação (entrega). O
+ * backend sincroniza automaticamente `aguardando_aprovacao`→`aprovado`/
+ * `ajustes` quando o cliente decide pelo link público; as demais etapas só
+ * mudam manualmente, arrastando o card no board.
+ */
+export type ProductionStage =
+  | 'planejado'
+  | 'producao'
+  | 'edicao'
+  | 'aguardando_aprovacao'
+  | 'ajustes'
+  | 'aprovado'
+  | 'entregue'
+
+export const productionStageLabel: Record<ProductionStage, string> = {
+  planejado: 'Planejado',
+  producao: 'Em produção',
+  edicao: 'Em edição',
+  aguardando_aprovacao: 'Aguardando aprovação',
+  ajustes: 'Ajustes',
+  aprovado: 'Aprovado',
+  entregue: 'Entregue',
+}
+
 export interface Client {
   id: string
   name: string
@@ -117,6 +146,8 @@ export interface Video {
   createdAt: string | null
   /** Status do processamento do vídeo otimizado (status_processamento). */
   processingStatus: VideoProcessingStatus
+  /** Etapa de produção interna (quadro Kanban) — ver `ProductionStage`. */
+  productionStage: ProductionStage
   /** Vídeo pertencente ao projeto de exemplo do onboarding (is_exemplo). */
   isExample: boolean
   /**

@@ -86,6 +86,7 @@ import type {
   PortfolioItem,
   PortfolioItemMediaType,
   PortfolioProfile,
+  ProductionStage,
   Project,
   ProjectGallery,
   ProjectMember,
@@ -140,6 +141,19 @@ export function normalizeStatus(raw: unknown): VideoStatus {
     return 'ajuste'
   if (['erro', 'error', 'failed'].includes(s)) return 'erro'
   return 'pendente'
+}
+
+export function normalizeProductionStage(raw: unknown): ProductionStage {
+  const s = String(raw ?? '').toLowerCase()
+  if (['planejado', 'planned'].includes(s)) return 'planejado'
+  if (['producao', 'produção', 'production', 'em_producao'].includes(s)) return 'producao'
+  if (['edicao', 'edição', 'editing', 'em_edicao'].includes(s)) return 'edicao'
+  if (['aguardando_aprovacao', 'aguardando_aprovação', 'pending_approval', 'awaiting_approval'].includes(s))
+    return 'aguardando_aprovacao'
+  if (['ajustes', 'adjustments', 'changes'].includes(s)) return 'ajustes'
+  if (['aprovado', 'approved'].includes(s)) return 'aprovado'
+  if (['entregue', 'delivered'].includes(s)) return 'entregue'
+  return 'planejado'
 }
 
 /* -------------------------------- mappers -------------------------------- */
@@ -300,6 +314,9 @@ function mapVideo(raw: Raw, extra?: { clientName?: string | null }): Video {
     createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
     processingStatus: normalizeProcessing(
       pick(raw, ['statusProcessamento', 'status_processamento'], 'pronto'),
+    ),
+    productionStage: normalizeProductionStage(
+      pick(raw, ['etapaProducao', 'etapa_producao'], 'planejado'),
     ),
     isExample: Boolean(pick(raw, ['isExemplo', 'is_exemplo', 'isExample'], false)),
     deadline: pick<string | null>(raw, ['deadline', 'prazo'], null),
@@ -966,6 +983,25 @@ export const videoService = {
       return delay(found, 300)
     }
     const res = await api.patch<Raw>(`/videos/${id}/status`, { status })
+    invalidateAllVideosCache()
+    return mapVideo(res)
+  },
+
+  /**
+   * Move o vídeo entre as etapas do quadro Kanban (planejado → ... →
+   * entregue) — eixo interno da agência, independente do `status` de decisão
+   * do cliente (ver `ProductionStage`). O backend também avança
+   * `aguardando_aprovacao` → `aprovado`/`ajustes` sozinho quando o cliente
+   * decide pelo link público; esta rota é para as demais transições manuais.
+   */
+  async updateStage(id: string, etapa: ProductionStage): Promise<Video> {
+    if (isDemo()) {
+      const found = demoVideos.find((v) => v.id === id)
+      if (!found) throw new ApiError('Vídeo não encontrado.', 404)
+      found.productionStage = etapa
+      return delay(found, 300)
+    }
+    const res = await api.patch<Raw>(`/videos/${id}/etapa`, { etapa })
     invalidateAllVideosCache()
     return mapVideo(res)
   },
