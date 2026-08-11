@@ -15,6 +15,7 @@ import type {
   AdminUser,
   AppNotification,
   Client,
+  ClientFieldDefinition,
   Comment,
   CrewMember,
   DashboardInsights,
@@ -100,10 +101,17 @@ export const demoClients: Client[] = [
     // Marca própria já configurada, pra exercitar de cara a sobreposição na
     // galeria pública do projeto de exemplo (p1) sem precisar subir logo.
     branding: { logoUrl: null, agencyName: 'Bela Cosméticos', accentColor: '#d6336c' },
+    customFields: { 'cf-1': '@belacosmeticos', 'cf-2': '12.345.678/0001-90' },
   },
-  { id: 'c2', name: 'Burger House', email: 'contato@burgerhouse.com', isExample: false, description: null, photoUrl: null, branding: null },
-  { id: 'c3', name: 'Studio Moda', email: 'contato@studiomoda.com', isExample: false, description: null, photoUrl: null, branding: null },
-  { id: 'c4', name: 'Café Aurora', email: 'contato@cafeaurora.com', isExample: false, description: null, photoUrl: null, branding: null },
+  { id: 'c2', name: 'Burger House', email: 'contato@burgerhouse.com', isExample: false, description: null, photoUrl: null, branding: null, customFields: { 'cf-1': '@burgerhouseoficial' } },
+  { id: 'c3', name: 'Studio Moda', email: 'contato@studiomoda.com', isExample: false, description: null, photoUrl: null, branding: null, customFields: {} },
+  { id: 'c4', name: 'Café Aurora', email: 'contato@cafeaurora.com', isExample: false, description: null, photoUrl: null, branding: null, customFields: {} },
+]
+
+/** Campos personalizados de cadastro de cliente (`/configuracoes/campos-cliente`) — schema por conta, mutável igual a `demoCrewRoster`. */
+export const demoClientFields: ClientFieldDefinition[] = [
+  { id: 'cf-1', label: 'Instagram', order: 0 },
+  { id: 'cf-2', label: 'CNPJ', order: 1 },
 ]
 
 export const demoProjects: Project[] = [
@@ -326,10 +334,10 @@ function plusHours(isoString: string, hours: number): string {
  * `demoClients`, então gente adicionada na tela persiste durante a sessão.
  */
 export const demoCrewRoster: CrewMember[] = [
-  { id: 'crew-1', name: 'Marina Alves' },
-  { id: 'crew-2', name: 'Rafael Souza' },
-  { id: 'crew-3', name: 'Diego (cinegrafista freelancer)' },
-  { id: 'crew-4', name: 'Ana Paula (motorista)' },
+  { id: 'crew-1', name: 'Marina Alves', userId: null },
+  { id: 'crew-2', name: 'Rafael Souza', userId: null },
+  { id: 'crew-3', name: 'Diego (cinegrafista freelancer)', userId: null },
+  { id: 'crew-4', name: 'Ana Paula (motorista)', userId: null },
 ]
 
 /**
@@ -365,7 +373,7 @@ export const demoRecordingEvents: RecordingEvent[] = [
     endAt: plusHours(iso(20), 1),
     clientId: 'c3',
     clientName: 'Studio Moda',
-    crew: [{ id: 'demo-user', name: 'Você (demo)' }],
+    crew: [{ id: 'demo-user', name: 'Você (demo)', userId: 'demo-user' }],
     notes: null,
   },
   {
@@ -743,6 +751,12 @@ export function isDemoHubLink(link: string): boolean {
   return link === demoPortfolioProfile.hubLink
 }
 
+/** Tipo de mídia predominante (maioria simples) entre os itens de um álbum. */
+function dominantMediaType(videos: PortfolioItem[]): PortfolioItemMediaType {
+  const fotos = videos.filter((v) => v.mediaType === 'foto').length
+  return fotos > videos.length - fotos ? 'foto' : 'video'
+}
+
 /** Hub público de exemplo (rota /portfolio/:hubLink): agrupa os portfólios demo pelas categorias demo. */
 export function demoPublicPortfolioHub(): PublicPortfolioHub {
   const sortedCategories = [...demoPortfolioCategories].sort((a, b) => a.order - b.order)
@@ -763,6 +777,7 @@ export function demoPublicPortfolioHub(): PublicPortfolioHub {
             description: p.description,
             link: p.link,
             coverUrl: p.coverUrl,
+            mediaType: dominantMediaType(p.videos),
           })),
       }))
       .filter((c) => c.portfolios.length > 0),
@@ -1169,7 +1184,7 @@ export function buildDemoReport(projectId: string): string {
   const project = demoProjects.find((p) => p.id === projectId)
   const videos = demoVideosForProject(projectId)
   const lines = [
-    'APROVA — Relatório do projeto (exemplo)',
+    'CHECK — Relatório do projeto (exemplo)',
     '======================================',
     `Projeto: ${project?.name ?? projectId}`,
     `Cliente: ${project?.client?.name ?? '-'}`,

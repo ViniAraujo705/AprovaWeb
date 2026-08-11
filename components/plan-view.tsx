@@ -48,7 +48,7 @@ const POLL_TIMEOUT_MS = 30000
 type ConfirmState = 'idle' | 'polling' | 'success' | 'timeout'
 
 /**
- * A Mercado Pago redireciona de volta para `?status=sucesso`, mas a
+ * A Asaas redireciona de volta para `?status=sucesso`, mas a
  * confirmação em si vem de um webhook assíncrono — o plano só muda de fato
  * quando o backend processa isso, o que pode levar alguns segundos. Por
  * isso não dá pra confiar cegamente no parâmetro da URL nem comparar contra

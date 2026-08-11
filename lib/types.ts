@@ -96,6 +96,24 @@ export interface Client {
    * ver `resolveBranding` em `lib/services.ts`.
    */
   branding: Branding | null
+  /**
+   * Valores dos campos personalizados da conta, por id de
+   * `ClientFieldDefinition` — só entra aqui o campo que tem valor
+   * preenchido pra este cliente; um campo definido na conta mas nunca
+   * preenchido pra um cliente específico simplesmente não aparece no mapa.
+   */
+  customFields: Record<string, string>
+}
+
+/**
+ * Campo personalizado de cadastro de cliente, definido pela agência (owner)
+ * em `/configuracoes/campos-cliente` — schema por conta, não por cliente.
+ * Os valores em si ficam em `Client.customFields`, por id deste registro.
+ */
+export interface ClientFieldDefinition {
+  id: string
+  label: string
+  order: number
 }
 
 export interface Project {
@@ -371,13 +389,20 @@ export interface PortfolioProfile {
   hubLink: string
 }
 
-/** Um álbum como aparece agrupado numa categoria do hub público — versão enxuta, sem `videos[]`. */
+/**
+ * Um álbum como aparece agrupado numa categoria do hub público — versão
+ * enxuta, sem `videos[]`. `mediaType` é o tipo predominante entre os itens do
+ * álbum (maioria simples definida pelo backend) — usado só para o filtro
+ * foto/vídeo dentro de uma categoria no hub, já que um álbum pode misturar os
+ * dois tipos internamente.
+ */
 export interface PortfolioHubItem {
   id: string
   name: string
   description: string | null
   link: string
   coverUrl: string | null
+  mediaType: PortfolioItemMediaType
 }
 
 /** Hub público da agência (rota /portfolio/:hubLink): perfil + álbuns agrupados por categoria, sem nenhum dado de cliente/projeto. */
@@ -565,6 +590,15 @@ export interface AppNotification {
 export interface CrewMember {
   id: string
   name: string
+  /**
+   * Id do `TeamMember` (conta real, com login) por trás desse nome, quando
+   * vinculado explicitamente pelo owner/editor — `null` pra gente da equipe
+   * sem conta no Aprova (freelancer, motorista etc.), o caso comum. Base
+   * necessária pro backend um dia poder notificar a pessoa certa quando
+   * entra numa gravação (hoje só existe `lembrete_gravacao` genérico, sem
+   * alvo por usuário) — ver `crewService.create`.
+   */
+  userId: string | null
 }
 
 /** Escala de gravação da agência (aba Calendário). */

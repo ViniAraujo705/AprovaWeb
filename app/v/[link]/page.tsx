@@ -56,7 +56,7 @@ export async function generateMetadata({
 
   if (!data) {
     return {
-      title: 'Link indisponível — APROVA',
+      title: 'Link indisponível — CHECK',
       description: 'Este link de aprovação não existe ou expirou.',
     }
   }
@@ -70,13 +70,13 @@ export async function generateMetadata({
   const image = video.posterUrl || undefined
 
   return {
-    title: `${title} — APROVA`,
+    title: `${title} — CHECK`,
     description,
     openGraph: {
       title,
       description,
       type: 'video.other',
-      siteName: 'APROVA',
+      siteName: 'CHECK',
       images: image ? [{ url: image, alt: title }] : undefined,
     },
     twitter: {

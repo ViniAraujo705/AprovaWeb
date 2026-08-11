@@ -1,4 +1,4 @@
-import { cache } from 'react'
+import { cache, Suspense } from 'react'
 import type { Metadata } from 'next'
 import { PublicPortfolioHubView } from '@/components/public-portfolio-hub-view'
 import { LinkUnavailable } from '@/components/link-unavailable'
@@ -30,19 +30,19 @@ export async function generateMetadata({
 
   if (!data) {
     return {
-      title: 'Link indisponível — APROVA',
+      title: 'Link indisponível — CHECK',
       description: 'Este link de portfólio não existe ou expirou.',
     }
   }
 
   const title = data.agencyName || 'Portfólio'
   return {
-    title: `${title} — APROVA`,
+    title: `${title} — CHECK`,
     description: 'Confira os portfólios em destaque, direto pelo navegador.',
     openGraph: {
       title,
       description: 'Confira os portfólios em destaque, direto pelo navegador.',
-      siteName: 'APROVA',
+      siteName: 'CHECK',
     },
   }
 }
@@ -61,5 +61,12 @@ export default async function PublicPortfolioHubPage({
     )
   }
 
-  return <PublicPortfolioHubView hub={data} />
+  return (
+    // PublicPortfolioHubView usa useSearchParams (?cat=/&media= do fluxo
+    // categoria → foto/vídeo → álbuns) — o App Router exige um limite de
+    // Suspense em volta.
+    <Suspense fallback={null}>
+      <PublicPortfolioHubView hub={data} />
+    </Suspense>
+  )
 }

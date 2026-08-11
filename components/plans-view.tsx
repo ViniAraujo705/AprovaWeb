@@ -3,13 +3,18 @@
 import { useState } from 'react'
 import { AlertTriangle, Check, CreditCard, Loader2, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { FadeIn } from '@/components/motion'
+import { FadeIn, AnimatePresence, motion } from '@/components/motion'
 import { usePlanLimit } from '@/components/plan-limit-provider'
 import { billingService } from '@/lib/services'
 import { ApiError } from '@/lib/api'
 import type { BillingCycle, PlanId } from '@/lib/types'
 import { PLAN_PRICING, formatBRL, planPricing } from '@/lib/plan-pricing'
 import { PENDING_CHECKOUT_PLAN_KEY } from '@/lib/config'
+
+/** Só dígitos, 11 (CPF) ou 14 (CNPJ) — mesma regra que a Asaas valida no back. */
+function isValidCpfCnpjDigits(digits: string): boolean {
+  return digits.length === 11 || digits.length === 14
+}
 
 type Billing = 'monthly' | 'annual'
 
@@ -22,41 +27,44 @@ const annualSavingsPct = (() => {
   return Math.round((1 - pro.annualMonthly / pro.monthly) * 100)
 })()
 
+function describeCheckoutError(err: unknown): string {
+  return err instanceof ApiError
+    ? err.status === 502
+      ? 'A Asaas está indisponível no momento. Tente novamente em instantes.'
+      : err.message
+    : 'Não foi possível iniciar o checkout. Tente novamente.'
+}
+
 export function PlansView() {
   const { planStatus } = usePlanLimit()
   const [billing, setBilling] = useState<Billing>('monthly')
   const [checkingOut, setCheckingOut] = useState<PlanId | null>(null)
-  const [checkoutError, setCheckoutError] = useState<string | null>(null)
+  const [pendingPlan, setPendingPlan] = useState<PlanId | null>(null)
 
-  async function startCheckout(plan: PlanId) {
+  async function confirmCheckout(plan: PlanId, cpfCnpj: string) {
     setCheckingOut(plan)
-    setCheckoutError(null)
     try {
-      const cycle: BillingCycle = billing === 'annual' ? 'ANNUALLY' : 'MONTHLY'
-      const { url } = await billingService.checkout(plan, cycle)
+      const cycle: BillingCycle = billing === 'annual' ? 'YEARLY' : 'MONTHLY'
+      const { url } = await billingService.checkout(plan, cycle, cpfCnpj)
       if (!url) throw new Error('URL de checkout vazia.')
       // A tela de retorno (Meu Plano) usa isso pra saber qual plano esperar
       // enquanto reconsulta /plans/me — não dá pra confiar só no `?status=
-      // sucesso` da URL, já que o webhook da Mercado Pago é assíncrono.
+      // sucesso` da URL, já que o webhook da Asaas é assíncrono.
       sessionStorage.setItem(PENDING_CHECKOUT_PLAN_KEY, plan)
       window.location.href = url
     } catch (err) {
-      setCheckoutError(
-        err instanceof ApiError
-          ? err.status === 502
-            ? 'A Mercado Pago está indisponível no momento. Tente novamente em instantes.'
-            : err.message
-          : 'Não foi possível iniciar o checkout. Tente novamente.',
-      )
       setCheckingOut(null)
+      throw err
     }
   }
+
+  const pendingPlanPricing = PLAN_PRICING.find((p) => p.id === pendingPlan) ?? null
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:py-10">
       <h1 className="font-display text-4xl tracking-wide sm:text-5xl">PLANOS</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Compare os planos — assinar leva você direto para o checkout seguro da Mercado Pago.
+        Compare os planos — assinar leva você direto para o checkout seguro da Asaas.
       </p>
 
       <div className="mt-6 inline-flex rounded-full border border-border bg-secondary p-1 text-sm">
@@ -86,12 +94,6 @@ export function PlansView() {
           )}
         </button>
       </div>
-
-      {checkoutError && (
-        <p className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          <AlertTriangle className="size-4 shrink-0" /> {checkoutError}
-        </p>
-      )}
 
       <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {PLAN_PRICING.map((plan) => {
@@ -199,7 +201,7 @@ export function PlansView() {
                     ) : (
                       <button
                         type="button"
-                        onClick={() => startCheckout(plan.id)}
+                        onClick={() => setPendingPlan(plan.id)}
                         disabled={checkingOut !== null}
                         className={cn(
                           'mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50',
@@ -219,6 +221,119 @@ export function PlansView() {
           )
         })}
       </div>
+
+      <AnimatePresence>
+        {pendingPlanPricing && (
+          <CpfCnpjModal
+            planName={pendingPlanPricing.name}
+            onClose={() => setPendingPlan(null)}
+            onConfirm={(cpfCnpj) => confirmCheckout(pendingPlanPricing.id, cpfCnpj)}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function CpfCnpjModal({
+  planName,
+  onClose,
+  onConfirm,
+}: {
+  planName: string
+  onClose: () => void
+  onConfirm: (cpfCnpj: string) => Promise<void>
+}) {
+  const [value, setValue] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const digits = value.replace(/\D/g, '')
+
+  async function handleConfirm() {
+    if (!isValidCpfCnpjDigits(digits)) {
+      setError('Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      await onConfirm(digits)
+      // Sucesso navega pra fora da página (checkout externo) — não há
+      // estado de "sucesso" pra tratar aqui.
+    } catch (err) {
+      setError(describeCheckoutError(err))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+      <motion.div
+        className="absolute inset-0 bg-black/70"
+        onClick={() => !busy && onClose()}
+        aria-hidden="true"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+      />
+      <motion.div
+        className="relative w-full max-w-md rounded-xl border border-border bg-card p-5"
+        initial={{ opacity: 0, y: 8, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/15 text-primary">
+            <CreditCard className="size-5" />
+          </span>
+          <h3 className="text-lg font-bold tracking-tight">Assinar {planName}</h3>
+        </div>
+        <p className="mt-3 text-sm text-muted-foreground">
+          A Asaas exige o CPF ou CNPJ do pagador para emitir a cobrança.
+        </p>
+        <label className="mt-4 block text-sm font-medium text-foreground" htmlFor="checkout-cpf-cnpj">
+          CPF ou CNPJ
+        </label>
+        <input
+          id="checkout-cpf-cnpj"
+          type="text"
+          inputMode="numeric"
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
+          placeholder="Somente números"
+          disabled={busy}
+          className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
+        />
+        {error && (
+          <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
+            <AlertTriangle className="size-4 shrink-0" /> {error}
+          </p>
+        )}
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={busy}
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {busy && <Loader2 className="size-4 animate-spin" />}
+            Continuar para pagamento
+          </button>
+        </div>
+      </motion.div>
     </div>
   )
 }

@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Images,
   Plus,
@@ -14,6 +15,7 @@ import {
   Copy,
   ExternalLink,
   ImagePlus,
+  MoreVertical,
   Pencil,
   Trash2,
   User,
@@ -26,8 +28,12 @@ import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { UploadError, uploadToPresignedUrl, validatePhotoFile } from '@/lib/upload'
 import { isDemo } from '@/lib/demo'
-import { StaggerList, staggerItem, motion } from '@/components/motion'
+import { cn } from '@/lib/utils'
+import { StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
 import { toast } from '@/lib/toast'
+
+/** Pseudo-id da aba "Sem categoria" (portfólios com `categoryId: null`). */
+const UNCATEGORIZED = '__uncategorized__'
 
 /** Lê um arquivo como Data URL (usado só no preview/modo demo). */
 function readAsDataUrl(file: File): Promise<string> {
@@ -44,7 +50,9 @@ function readAsDataUrl(file: File): Promise<string> {
  * curadas manualmente para atrair novos clientes. Cada portfólio é um álbum
  * com link público próprio (/p/:link); todos juntos aparecem agrupados por
  * categoria no hub público da agência (/portfolio/:hubLink), configurado
- * aqui em cima (foto de perfil + categorias).
+ * aqui em cima (foto de perfil + categorias). As categorias viram abas: só a
+ * ativa é exibida por vez, no padrão de vitrinas visuais (Behance/Vimeo
+ * Showcase).
  */
 export function PortfoliosView() {
   const router = useRouter()
@@ -59,14 +67,39 @@ export function PortfoliosView() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [categoryLocked, setCategoryLocked] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  function openForm() {
+  const [activeTabState, setActiveTabState] = useState<string | null>(null)
+
+  const all = portfolios.data ?? []
+  const allCategories = categories.data ?? []
+  const uncategorized = all.filter(
+    (p) => !p.categoryId || !allCategories.some((c) => c.id === p.categoryId),
+  )
+
+  const tabs = [
+    ...allCategories.map((c) => ({ id: c.id, name: c.name })),
+    ...(uncategorized.length > 0 ? [{ id: UNCATEGORIZED, name: 'Sem categoria' }] : []),
+  ]
+  const activeTab = tabs.some((t) => t.id === activeTabState) ? (activeTabState as string) : (tabs[0]?.id ?? null)
+  const activeItems =
+    activeTab === UNCATEGORIZED ? uncategorized : all.filter((p) => p.categoryId === activeTab)
+  const activeCategoryName = tabs.find((t) => t.id === activeTab)?.name ?? null
+
+  /** Abre o formulário de criação. `lockedCategoryId` vem de "nova galeria" dentro de uma aba: a categoria fica travada, não é só um default. */
+  function openForm(lockedCategoryId?: string | null) {
     setCreating(true)
     setName('')
     setDescription('')
-    setCategoryId('')
+    if (lockedCategoryId !== undefined) {
+      setCategoryId(lockedCategoryId === UNCATEGORIZED ? '' : lockedCategoryId ?? '')
+      setCategoryLocked(true)
+    } else {
+      setCategoryId('')
+      setCategoryLocked(false)
+    }
     setError(null)
   }
 
@@ -95,16 +128,6 @@ export function PortfoliosView() {
     }
   }
 
-  const all = portfolios.data ?? []
-  const allCategories = categories.data ?? []
-  const categoriesWithPortfolios = allCategories.map((c) => ({
-    category: c,
-    items: all.filter((p) => p.categoryId === c.id),
-  }))
-  const uncategorized = all.filter(
-    (p) => !p.categoryId || !allCategories.some((c) => c.id === p.categoryId),
-  )
-
   return (
     <div className="flex flex-1 flex-col px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -118,7 +141,7 @@ export function PortfoliosView() {
         {!creating && (
           <button
             type="button"
-            onClick={openForm}
+            onClick={() => openForm()}
             className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
             <Plus className="size-4" /> Novo portfólio
@@ -128,10 +151,6 @@ export function PortfoliosView() {
 
       {!profile.loading && !profile.error && profile.data && (
         <PortfolioProfileCard profile={profile.data} onUpdated={profile.setData} />
-      )}
-
-      {!categories.loading && !categories.error && (
-        <CategoriesManager categories={allCategories} onChange={categories.setData} />
       )}
 
       {creating && (
@@ -160,19 +179,25 @@ export function PortfoliosView() {
             rows={2}
             className="mt-2 w-full resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
           />
-          {allCategories.length > 0 && (
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="mt-2 min-h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
-            >
-              <option value="">Sem categoria</option>
-              {allCategories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+          {categoryLocked ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Categoria: <span className="text-foreground">{categoryId ? activeCategoryName : 'Sem categoria'}</span>
+            </p>
+          ) : (
+            allCategories.length > 0 && (
+              <select
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className="mt-2 min-h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+              >
+                <option value="">Sem categoria</option>
+                {allCategories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )
           )}
           {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
           <button
@@ -188,10 +213,10 @@ export function PortfoliosView() {
       )}
 
       <div className="mt-6 flex flex-1 flex-col">
-        {portfolios.loading ? (
-          <div className="m-auto grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-40 w-full rounded-xl" />
+        {portfolios.loading || categories.loading ? (
+          <div className="m-auto grid w-full gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="aspect-[4/5] w-full rounded-xl" />
             ))}
           </div>
         ) : portfolios.error ? (
@@ -205,7 +230,7 @@ export function PortfoliosView() {
             action={
               <button
                 type="button"
-                onClick={openForm}
+                onClick={() => openForm()}
                 className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
               >
                 Novo portfólio
@@ -213,36 +238,20 @@ export function PortfoliosView() {
             }
           />
         ) : (
-          <div className="columns-1 gap-6 sm:columns-2 lg:columns-3">
-            {categoriesWithPortfolios
-              .filter((g) => g.items.length > 0)
-              .map((g) => (
-                <div key={g.category.id} className="mb-6 break-inside-avoid-column">
-                  <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                    {g.category.name}
-                  </h2>
-                  <StaggerList className="grid grid-cols-2 gap-3">
-                    {g.items.map((p) => (
-                      <PortfolioCard key={p.id} portfolio={p} />
-                    ))}
-                  </StaggerList>
-                </div>
+          <>
+            <CategoryTabs
+              tabs={tabs}
+              active={activeTab}
+              onSelect={setActiveTabState}
+              onCategoriesChange={categories.setData}
+            />
+            <StaggerList className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {activeItems.map((p) => (
+                <PortfolioCard key={p.id} portfolio={p} />
               ))}
-            {uncategorized.length > 0 && (
-              <div className="mb-6 break-inside-avoid-column">
-                {allCategories.length > 0 && (
-                  <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                    Sem categoria
-                  </h2>
-                )}
-                <StaggerList className="flex flex-col gap-4">
-                  {uncategorized.map((p) => (
-                    <PortfolioCard key={p.id} portfolio={p} />
-                  ))}
-                </StaggerList>
-              </div>
-            )}
-          </div>
+              <NewGalleryCard onClick={() => openForm(activeTab)} />
+            </StaggerList>
+          </>
         )}
       </div>
     </div>
@@ -310,71 +319,75 @@ function PortfolioProfileCard({
   }
 
   return (
-    <div className="mt-6 rounded-xl border border-border bg-card p-4 sm:p-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => !busy && inputRef.current?.click()}
-            disabled={busy}
-            aria-label="Alterar foto de perfil do portfólio"
-            className="group relative size-16 shrink-0 overflow-hidden rounded-full border border-border bg-secondary disabled:opacity-70"
-          >
-            {profile.photoUrl ? (
-              <Image src={profile.photoUrl} alt="" fill className="object-cover" sizes="64px" unoptimized />
-            ) : (
-              <span className="grid h-full w-full place-items-center text-muted-foreground">
-                <User className="size-6" />
-              </span>
-            )}
-            <span className="absolute inset-0 hidden items-center justify-center bg-black/50 text-white group-hover:flex">
-              {busy ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
+    <div className="mt-6 rounded-lg border border-border bg-card px-3 py-2.5">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => !busy && inputRef.current?.click()}
+          disabled={busy}
+          aria-label="Alterar foto de perfil do portfólio"
+          className="group relative size-9 shrink-0 overflow-hidden rounded-full border border-border bg-secondary disabled:opacity-70"
+        >
+          {profile.photoUrl ? (
+            <Image src={profile.photoUrl} alt="" fill className="object-cover" sizes="36px" unoptimized />
+          ) : (
+            <span className="grid h-full w-full place-items-center text-muted-foreground">
+              <User className="size-4" />
             </span>
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="hidden"
-              onChange={(e) => handleFile(e.target.files?.[0])}
-            />
-          </button>
-          <div>
-            <p className="text-sm font-medium text-foreground">Perfil do portfólio</p>
-            <p className="text-xs text-muted-foreground">
-              Foto de perfil exibida no topo do hub público, com todos os seus portfólios.
-            </p>
-          </div>
+          )}
+          <span className="absolute inset-0 hidden items-center justify-center bg-black/50 text-white group-hover:flex">
+            {busy ? <Loader2 className="size-3.5 animate-spin" /> : <ImagePlus className="size-3.5" />}
+          </span>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={(e) => handleFile(e.target.files?.[0])}
+          />
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-medium text-foreground">Perfil do portfólio</p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            Foto exibida no topo do hub público.
+          </p>
         </div>
-        <div className="flex items-center gap-2 sm:ml-auto">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           <a
             href={hubPath}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground transition-colors hover:bg-secondary/70"
+            className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <ExternalLink className="size-3.5" /> Abrir hub
           </a>
           <button
             type="button"
             onClick={copyLink}
-            className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground transition-colors hover:bg-secondary/70"
+            className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
             {copied ? 'Copiado' : 'Copiar link'}
           </button>
         </div>
       </div>
-      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
     </div>
   )
 }
 
-function CategoriesManager({
-  categories,
-  onChange,
+function CategoryTabs({
+  tabs,
+  active,
+  onSelect,
+  onCategoriesChange,
 }: {
-  categories: PortfolioCategory[]
-  onChange: (updater: PortfolioCategory[] | ((prev: PortfolioCategory[] | null) => PortfolioCategory[])) => void
+  tabs: { id: string; name: string }[]
+  active: string | null
+  onSelect: (id: string) => void
+  onCategoriesChange: (
+    updater: PortfolioCategory[] | ((prev: PortfolioCategory[] | null) => PortfolioCategory[]),
+  ) => void
 }) {
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
@@ -386,7 +399,8 @@ function CategoriesManager({
     setBusy(true)
     try {
       const created = await portfolioProfileService.createCategory({ name: trimmed })
-      onChange((prev) => [...(prev ?? []), created])
+      onCategoriesChange((prev) => [...(prev ?? []), created])
+      onSelect(created.id)
       setNewName('')
       setAdding(false)
     } catch (err) {
@@ -397,85 +411,147 @@ function CategoriesManager({
   }
 
   return (
-    <div className="mt-4 rounded-xl border border-border bg-card p-4 sm:p-5">
-      <p className="text-sm font-medium text-foreground">Categorias</p>
-      <p className="text-xs text-muted-foreground">
-        Abas do hub público — organize seus portfólios do jeito que fizer sentido pro seu negócio
-        (ex: Fotos, Vídeo, Casamento, Institucional).
-      </p>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {categories.map((c) => (
-          <CategoryChip key={c.id} category={c} onChange={onChange} />
-        ))}
-        {adding ? (
-          <div className="flex items-center gap-1">
-            <input
-              autoFocus
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addCategory()}
-              placeholder="Nome da categoria"
-              className="min-h-8 w-40 rounded-lg border border-border bg-secondary px-2.5 text-sm text-foreground outline-none focus:border-primary"
-            />
-            <button
-              type="button"
-              onClick={addCategory}
-              disabled={busy}
-              className="inline-flex min-h-8 items-center rounded-lg bg-foreground px-2.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-50"
-            >
-              {busy ? <Loader2 className="size-3.5 animate-spin" /> : 'Salvar'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAdding(false)
-                setNewName('')
-              }}
-              disabled={busy}
-              aria-label="Cancelar"
-              className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-secondary"
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
-        ) : (
+    <div className="flex items-center gap-1 overflow-x-auto border-b border-border">
+      {tabs.map((t) => (
+        <div key={t.id} className="group/tab relative flex shrink-0 items-center">
           <button
             type="button"
-            onClick={() => setAdding(true)}
-            className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-dashed border-border px-3 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+            onClick={() => onSelect(t.id)}
+            className={cn(
+              'whitespace-nowrap border-b-2 px-3.5 py-2.5 text-sm transition-colors',
+              t.id === active
+                ? 'border-foreground font-medium text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
           >
-            <Plus className="size-3.5" /> Nova categoria
+            {t.name}
           </button>
-        )}
-      </div>
+          {t.id === active && t.id !== UNCATEGORIZED && (
+            <CategoryTabMenu categoryId={t.id} categoryName={t.name} onChange={onCategoriesChange} />
+          )}
+        </div>
+      ))}
+
+      {adding ? (
+        <div className="flex shrink-0 items-center gap-1 pl-1">
+          <input
+            autoFocus
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addCategory()}
+            placeholder="Nome da categoria"
+            className="min-h-8 w-40 rounded-lg border border-border bg-secondary px-2.5 text-sm text-foreground outline-none focus:border-primary"
+          />
+          <button
+            type="button"
+            onClick={addCategory}
+            disabled={busy}
+            className="inline-flex min-h-8 items-center rounded-lg bg-foreground px-2.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="size-3.5 animate-spin" /> : 'Salvar'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAdding(false)
+              setNewName('')
+            }}
+            disabled={busy}
+            aria-label="Cancelar"
+            className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-secondary"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="ml-1 inline-flex shrink-0 items-center gap-1 whitespace-nowrap px-2.5 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <Plus className="size-3.5" /> Nova categoria
+        </button>
+      )}
     </div>
   )
 }
 
-function CategoryChip({
-  category,
+/**
+ * Menu "..." de ações da aba ativa (renomear/excluir). A aba fica dentro de
+ * uma faixa com `overflow-x-auto` (rolagem horizontal em telas pequenas), o
+ * que clipa qualquer overflow vertical de um filho `absolute` — mesmo
+ * problema já resolvido em `notification-bell.tsx`: o painel é portado pro
+ * `<body>` e posicionado via `getBoundingClientRect` do gatilho.
+ */
+function CategoryTabMenu({
+  categoryId,
+  categoryName,
   onChange,
 }: {
-  category: PortfolioCategory
-  onChange: (updater: PortfolioCategory[] | ((prev: PortfolioCategory[] | null) => PortfolioCategory[])) => void
+  categoryId: string
+  categoryName: string
+  onChange: (
+    updater: PortfolioCategory[] | ((prev: PortfolioCategory[] | null) => PortfolioCategory[]),
+  ) => void
 }) {
-  const [editing, setEditing] = useState(false)
-  const [name, setName] = useState(category.name)
+  const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({})
+  const [renaming, setRenaming] = useState(false)
+  const [name, setName] = useState(categoryName)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [busy, setBusy] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => setMounted(true), [])
+
+  useEffect(() => {
+    if (!open) return
+    function onClickOutside(e: MouseEvent) {
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (panelRef.current?.contains(target)) return
+      setOpen(false)
+      setRenaming(false)
+      setConfirmingDelete(false)
+      setName(categoryName)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [open, categoryName])
+
+  useEffect(() => {
+    if (!open) return
+    function updatePosition() {
+      const el = triggerRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      setPanelStyle({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+    }
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [open])
 
   async function save() {
     const trimmed = name.trim()
-    if (!trimmed || trimmed === category.name) {
-      setEditing(false)
-      setName(category.name)
+    if (!trimmed || trimmed === categoryName) {
+      setRenaming(false)
+      setOpen(false)
+      setName(categoryName)
       return
     }
     setBusy(true)
     try {
-      const updated = await portfolioProfileService.updateCategory(category.id, { name: trimmed })
-      onChange((prev) => (prev ?? []).map((c) => (c.id === category.id ? updated : c)))
-      setEditing(false)
+      const updated = await portfolioProfileService.updateCategory(categoryId, { name: trimmed })
+      onChange((prev) => (prev ?? []).map((c) => (c.id === categoryId ? updated : c)))
+      setRenaming(false)
+      setOpen(false)
     } catch (err) {
       toast.error('Não foi possível renomear', err instanceof ApiError ? err.message : undefined)
     } finally {
@@ -486,86 +562,114 @@ function CategoryChip({
   async function remove() {
     setBusy(true)
     try {
-      await portfolioProfileService.removeCategory(category.id)
-      onChange((prev) => (prev ?? []).filter((c) => c.id !== category.id))
+      await portfolioProfileService.removeCategory(categoryId)
+      onChange((prev) => (prev ?? []).filter((c) => c.id !== categoryId))
+      setOpen(false)
     } catch (err) {
       toast.error('Não foi possível excluir', err instanceof ApiError ? err.message : undefined)
       setBusy(false)
     }
   }
 
-  if (editing) {
-    return (
-      <div className="flex items-center gap-1">
-        <input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && save()}
-          className="min-h-8 w-40 rounded-lg border border-border bg-secondary px-2.5 text-sm text-foreground outline-none focus:border-primary"
-        />
-        <button
-          type="button"
-          onClick={save}
-          disabled={busy}
-          className="inline-flex min-h-8 items-center rounded-lg bg-foreground px-2.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-50"
-        >
-          {busy ? <Loader2 className="size-3.5 animate-spin" /> : 'Salvar'}
-        </button>
-      </div>
-    )
-  }
-
-  if (confirmingDelete) {
-    return (
-      <div className="flex items-center gap-1 rounded-full bg-destructive/10 py-1 pl-3 pr-1 text-xs text-destructive">
-        Excluir &quot;{category.name}&quot;?
-        <button
-          type="button"
-          onClick={remove}
-          disabled={busy}
-          className="ml-1 inline-flex min-h-6 items-center rounded-full bg-destructive px-2 text-white hover:opacity-90 disabled:opacity-50"
-        >
-          {busy ? <Loader2 className="size-3 animate-spin" /> : 'Confirmar'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setConfirmingDelete(false)}
-          disabled={busy}
-          aria-label="Cancelar"
-          className="grid size-6 place-items-center rounded-full text-destructive disabled:opacity-50"
-        >
-          <X className="size-3" />
-        </button>
-      </div>
-    )
-  }
-
   return (
-    <div className="group flex items-center gap-0.5 rounded-full bg-secondary py-1 pl-3 pr-1 text-xs font-medium text-foreground">
-      {category.name}
+    <>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setEditing(true)}
-        aria-label={`Renomear ${category.name}`}
-        className="grid size-6 place-items-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-label={`Ações da categoria ${categoryName}`}
+        className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
       >
-        <Pencil className="size-3" />
+        <MoreVertical className="size-3.5" />
       </button>
-      <button
-        type="button"
-        onClick={() => setConfirmingDelete(true)}
-        aria-label={`Excluir ${category.name}`}
-        className="grid size-6 place-items-center rounded-full text-muted-foreground hover:bg-background hover:text-destructive"
-      >
-        <Trash2 className="size-3" />
-      </button>
-    </div>
+
+      {mounted &&
+        createPortal(
+          <AnimatePresence>
+            {open && (
+              <motion.div
+                ref={panelRef}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.15 }}
+                style={panelStyle}
+                className="fixed z-50 w-52 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-2xl"
+              >
+                {confirmingDelete ? (
+                  <div className="p-1.5">
+                    <p className="px-1 pb-2 text-xs text-muted-foreground">
+                      Excluir &quot;{categoryName}&quot;? Os álbuns dela ficam sem categoria.
+                    </p>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={remove}
+                        disabled={busy}
+                        className="inline-flex min-h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-destructive px-2 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                      >
+                        {busy ? <Loader2 className="size-3.5 animate-spin" /> : 'Confirmar'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingDelete(false)}
+                        disabled={busy}
+                        className="inline-flex min-h-8 flex-1 items-center justify-center rounded-lg bg-secondary text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : renaming ? (
+                  <div className="flex items-center gap-1 p-1">
+                    <input
+                      autoFocus
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && save()}
+                      className="min-h-8 w-full min-w-0 rounded-lg border border-border bg-secondary px-2.5 text-sm text-foreground outline-none focus:border-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={save}
+                      disabled={busy}
+                      className="inline-flex min-h-8 shrink-0 items-center rounded-lg bg-foreground px-2.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-50"
+                    >
+                      {busy ? <Loader2 className="size-3.5 animate-spin" /> : 'Salvar'}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setRenaming(true)}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+                    >
+                      <Pencil className="size-3.5 text-muted-foreground" />
+                      Renomear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingDelete(true)}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
+                    >
+                      <Trash2 className="size-3.5" />
+                      Excluir
+                    </button>
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
+    </>
   )
 }
 
 function PortfolioCard({ portfolio }: { portfolio: Portfolio }) {
   const [copied, setCopied] = useState(false)
+  const router = useRouter()
 
   async function copyLink(e: React.MouseEvent) {
     e.preventDefault()
@@ -579,24 +683,27 @@ function PortfolioCard({ portfolio }: { portfolio: Portfolio }) {
     }
   }
 
+  function edit(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    router.push(`/portfolios/${portfolio.id}`)
+  }
+
   return (
-    <motion.div
-      variants={staggerItem}
-      className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/50"
-    >
+    <motion.div variants={staggerItem} className="group relative flex flex-col">
       <Link
         href={`/portfolios/${portfolio.id}`}
         aria-label={`Gerenciar portfólio ${portfolio.name}`}
         className="absolute inset-0 z-[1]"
       />
-      <div className="relative aspect-video w-full overflow-hidden bg-secondary">
+      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-secondary">
         {portfolio.coverUrl ? (
           <Image
             src={portfolio.coverUrl}
             alt=""
             fill
-            className="object-contain transition-transform group-hover:scale-105"
-            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
             unoptimized
           />
         ) : (
@@ -604,31 +711,49 @@ function PortfolioCard({ portfolio }: { portfolio: Portfolio }) {
             <Film className="size-7" />
           </span>
         )}
-      </div>
-      <div className="flex items-start justify-between gap-2 p-4">
-        <div className="min-w-0">
-          <h3 className="truncate text-lg font-bold tracking-tight" title={portfolio.name}>
-            {portfolio.name}
-          </h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {portfolio.videos.length}{' '}
-            {portfolio.videos.length === 1 ? 'item' : 'itens'}
-          </p>
+        <div className="absolute right-2 top-2 z-[2] flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={edit}
+            aria-label="Editar portfólio"
+            title="Editar portfólio"
+            className="grid size-7 place-items-center rounded-md bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+          >
+            <Pencil className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={copyLink}
+            aria-label="Copiar link público"
+            title="Copiar link público"
+            className="grid size-7 place-items-center rounded-md bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+          >
+            {copied ? <Check className="size-3.5" /> : <Link2 className="size-3.5" />}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={copyLink}
-          aria-label="Copiar link público"
-          title="Copiar link público"
-          className="relative z-[2] inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          {copied ? (
-            <Check className="size-4" />
-          ) : (
-            <Link2 className="size-4" />
-          )}
-        </button>
+      </div>
+      <div className="pt-2.5">
+        <h3 className="truncate text-[13px] font-medium text-foreground" title={portfolio.name}>
+          {portfolio.name}
+        </h3>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          {portfolio.videos.length} {portfolio.videos.length === 1 ? 'item' : 'itens'}
+        </p>
       </div>
     </motion.div>
+  )
+}
+
+function NewGalleryCard({ onClick }: { onClick: () => void }) {
+  return (
+    <motion.button
+      type="button"
+      variants={staggerItem}
+      onClick={onClick}
+      className="flex aspect-[4/5] w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+    >
+      <Plus className="size-5" />
+      <span className="text-xs font-medium">Nova galeria</span>
+    </motion.button>
   )
 }

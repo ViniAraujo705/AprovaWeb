@@ -3,23 +3,25 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   LayoutDashboard,
+  Briefcase,
+  IdCard,
+  BarChart3,
+  Settings,
   Kanban,
   Upload,
   Shield,
   Menu,
   X,
-  Play,
   LogOut,
-  Settings,
   Users,
   ListChecks,
-  BarChart3,
+  ListPlus,
+  FileBarChart,
   CreditCard,
   ChevronLeft,
-  ChevronRight,
   FolderOpen,
   Contact,
   Bell,
@@ -36,8 +38,6 @@ import { teamRoleLabel, type Role, type TeamRole } from '@/lib/types'
 import { AnimatePresence, motion, useReducedMotion } from '@/components/motion'
 import { brandAccentStyle } from '@/lib/theme'
 
-const SIDEBAR_COLLAPSED_KEY = 'aprova_sidebar_collapsed'
-
 type NavItem = {
   href: string
   label: string
@@ -50,33 +50,107 @@ type NavItem = {
   exact?: boolean
 }
 
-// Itens com teamRole:'owner' ficam escondidos para editores (equipe, branding).
-const nav: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/kanban', label: 'Kanban', icon: Kanban },
-  { href: '/upload', label: 'Enviar vídeo', icon: Upload },
-  { href: '/projetos', label: 'Projetos', icon: FolderOpen },
-  { href: '/calendario', label: 'Calendário', icon: CalendarDays },
-  { href: '/notificacoes', label: 'Notificações', icon: Bell },
-  { href: '/clientes', label: 'Clientes', icon: Contact, teamRole: 'owner' },
-  { href: '/portfolios', label: 'Portfólios', icon: Images, teamRole: 'owner' },
-  { href: '/configuracoes/equipe', label: 'Equipe', icon: Users, teamRole: 'owner' },
-  { href: '/equipe/desempenho', label: 'Desempenho', icon: BarChart3, teamRole: 'owner' },
+type NavModule = {
+  key: string
+  label: string
+  /** Ícone do rail (camada 1) — os itens dentro (camada 2) têm o próprio ícone. */
+  icon: typeof LayoutDashboard
+  items: NavItem[]
+}
+
+// Navegação em duas camadas (rail + painel), estilo Salesforce/Linear. Um
+// módulo inteiro some do rail se todos os itens dele forem escondidos (ex:
+// editor não vê nenhum item de "Equipe e resultados" — o ícone do rail some
+// junto, não fica um módulo vazio clicável).
+const navModules: NavModule[] = [
   {
-    href: '/configuracoes/perguntas',
-    label: 'Perguntas',
-    icon: ListChecks,
-    teamRole: 'owner',
+    key: 'geral',
+    label: 'Visão geral',
+    icon: LayoutDashboard,
+    items: [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }],
   },
-  // Sem teamRole: editor também acessa para editar o próprio perfil (a
-  // seção de branding dentro da tela é que fica escondida do editor).
-  { href: '/configuracoes', label: 'Configurações', icon: Settings, exact: true },
-  // Sem teamRole: editor também esbarra em limites (ex: teto de vídeos/mês)
-  // e precisa entender por que uma ação foi bloqueada.
-  { href: '/configuracoes/plano', label: 'Meu Plano', icon: Gauge },
-  { href: '/planos', label: 'Planos', icon: CreditCard, teamRole: 'owner' },
-  { href: '/admin', label: 'Admin', icon: Shield, role: 'admin' },
+  {
+    key: 'trabalho',
+    label: 'Trabalho',
+    icon: Briefcase,
+    items: [
+      { href: '/kanban', label: 'Kanban', icon: Kanban },
+      { href: '/upload', label: 'Enviar vídeo', icon: Upload },
+      { href: '/projetos', label: 'Projetos', icon: FolderOpen },
+      { href: '/calendario', label: 'Calendário', icon: CalendarDays },
+    ],
+  },
+  {
+    key: 'clientes',
+    label: 'Clientes',
+    icon: IdCard,
+    items: [
+      { href: '/clientes', label: 'Clientes', icon: Contact, teamRole: 'owner' },
+      {
+        href: '/configuracoes/campos-cliente',
+        label: 'Campos de cliente',
+        icon: ListPlus,
+        teamRole: 'owner',
+      },
+      { href: '/portfolios', label: 'Portfólios', icon: Images, teamRole: 'owner' },
+    ],
+  },
+  {
+    key: 'equipe',
+    label: 'Equipe e resultados',
+    icon: BarChart3,
+    items: [
+      { href: '/configuracoes/equipe', label: 'Equipe', icon: Users, teamRole: 'owner' },
+      { href: '/equipe/desempenho', label: 'Desempenho', icon: BarChart3, teamRole: 'owner' },
+      { href: '/relatorios', label: 'Relatórios', icon: FileBarChart, teamRole: 'owner' },
+      {
+        href: '/configuracoes/perguntas',
+        label: 'Perguntas',
+        icon: ListChecks,
+        teamRole: 'owner',
+      },
+    ],
+  },
+  {
+    key: 'conta',
+    label: 'Conta',
+    icon: Settings,
+    items: [
+      { href: '/notificacoes', label: 'Notificações', icon: Bell },
+      // Sem teamRole: editor também acessa para editar o próprio perfil (a
+      // seção de branding dentro da tela é que fica escondida do editor).
+      { href: '/configuracoes', label: 'Configurações', icon: Settings, exact: true },
+      // Sem teamRole: editor também esbarra em limites (ex: teto de vídeos/mês)
+      // e precisa entender por que uma ação foi bloqueada.
+      { href: '/configuracoes/plano', label: 'Meu Plano', icon: Gauge },
+      { href: '/planos', label: 'Planos', icon: CreditCard, teamRole: 'owner' },
+      { href: '/admin', label: 'Admin', icon: Shield, role: 'admin' },
+    ],
+  },
 ]
+
+function itemMatchesRoute(item: NavItem, pathname: string): boolean {
+  return item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/')
+}
+
+/** Módulos + itens visíveis pro usuário logado (filtra por role/teamRole). */
+function useVisibleModules(): NavModule[] {
+  const { user } = useAuth()
+  return useMemo(
+    () =>
+      navModules
+        .map((m) => ({
+          ...m,
+          items: m.items.filter(
+            (item) =>
+              (!item.role || user?.role === item.role) &&
+              (!item.teamRole || user?.teamRole === item.teamRole),
+          ),
+        }))
+        .filter((m) => m.items.length > 0),
+    [user],
+  )
+}
 
 function Logo({ collapsed }: { collapsed?: boolean }) {
   return (
@@ -84,107 +158,187 @@ function Logo({ collapsed }: { collapsed?: boolean }) {
       href="/dashboard"
       className={cn('flex items-center gap-2', collapsed && 'justify-center')}
     >
-      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
-        <Play className="size-4 fill-current" />
+      <span className="relative size-8 shrink-0 overflow-hidden rounded-lg">
+        <Image src="/logo-check.png" alt="Check" fill className="object-cover" sizes="32px" />
       </span>
       {!collapsed && (
         <span className="font-display text-2xl leading-none tracking-wide">
-          APROVA
+          CHECK
         </span>
       )}
     </Link>
   )
 }
 
-function NavLinks({
-  onNavigate,
-  collapsed,
+/** Camada 1: rail estreito (56px), só ícones — um por módulo. */
+function NavRail({
+  modules,
+  activeModuleKey,
+  openModuleKey,
+  onSelect,
 }: {
-  onNavigate?: () => void
-  collapsed?: boolean
+  modules: NavModule[]
+  activeModuleKey: string | null
+  openModuleKey: string | null
+  onSelect: (key: string) => void
 }) {
-  const pathname = usePathname()
-  const { user } = useAuth()
-  const items = nav.filter(
-    (item) =>
-      (!item.role || user?.role === item.role) &&
-      (!item.teamRole || user?.teamRole === item.teamRole),
-  )
   return (
-    <nav className="flex flex-col gap-1">
-      {items.map((item) => {
-        const active = item.exact
-          ? pathname === item.href
-          : pathname === item.href || pathname.startsWith(item.href + '/')
-        const Icon = item.icon
+    <div className="flex flex-col items-center gap-1">
+      {modules.map((m) => {
+        const Icon = m.icon
+        // Preto = módulo da rota atual (sempre, independente do painel aberto).
+        // Cinza = módulo só "espiado" (painel aberto sem ter navegado pra ele).
+        const isActiveRoute = m.key === activeModuleKey
+        const isOpen = m.key === openModuleKey
         return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            title={collapsed ? item.label : undefined}
+          <button
+            key={m.key}
+            type="button"
+            onClick={() => onSelect(m.key)}
+            title={m.label}
+            aria-label={m.label}
+            aria-pressed={isOpen}
             className={cn(
-              'flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors',
-              collapsed && 'justify-center px-0',
-              active
+              'grid size-10 shrink-0 place-items-center rounded-lg transition-colors',
+              isActiveRoute
                 ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                : isOpen
+                  ? 'bg-secondary text-foreground'
+                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
             )}
           >
-            <Icon className="size-5 shrink-0" />
-            <AnimatePresence initial={false}>
-              {!collapsed && (
-                <motion.span
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: 'auto' }}
-                  exit={{ opacity: 0, width: 0 }}
-                  transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                  className="overflow-hidden whitespace-nowrap"
-                >
-                  {item.label}
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </Link>
+            <Icon className="size-5" />
+          </button>
         )
       })}
+    </div>
+  )
+}
+
+/** Camada 2: painel do módulo aberto — título + itens (ícone + rótulo). */
+function NavPanel({
+  module,
+  onNavigate,
+  onClose,
+}: {
+  module: NavModule
+  onNavigate?: () => void
+  onClose: () => void
+}) {
+  const pathname = usePathname()
+  return (
+    <div className="flex h-full w-56 shrink-0 flex-col p-4">
+      <div className="flex items-center justify-between gap-2 px-1 pb-3">
+        <p className="text-xs font-medium text-muted-foreground/70">{module.label}</p>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Recolher painel"
+          title="Recolher painel"
+          className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
+        >
+          <ChevronLeft className="size-3.5" />
+        </button>
+      </div>
+      <nav className="flex flex-col gap-1">
+        {module.items.map((item) => {
+          const active = itemMatchesRoute(item, pathname)
+          const Icon = item.icon
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onNavigate}
+              className={cn(
+                'flex min-h-10 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium transition-colors',
+                active
+                  ? 'bg-secondary text-foreground'
+                  : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground',
+              )}
+            >
+              <Icon className="size-4 shrink-0" />
+              <span className="truncate">{item.label}</span>
+            </Link>
+          )
+        })}
+      </nav>
+    </div>
+  )
+}
+
+/** Lista única (sem duas camadas) pro drawer mobile — rail+painel não cabe bem numa gaveta estreita. */
+function MobileNavLinks({ onNavigate }: { onNavigate?: () => void }) {
+  const pathname = usePathname()
+  const modules = useVisibleModules()
+
+  return (
+    <nav className="flex flex-col">
+      {modules.map((m, i) => (
+        <div key={m.key} className={cn(i > 0 && 'mt-4 border-t border-sidebar-border pt-4')}>
+          <p className="px-3 pb-2 text-xs font-medium text-muted-foreground/70">{m.label}</p>
+          <div className="flex flex-col gap-1">
+            {m.items.map((item) => {
+              const active = itemMatchesRoute(item, pathname)
+              const Icon = item.icon
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={cn(
+                    'flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors',
+                    active
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                  )}
+                >
+                  <Icon className="size-5 shrink-0" />
+                  {item.label}
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      ))}
     </nav>
   )
 }
 
-function UserFooter({ collapsed }: { collapsed?: boolean }) {
+/** Rodapé compacto (avatar, notificações, tema, sair) — usado no rail (56px), sempre ícone-só. */
+function RailUserFooter() {
   const { user, logout } = useAuth()
-
-  if (collapsed) {
-    return (
-      <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-sidebar-border bg-secondary/40 p-2">
-        <span
-          title={user?.name || user?.email || ''}
-          className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary text-xs font-bold uppercase text-foreground"
-        >
-          {user?.photoUrl ? (
-            <Image src={user.photoUrl} alt="" fill className="object-cover" sizes="32px" unoptimized />
-          ) : (
-            (user?.name || user?.email || '?').slice(0, 1)
-          )}
-        </span>
-        <NotificationBell direction="up" />
-        <ThemeToggle />
-        <button
-          type="button"
-          onClick={logout}
-          aria-label="Sair"
-          title="Sair"
-          className="grid size-9 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
-        >
-          <LogOut className="size-4" />
-        </button>
-      </div>
-    )
-  }
-
   return (
-    <div className="mt-4 flex flex-col gap-3 rounded-xl border border-sidebar-border bg-secondary/40 p-3">
+    <div className="flex flex-col items-center gap-2">
+      <span
+        title={user?.name || user?.email || ''}
+        className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary text-xs font-bold uppercase text-foreground"
+      >
+        {user?.photoUrl ? (
+          <Image src={user.photoUrl} alt="" fill className="object-cover" sizes="32px" unoptimized />
+        ) : (
+          (user?.name || user?.email || '?').slice(0, 1)
+        )}
+      </span>
+      <NotificationBell direction="up" />
+      <ThemeToggle />
+      <button
+        type="button"
+        onClick={logout}
+        aria-label="Sair"
+        title="Sair"
+        className="grid size-9 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+      >
+        <LogOut className="size-4" />
+      </button>
+    </div>
+  )
+}
+
+/** Rodapé completo (nome, e-mail, badge de papel) — usado na gaveta mobile, onde tem espaço sobrando. */
+function MobileUserFooter() {
+  const { user, logout } = useAuth()
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-sidebar-border bg-secondary/40 p-3">
       <div className="flex min-w-0 items-center gap-2">
         <span className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary text-xs font-bold uppercase text-foreground">
           {user?.photoUrl ? (
@@ -194,27 +348,25 @@ function UserFooter({ collapsed }: { collapsed?: boolean }) {
           )}
         </span>
         <div className="min-w-0 flex-1 overflow-hidden">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <p className="min-w-0 shrink truncate text-sm font-medium text-foreground" title={user?.name || 'Usuário'}>
-              {user?.name || 'Usuário'}
-            </p>
-            {user && (
-              <span
-                className={cn(
-                  'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                  user.teamRole === 'owner'
-                    ? 'bg-primary/15 text-primary'
-                    : 'bg-secondary text-muted-foreground ring-1 ring-border',
-                )}
-              >
-                {teamRoleLabel[user.teamRole]}
-              </span>
-            )}
-          </div>
+          <p className="min-w-0 shrink truncate text-sm font-medium text-foreground" title={user?.name || 'Usuário'}>
+            {user?.name || 'Usuário'}
+          </p>
           <p className="truncate text-xs text-muted-foreground" title={user?.email}>
             {user?.email}
           </p>
         </div>
+        {user && (
+          <span
+            className={cn(
+              'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+              user.teamRole === 'owner'
+                ? 'bg-primary/15 text-primary'
+                : 'bg-secondary text-muted-foreground ring-1 ring-border',
+            )}
+          >
+            {teamRoleLabel[user.teamRole]}
+          </span>
+        )}
       </div>
       <div className="flex items-center justify-end gap-1">
         <NotificationBell direction="up" />
@@ -235,14 +387,37 @@ function UserFooter({ collapsed }: { collapsed?: boolean }) {
 export function AgencyShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const pathname = usePathname()
+  const modules = useVisibleModules()
   const [open, setOpen] = useState(false)
   // Fica true do momento em que o drawer abre até a animação de saída
   // terminar (via onExitComplete). Evita que um clique durante o fechamento
   // "vaze" para um elemento por trás do overlay (ex.: abrir o menu, tocar em
   // um item e sem querer acionar um botão de um card no dashboard).
   const [overlayBlocking, setOverlayBlocking] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
   const reduce = useReducedMotion()
+
+  // Módulo dono da rota atual — sempre existe (exceto rotas fora do shell,
+  // que nem chegam a montar este componente).
+  const activeModuleKey = useMemo(() => {
+    for (const m of modules) {
+      if (m.items.some((item) => itemMatchesRoute(item, pathname))) return m.key
+    }
+    return null
+  }, [modules, pathname])
+
+  // Painel aberto no rail — segue a rota atual por padrão. Clicar de novo no
+  // ícone já aberto recolhe (dá mais espaço pro conteúdo); clicar num módulo
+  // diferente troca o painel sem navegar (deixa "espiar" antes de escolher).
+  const [openModuleKey, setOpenModuleKey] = useState<string | null>(activeModuleKey)
+  useEffect(() => {
+    setOpenModuleKey(activeModuleKey)
+  }, [activeModuleKey])
+
+  function handleRailSelect(key: string) {
+    setOpenModuleKey((prev) => (prev === key ? null : key))
+  }
+
+  const openModule = modules.find((m) => m.key === openModuleKey) ?? null
 
   function openMenu() {
     setOverlayBlocking(true)
@@ -253,72 +428,43 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
     setOpen(false)
   }
 
-  useEffect(() => {
-    setCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1')
-  }, [])
-
-  function toggleCollapsed() {
-    setCollapsed((prev) => {
-      const next = !prev
-      window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? '1' : '0')
-      return next
-    })
-  }
-
   return (
     <div
-      className={cn(
-        'min-h-screen lg:grid lg:transition-[grid-template-columns] lg:duration-300 lg:ease-out',
-        collapsed ? 'lg:grid-cols-[76px_1fr]' : 'lg:grid-cols-[260px_1fr]',
-      )}
+      className="min-h-screen lg:grid lg:grid-cols-[auto_1fr]"
       style={brandAccentStyle(user?.branding?.accentColor)}
     >
-      {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-screen flex-col border-r border-sidebar-border bg-sidebar p-5 lg:flex">
-        <div className={cn('flex items-center', collapsed ? 'flex-col gap-3' : 'justify-between gap-2')}>
-          <Logo collapsed={collapsed} />
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
-            title={collapsed ? 'Expandir menu' : 'Recolher menu'}
-            className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <motion.span
-              className="grid place-items-center"
-              animate={{ rotate: collapsed ? 180 : 0 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <ChevronLeft className="size-4" />
-            </motion.span>
-          </button>
-        </div>
-        <div className="mt-8 flex-1">
-          <NavLinks collapsed={collapsed} />
+      {/* Desktop sidebar: rail (56px) + painel do módulo aberto (224px) */}
+      <aside className="sticky top-0 hidden h-screen border-r border-sidebar-border bg-sidebar lg:flex print:hidden">
+        <div className="flex h-full w-14 shrink-0 flex-col items-center gap-4 py-4">
+          <Logo collapsed />
+          <div className="min-h-0 flex-1 overflow-y-auto scrollbar-none">
+            <NavRail
+              modules={modules}
+              activeModuleKey={activeModuleKey}
+              openModuleKey={openModuleKey}
+              onSelect={handleRailSelect}
+            />
+          </div>
+          <RailUserFooter />
         </div>
         <AnimatePresence initial={false}>
-          {!collapsed && (
+          {openModule && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
+              key={openModule.key}
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 224, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-              className="overflow-hidden"
+              className="h-full overflow-hidden border-l border-sidebar-border"
             >
-              <div className="rounded-xl border border-sidebar-border bg-secondary/60 p-4">
-                <p className="font-display text-xl tracking-wide">PLANO PRO</p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  Vídeos ilimitados e links de aprovação sem marca d&apos;água.
-                </p>
-              </div>
+              <NavPanel module={openModule} onClose={() => setOpenModuleKey(null)} />
             </motion.div>
           )}
         </AnimatePresence>
-        <UserFooter collapsed={collapsed} />
       </aside>
 
       {/* Mobile header */}
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur lg:hidden print:hidden">
         <Logo />
         <div className="flex items-center gap-1">
           <NotificationBell />
@@ -365,10 +511,12 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
                   <X className="size-6" />
                 </button>
               </div>
-              <div className="mt-8 flex-1">
-                <NavLinks onNavigate={closeMenu} />
+              <div className="mt-8 min-h-0 flex-1 overflow-y-auto scrollbar-none">
+                <MobileNavLinks onNavigate={closeMenu} />
               </div>
-              <UserFooter />
+              <div className="mt-4">
+                <MobileUserFooter />
+              </div>
             </motion.div>
           </div>
         )}
@@ -383,7 +531,7 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
       */}
       <main className="flex min-w-0 flex-col" inert={overlayBlocking || undefined}>
         {pathname !== '/dashboard' && (
-          <div className="px-4 pt-4 sm:px-6 lg:px-10 lg:pt-6">
+          <div className="px-4 pt-4 sm:px-6 lg:px-10 lg:pt-6 print:hidden">
             <BackButton />
           </div>
         )}

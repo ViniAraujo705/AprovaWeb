@@ -15,9 +15,10 @@ import {
   X,
   Building2,
   Lock,
+  ListPlus,
 } from 'lucide-react'
-import { clientService, projectService } from '@/lib/services'
-import type { Client, Project } from '@/lib/types'
+import { clientFieldService, clientService, projectService } from '@/lib/services'
+import type { Client, ClientFieldDefinition, Project } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
@@ -87,6 +88,10 @@ export function ClientDetailView({ id }: { id: string }) {
 
           <div className="mt-8">
             <ClientForm client={client.data} onUpdated={client.setData} />
+          </div>
+
+          <div className="mt-8">
+            <ClientCustomFieldsForm client={client.data} onUpdated={client.setData} />
           </div>
 
           <div className="mt-8">
@@ -397,6 +402,125 @@ function ClientForm({
           disabled={busy}
           className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
+          Salvar
+        </button>
+
+        {error && (
+          <p className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <AlertTriangle className="size-4 shrink-0" /> {error}
+          </p>
+        )}
+
+        <AnimatePresence>
+          {saved && (
+            <motion.p
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="mt-4 flex items-center gap-1.5 text-sm font-medium text-emerald-400"
+            >
+              <Check className="size-4" /> Alterações salvas
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
+    </FadeIn>
+  )
+}
+
+function ClientCustomFieldsForm({
+  client,
+  onUpdated,
+}: {
+  client: Client
+  onUpdated: (updater: Client | ((prev: Client | null) => Client)) => void
+}) {
+  const fields = useQuery<ClientFieldDefinition[]>((signal) => clientFieldService.list(signal), [])
+  const definitions = [...(fields.data ?? [])].sort((a, b) => a.order - b.order)
+
+  const [values, setValues] = useState<Record<string, string>>(client.customFields)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  function flashSaved() {
+    setSaved(true)
+    toast.success('Configuração salva')
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  async function save() {
+    setError(null)
+    setBusy(true)
+    try {
+      // Remove valores em branco do mapa em vez de mandar string vazia — mantém `customFields` enxuto.
+      const cleaned = Object.fromEntries(Object.entries(values).filter(([, v]) => v.trim() !== ''))
+      const updated = await clientService.update(client.id, { customFields: cleaned })
+      onUpdated(updated)
+      flashSaved()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Falha ao salvar. Tente novamente.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (fields.loading) return <Skeleton className="h-40 w-full rounded-2xl" />
+
+  if (definitions.length === 0) {
+    return (
+      <FadeIn y={6}>
+        <div className="rounded-2xl border border-dashed border-border bg-card p-5 text-center sm:p-6">
+          <ListPlus className="mx-auto size-6 text-muted-foreground" />
+          <p className="mt-2 text-sm font-medium text-foreground">
+            Nenhum campo personalizado configurado
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Crie campos como Instagram ou CNPJ pra coletar informações extras de cada cliente.
+          </p>
+          <Link
+            href="/configuracoes/campos-cliente"
+            className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70"
+          >
+            <Plus className="size-3.5" /> Configurar campos
+          </Link>
+        </div>
+      </FadeIn>
+    )
+  }
+
+  return (
+    <FadeIn y={6}>
+      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <ListPlus className="size-4 text-primary" />
+          Campos personalizados
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Definidos em Configurações → Campos de cliente.
+        </p>
+
+        <div className="mt-4 flex flex-col gap-4">
+          {definitions.map((f) => (
+            <label key={f.id} className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-foreground">{f.label}</span>
+              <input
+                value={values[f.id] ?? ''}
+                onChange={(e) => setValues((prev) => ({ ...prev, [f.id]: e.target.value }))}
+                className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+              />
+            </label>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={save}
+          disabled={busy}
+          className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+        >
+          {busy && <Loader2 className="size-3.5 animate-spin" />}
           Salvar
         </button>
 

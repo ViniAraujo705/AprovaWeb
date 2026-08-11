@@ -555,7 +555,7 @@ function BrandingForm({ user }: { user: User }) {
                 />
               </span>
             ) : (
-              <span className="text-xs text-muted-foreground">Logo padrão (APROVA)</span>
+              <span className="text-xs text-muted-foreground">Logo padrão (CHECK)</span>
             )}
           </div>
           {logoUrl && (

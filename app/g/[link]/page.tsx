@@ -30,7 +30,7 @@ export async function generateMetadata({
 
   if (!data) {
     return {
-      title: 'Link indisponível — APROVA',
+      title: 'Link indisponível — CHECK',
       description: 'Este link de galeria não existe ou expirou.',
     }
   }
@@ -41,12 +41,12 @@ export async function generateMetadata({
     : 'Assista, comente e aprove os vídeos direto pelo navegador.'
 
   return {
-    title: `${title} — APROVA`,
+    title: `${title} — CHECK`,
     description,
     openGraph: {
       title,
       description,
-      siteName: 'APROVA',
+      siteName: 'CHECK',
     },
   }
 }

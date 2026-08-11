@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Play, Loader2, Lock, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Lock, Eye, EyeOff } from 'lucide-react'
 import { authService } from '@/lib/services'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ApiError } from '@/lib/api'
@@ -56,10 +57,10 @@ export function ResetPasswordView({ token }: { token: string }) {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex items-center justify-center gap-2">
-          <span className="grid size-9 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <Play className="size-5 fill-current" />
+          <span className="relative size-9 shrink-0 overflow-hidden rounded-lg">
+            <Image src="/logo-check.png" alt="Check" fill className="object-cover" sizes="36px" />
           </span>
-          <span className="font-display text-3xl leading-none tracking-wide">APROVA</span>
+          <span className="font-display text-3xl leading-none tracking-wide">CHECK</span>
         </div>
 
         <h1 className="mt-8 text-center font-display text-4xl tracking-wide">REDEFINIR SENHA</h1>

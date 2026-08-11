@@ -23,10 +23,30 @@ import {
   ExternalLink,
   CircleX,
   Download,
+  LayoutGrid,
+  UserCog,
+  AlertTriangle,
+  CalendarClock,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
-import { dashboardService, publicService, sampleDataService, videoService } from '@/lib/services'
-import { statusLabel, type DashboardInsights, type Video, type VideoStatus } from '@/lib/types'
+import {
+  calendarService,
+  dashboardService,
+  publicService,
+  sampleDataService,
+  teamService,
+  videoService,
+} from '@/lib/services'
+import {
+  productionStageLabel,
+  statusLabel,
+  type DashboardInsights,
+  type ProductionStage,
+  type RecordingEvent,
+  type TeamMember,
+  type Video,
+  type VideoStatus,
+} from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
@@ -44,6 +64,21 @@ const filters: { key: 'todos' | VideoStatus; label: string }[] = [
 ]
 
 const ALL_CLIENTS = 'Todos os clientes'
+
+const STAGES = Object.keys(productionStageLabel) as ProductionStage[]
+
+// Cor por etapa (barra de "Produção por etapa") — azul = em produção/edição,
+// laranja = aguardando decisão do cliente, vermelho = voltou pra ajustes,
+// verde = aprovado, cinza = planejado/entregue (pontas neutras do fluxo).
+const STAGE_COLOR: Record<ProductionStage, string> = {
+  planejado: 'bg-gray-300',
+  producao: 'bg-blue-500',
+  edicao: 'bg-blue-500',
+  aguardando_aprovacao: 'bg-amber-500',
+  ajustes: 'bg-red-500',
+  aprovado: 'bg-emerald-500',
+  entregue: 'bg-gray-400',
+}
 
 /**
  * Vídeos com comentário mais recente ficam no topo. Sem nenhum comentário,
@@ -314,6 +349,10 @@ export function DashboardView() {
         loadingVideos={loading}
       />
 
+      {/* Produção por etapa (kanban) + carga da equipe (cruza vídeo × prazo × calendário) */}
+      {!loading && !error && videos.length > 0 && <StageBreakdown videos={videos} />}
+      {isOwner && !loading && !error && <TeamWorkloadPanel videos={videos} />}
+
       {/* Filters */}
       <div className="mt-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
@@ -513,7 +552,7 @@ function CompactVideoList({
 }
 
 const compactStatusStyles: Record<VideoStatus, string> = {
-  pendente: 'bg-secondary text-foreground',
+  pendente: 'bg-secondary text-muted-foreground',
   aprovado: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
   ajuste: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   erro: 'bg-destructive/15 text-destructive',
@@ -1128,5 +1167,138 @@ function OverviewCard({
       </p>
       {hint && <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p>}
     </motion.div>
+  )
+}
+
+/** Distribuição dos vídeos pelas etapas do kanban (`/kanban`) — todo mundo vê, não só o owner. */
+function StageBreakdown({ videos }: { videos: Video[] }) {
+  const counts = useMemo(() => {
+    const map = new Map<ProductionStage, number>(STAGES.map((s) => [s, 0]))
+    for (const v of videos) map.set(v.productionStage, (map.get(v.productionStage) ?? 0) + 1)
+    return map
+  }, [videos])
+  const total = videos.length
+
+  return (
+    <div className="mt-6 rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <LayoutGrid className="size-4 text-muted-foreground" /> Produção por etapa
+        </h2>
+        <Link href="/kanban" className="text-xs font-medium text-primary hover:underline">
+          Ver kanban
+        </Link>
+      </div>
+      <div className="mt-3 flex flex-col gap-2">
+        {STAGES.map((stage) => {
+          const count = counts.get(stage) ?? 0
+          const pct = total > 0 ? Math.round((count / total) * 100) : 0
+          return (
+            <div key={stage} className={cn('flex items-center gap-3', count === 0 && 'opacity-40')}>
+              <span className="w-32 shrink-0 truncate text-xs text-muted-foreground sm:w-40">
+                {productionStageLabel[stage]}
+              </span>
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-secondary">
+                <div className={cn('h-full rounded-full', STAGE_COLOR[stage])} style={{ width: `${pct}%` }} />
+              </div>
+              <span className="w-6 shrink-0 text-right text-xs font-medium text-foreground">{count}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Cruza vídeo × prazo × calendário por responsável — sinaliza sobrecarga
+ * (vídeos ativos + atrasados) e o que a pessoa tem agendado nos próximos 7
+ * dias. `Video.editorId` e `RecordingEvent.crew[].userId` apontam pro mesmo
+ * `TeamMember.id`, então dá pra juntar as três fontes sem endpoint novo.
+ */
+function TeamWorkloadPanel({ videos }: { videos: Video[] }) {
+  const members = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
+  const events = useQuery<RecordingEvent[]>((signal) => calendarService.list(signal), [])
+
+  const rows = useMemo(() => {
+    const now = Date.now()
+    const in7d = now + 7 * 24 * 60 * 60 * 1000
+    return (members.data ?? [])
+      // Exclui só convites ainda não aceitos (sem nome, não têm como ter
+      // trabalho atribuído) — inclui `suspended` de propósito: alguém
+      // suspenso com vídeo atrasado nas costas é o gargalo mais importante
+      // de mostrar aqui, não algo pra esconder.
+      .filter((m) => m.name)
+      .map((m) => {
+        const assigned = videos.filter((v) => v.editorId === m.id)
+        const active = assigned.filter((v) => v.status !== 'aprovado' && v.productionStage !== 'entregue')
+        const overdue = active.filter((v) => v.deadline && new Date(v.deadline).getTime() < now)
+        const upcoming = (events.data ?? []).filter((ev) => {
+          const t = new Date(ev.startAt).getTime()
+          return t >= now && t <= in7d && ev.crew.some((c) => c.userId === m.id)
+        })
+        return { member: m, activeCount: active.length, overdueCount: overdue.length, upcomingCount: upcoming.length }
+      })
+      .sort((a, b) => b.overdueCount - a.overdueCount || b.activeCount - a.activeCount)
+  }, [members.data, events.data, videos])
+
+  const unassignedCount = videos.filter(
+    (v) => !v.editorId && v.status !== 'aprovado' && v.productionStage !== 'entregue',
+  ).length
+
+  if (members.loading) return <Skeleton className="mt-6 h-40 w-full rounded-xl" />
+  if (rows.length === 0) return null
+
+  return (
+    <div className="mt-6 rounded-xl border border-border bg-card p-4">
+      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+        <UserCog className="size-4 text-muted-foreground" /> Carga da equipe
+      </h2>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        Vídeos ativos e gravações dos próximos 7 dias, por responsável.
+      </p>
+      <div className="mt-3 flex flex-col gap-2">
+        {rows.map(({ member, activeCount, overdueCount, upcomingCount }) => {
+          const overdue = overdueCount > 0
+          // Atrasado nunca fica ocioso (só conta como atrasado se ainda ativo), então os dois nunca coincidem.
+          const idle = activeCount === 0 && !overdue
+          return (
+            <div
+              key={member.id}
+              className={cn(
+                'flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2',
+                overdue ? 'bg-destructive/10' : 'bg-secondary/50',
+                idle && 'opacity-50',
+              )}
+            >
+              <span className="min-w-0 truncate text-sm font-medium text-foreground">
+                {member.name || member.email}
+              </span>
+              <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+                <span>
+                  {activeCount} vídeo{activeCount === 1 ? '' : 's'} ativo{activeCount === 1 ? '' : 's'}
+                </span>
+                {overdue && (
+                  <span className="inline-flex items-center gap-1 font-medium text-destructive">
+                    <AlertTriangle className="size-3" /> {overdueCount} atrasado{overdueCount === 1 ? '' : 's'}
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1">
+                  <CalendarClock className="size-3" /> {upcomingCount} próx. 7d
+                </span>
+              </div>
+            </div>
+          )
+        })}
+        {unassignedCount > 0 && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+            <span>Sem responsável</span>
+            <span>
+              {unassignedCount} vídeo{unassignedCount === 1 ? '' : 's'}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

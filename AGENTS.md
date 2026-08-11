@@ -1,10 +1,10 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
 ## What this is
 
-CHECK (formerly APROVA) — a Next.js 16 (App Router) frontend for a video-approval workflow between agencies and their clients. It talks to a separate NestJS + Prisma + R2 backend over a REST API; there is no backend code in this repo. Dark theme, `Bebas Neue` display font, Tailwind v4.
+APROVA — a Next.js 16 (App Router) frontend for a video-approval workflow between agencies and their clients. It talks to a separate NestJS + Prisma + R2 backend over a REST API; there is no backend code in this repo. Dark theme, `Bebas Neue` display font, Tailwind v4.
 
 ## Commands
 

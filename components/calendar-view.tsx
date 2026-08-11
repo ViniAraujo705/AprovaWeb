@@ -13,15 +13,18 @@ import {
   Users as UsersIcon,
   Contact,
   StickyNote,
+  Download,
+  UserCheck,
 } from 'lucide-react'
-import { calendarService, clientService, crewService } from '@/lib/services'
-import type { Client, CrewMember, RecordingEvent } from '@/lib/types'
+import { calendarService, clientService, crewService, teamService } from '@/lib/services'
+import type { Client, CrewMember, RecordingEvent, TeamMember } from '@/lib/types'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { ErrorState, LoadingState } from '@/components/states'
 import { FadeIn, motion, AnimatePresence } from '@/components/motion'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
+import { downloadIcs } from '@/lib/ics'
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -47,6 +50,19 @@ function timeLabel(iso: string): string {
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
+/** Domingo 00:00 a sábado 23:59 da semana real de hoje (independente do mês em exibição). */
+function currentWeekRange(): { start: Date; end: Date } {
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - start.getDay())
+  const end = new Date(start)
+  end.setDate(end.getDate() + 6)
+  end.setHours(23, 59, 59, 999)
+  return { start, end }
+}
+
+type ExportPeriod = 'week' | 'month' | 'all'
+
 export function CalendarView() {
   const [monthStart, setMonthStart] = useState(() => {
     const now = new Date()
@@ -61,8 +77,10 @@ export function CalendarView() {
     (signal) => crewService.list(signal),
     [],
   )
+  const teamMembers = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
 
   const [modal, setModal] = useState<{ date: Date; event: RecordingEvent | null } | null>(null)
+  const [exportOpen, setExportOpen] = useState(false)
 
   const grid = useMemo(() => buildMonthGrid(monthStart), [monthStart])
   const eventsByDay = useMemo(() => {
@@ -115,13 +133,22 @@ export function CalendarView() {
             Monte a escala de gravações da equipe.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setModal({ date: new Date(), event: null })}
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
-        >
-          <Plus className="size-4" /> Nova gravação
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setExportOpen(true)}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70"
+          >
+            <Download className="size-4" /> Exportar
+          </button>
+          <button
+            type="button"
+            onClick={() => setModal({ date: new Date(), event: null })}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            <Plus className="size-4" /> Nova gravação
+          </button>
+        </div>
       </div>
 
       <div className="mt-6 flex items-center justify-between gap-3">
@@ -260,6 +287,7 @@ export function CalendarView() {
             event={modal.event}
             clients={clients.data ?? []}
             crewRoster={crewRoster ?? []}
+            teamMembers={teamMembers.data ?? []}
             onCrewCreated={(created) => setCrewRoster((prev) => [...(prev ?? []), created])}
             onClose={() => setModal(null)}
             onSaved={(saved) => {
@@ -272,7 +300,147 @@ export function CalendarView() {
             }}
           />
         )}
+        {exportOpen && (
+          <ExportModal
+            events={events ?? []}
+            crewRoster={crewRoster ?? []}
+            monthStart={monthStart}
+            monthLabel={monthLabel}
+            onClose={() => setExportOpen(false)}
+          />
+        )}
       </AnimatePresence>
+    </div>
+  )
+}
+
+function ExportModal({
+  events,
+  crewRoster,
+  monthStart,
+  monthLabel,
+  onClose,
+}: {
+  events: RecordingEvent[]
+  crewRoster: CrewMember[]
+  monthStart: Date
+  monthLabel: string
+  onClose: () => void
+}) {
+  const [period, setPeriod] = useState<ExportPeriod>('month')
+  const [crewId, setCrewId] = useState('')
+
+  function download() {
+    let range: { start: Date; end: Date } | null = null
+    if (period === 'week') {
+      range = currentWeekRange()
+    } else if (period === 'month') {
+      const start = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1)
+      const end = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0, 23, 59, 59, 999)
+      range = { start, end }
+    }
+
+    const crewName = crewId ? crewRoster.find((c) => c.id === crewId)?.name ?? null : null
+    const filtered = events.filter((ev) => {
+      if (range) {
+        const startAt = new Date(ev.startAt)
+        if (startAt < range.start || startAt > range.end) return false
+      }
+      if (crewId && !ev.crew.some((c) => c.id === crewId)) return false
+      return true
+    })
+
+    if (filtered.length === 0) {
+      toast.error('Nenhuma gravação encontrada nesse filtro.')
+      return
+    }
+
+    const periodSlug = period === 'week' ? 'semana' : period === 'month' ? 'mes' : 'tudo'
+    const crewSlug = crewName ? `-${crewName.toLowerCase().replace(/\s+/g, '-')}` : ''
+    downloadIcs(filtered, `agenda-aprova-${periodSlug}${crewSlug}.ics`)
+    toast.success(`${filtered.length} gravação(ões) exportada(s)`)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+      <motion.div
+        className="absolute inset-0 bg-black/70"
+        onClick={onClose}
+        aria-hidden="true"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+      />
+      <motion.div
+        className="relative flex w-full max-w-md flex-col rounded-xl border border-border bg-card p-5"
+        initial={{ opacity: 0, y: 8, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-medium">Exportar agenda</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Gera um arquivo .ics pra importar no Google Calendar, Apple Calendar ou Outlook.
+        </p>
+
+        <label className="mt-4 flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">Período</span>
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as ExportPeriod)}
+            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value="week">Semana atual</option>
+            <option value="month">Mês em exibição ({monthLabel})</option>
+            <option value="all">Todos os eventos</option>
+          </select>
+        </label>
+
+        <label className="mt-4 flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">Profissional</span>
+          <select
+            value={crewId}
+            onChange={(e) => setCrewId(e.target.value)}
+            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value="">Todos</option>
+            {crewRoster.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-secondary text-sm font-medium text-foreground hover:bg-secondary/70"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={download}
+            className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            <Download className="size-4" /> Baixar .ics
+          </button>
+        </div>
+      </motion.div>
     </div>
   )
 }
@@ -287,6 +455,7 @@ function EventModal({
   event,
   clients,
   crewRoster,
+  teamMembers,
   onCrewCreated,
   onClose,
   onSaved,
@@ -296,6 +465,7 @@ function EventModal({
   event: RecordingEvent | null
   clients: Client[]
   crewRoster: CrewMember[]
+  teamMembers: TeamMember[]
   onCrewCreated: (created: CrewMember) => void
   onClose: () => void
   onSaved: (saved: RecordingEvent) => void
@@ -322,11 +492,22 @@ function EventModal({
   const [newCrewName, setNewCrewName] = useState('')
   const [addingCrew, setAddingCrew] = useState(false)
   const addingCrewRef = useRef(false)
+  const [addingMemberId, setAddingMemberId] = useState<string | null>(null)
   const [notes, setNotes] = useState(event?.notes ?? '')
   const [titleError, setTitleError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  // União do roster global com a equipe já salva neste evento — cobre o caso
+  // de alguém ter sido removido do roster global depois de já vinculado
+  // aqui, pra não sumir da UI (e ser perdido num save sem querer).
+  const chipList = useMemo(() => {
+    const byId = new Map<string, CrewMember>()
+    for (const m of crewRoster) byId.set(m.id, m)
+    for (const m of crew) byId.set(m.id, m)
+    return Array.from(byId.values())
+  }, [crewRoster, crew])
 
   function toggleCrew(member: CrewMember) {
     setCrew((prev) =>
@@ -352,6 +533,32 @@ function EventModal({
     } finally {
       addingCrewRef.current = false
       setAddingCrew(false)
+    }
+  }
+
+  /**
+   * Vincula um integrante com conta real (owner/editor) à gravação, em vez
+   * de um nome livre — reaproveita uma entrada do roster já vinculada a esse
+   * `userId` se existir, pra não duplicar. Base pro backend um dia poder
+   * notificar essa pessoa especificamente (ver `CrewMember.userId`).
+   */
+  async function addTeamMember(memberId: string) {
+    const member = teamMembers.find((m) => m.id === memberId)
+    if (!member) return
+    const existing = crewRoster.find((c) => c.userId === memberId)
+    if (existing) {
+      if (!crew.some((c) => c.id === existing.id)) setCrew((prev) => [...prev, existing])
+      return
+    }
+    setAddingMemberId(memberId)
+    try {
+      const created = await crewService.create(member.name || member.email, memberId)
+      onCrewCreated(created)
+      setCrew((prev) => [...prev, created])
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível vincular esse integrante. Tente novamente.')
+    } finally {
+      setAddingMemberId(null)
     }
   }
 
@@ -495,12 +702,12 @@ function EventModal({
             <span className="font-normal text-muted-foreground">(opcional, quem vai)</span>
           </span>
           <div className="flex flex-wrap gap-1.5">
-            {crewRoster.length === 0 && (
+            {chipList.length === 0 && (
               <span className="text-xs text-muted-foreground">
                 Ninguém na equipe ainda — adicione um nome abaixo.
               </span>
             )}
-            {crewRoster.map((m) => {
+            {chipList.map((m) => {
               const selected = crew.some((c) => c.id === m.id)
               return (
                 <button
@@ -508,18 +715,42 @@ function EventModal({
                   type="button"
                   onClick={() => toggleCrew(m)}
                   aria-pressed={selected}
+                  title={m.userId ? 'Conta vinculada da equipe' : undefined}
                   className={cn(
-                    'inline-flex min-h-8 items-center rounded-full border px-3 text-xs font-medium transition-colors',
+                    'inline-flex min-h-8 items-center gap-1 rounded-full border px-3 text-xs font-medium transition-colors',
                     selected
                       ? 'border-primary bg-primary/15 text-primary'
                       : 'border-border bg-secondary text-muted-foreground hover:text-foreground',
                   )}
                 >
+                  {m.userId && <UserCheck className="size-3" />}
                   {m.name}
                 </button>
               )
             })}
           </div>
+          {teamMembers.length > 0 && (
+            <div className="mt-1 flex items-center gap-1.5">
+              <select
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) addTeamMember(e.target.value)
+                }}
+                disabled={addingMemberId !== null}
+                className="min-h-9 flex-1 rounded-lg border border-border bg-secondary px-2 text-sm text-foreground outline-none focus:border-primary disabled:opacity-60"
+              >
+                <option value="">+ Vincular conta da equipe…</option>
+                {teamMembers
+                  .filter((m) => m.name && !crew.some((c) => c.userId === m.id))
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+              </select>
+              {addingMemberId && <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />}
+            </div>
+          )}
           <div className="mt-1 flex gap-1.5">
             <input
               value={newCrewName}

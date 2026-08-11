@@ -1,4 +1,4 @@
-import { Play } from 'lucide-react'
+import Image from 'next/image'
 import { Skeleton } from '@/components/states'
 
 /**
@@ -10,10 +10,10 @@ export default function PublicPortfolioLoading() {
     <div className="min-h-screen">
       <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/90 px-4 py-3 backdrop-blur">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="grid size-7 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground">
-            <Play className="size-3.5 fill-current" />
+          <span className="relative size-7 shrink-0 overflow-hidden rounded-md">
+            <Image src="/logo-check.png" alt="Check" fill className="object-cover" sizes="28px" />
           </span>
-          <span className="font-display text-xl leading-none tracking-wide">APROVA</span>
+          <span className="font-display text-xl leading-none tracking-wide">CHECK</span>
         </div>
         <Skeleton className="h-9 w-9 rounded-full" />
       </header>

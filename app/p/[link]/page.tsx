@@ -30,19 +30,19 @@ export async function generateMetadata({
 
   if (!data) {
     return {
-      title: 'Link indisponível — APROVA',
+      title: 'Link indisponível — CHECK',
       description: 'Este link de portfólio não existe ou expirou.',
     }
   }
 
   const title = data.name || 'Portfólio'
   return {
-    title: `${title} — APROVA`,
+    title: `${title} — CHECK`,
     description: data.description || 'Vídeos em destaque, direto pelo navegador.',
     openGraph: {
       title,
       description: data.description || 'Vídeos em destaque, direto pelo navegador.',
-      siteName: 'APROVA',
+      siteName: 'CHECK',
     },
   }
 }

@@ -17,6 +17,7 @@ import {
   demoAddUploadedPortfolioVideo,
   demoAssignProjectMember,
   demoClientChannel,
+  demoClientFields,
   demoClients,
   demoCreateCategory,
   demoCreatePortfolio,
@@ -68,6 +69,7 @@ import type {
   AuthResponse,
   Branding,
   Client,
+  ClientFieldDefinition,
   Comment,
   CommentAuthorRole,
   CrewMember,
@@ -205,6 +207,19 @@ function mapClient(raw: Raw): Client {
     description: pick<string | null>(raw, ['descricao', 'description', 'bio'], null),
     photoUrl: pick<string | null>(raw, ['fotoUrl', 'foto_url', 'foto', 'photoUrl', 'avatarUrl'], null),
     branding: mapBranding(pick<Raw | null>(raw, ['branding'], null)),
+    customFields: pick<Record<string, string>>(
+      raw,
+      ['customFields', 'camposPersonalizados', 'campos_personalizados'],
+      {},
+    ),
+  }
+}
+
+function mapClientFieldDefinition(raw: Raw): ClientFieldDefinition {
+  return {
+    id: String(pick(raw, ['id', '_id'], '')),
+    label: pick(raw, ['rotulo', 'label', 'nome'], ''),
+    order: Number(pick(raw, ['ordem', 'order'], 0)) || 0,
   }
 }
 
@@ -578,6 +593,9 @@ function mapPortfolioHubItem(raw: Raw): PortfolioHubItem {
     description: pick<string | null>(raw, ['descricao', 'description'], null),
     link: String(pick(raw, ['link', 'linkPublico', 'link_publico', 'slug'], '')),
     coverUrl: pick<string | null>(raw, ['capaUrl', 'coverUrl', 'cover_url'], null),
+    mediaType: normalizePortfolioMediaType(
+      pick(raw, ['tipoMidiaPredominante', 'tipo_midia_predominante', 'mediaType', 'tipoMidia'], 'video'),
+    ),
   }
 }
 
@@ -1024,7 +1042,7 @@ export const clientService = {
     const res = await api.get<Raw>(`/clients/${id}`, { signal })
     return mapClient(res)
   },
-  async create(input: { name: string; email?: string }): Promise<Client> {
+  async create(input: { name: string; email?: string; customFields?: Record<string, string> }): Promise<Client> {
     if (isDemo()) {
       const created: Client = {
         id: `c-${Date.now()}`,
@@ -1034,16 +1052,27 @@ export const clientService = {
         description: null,
         photoUrl: null,
         branding: null,
+        customFields: input.customFields ?? {},
       }
       demoClients.push(created)
       return delay(created, 300)
     }
-    const res = await api.post<Raw>('/clients', { nome: input.name, email: input.email })
+    const res = await api.post<Raw>('/clients', {
+      nome: input.name,
+      email: input.email,
+      camposPersonalizados: input.customFields,
+    })
     return mapClient(res)
   },
   async update(
     id: string,
-    input: { name?: string; email?: string; description?: string | null; photoUrl?: string | null },
+    input: {
+      name?: string
+      email?: string
+      description?: string | null
+      photoUrl?: string | null
+      customFields?: Record<string, string>
+    },
   ): Promise<Client> {
     if (isDemo()) {
       const found = demoClients.find((c) => c.id === id)
@@ -1052,6 +1081,7 @@ export const clientService = {
       if (input.email !== undefined) found.email = input.email
       if (input.description !== undefined) found.description = input.description
       if (input.photoUrl !== undefined) found.photoUrl = input.photoUrl
+      if (input.customFields !== undefined) found.customFields = input.customFields
       return delay(found, 300)
     }
     const res = await api.patch<Raw>(`/clients/${id}`, {
@@ -1059,6 +1089,7 @@ export const clientService = {
       email: input.email,
       descricao: input.description,
       fotoUrl: input.photoUrl,
+      camposPersonalizados: input.customFields,
     })
     return mapClient(res)
   },
@@ -1139,6 +1170,57 @@ export const clientService = {
     return (
       mapBranding(res) ?? { logoUrl: input.logoUrl ?? null, agencyName: null, accentColor: input.accentColor ?? null }
     )
+  },
+}
+
+/**
+ * Schema de campos personalizados de cliente, por conta — owner define os
+ * campos aqui (`/configuracoes/campos-cliente`); os valores em si ficam em
+ * `Client.customFields`, editados na tela de detalhe de cada cliente.
+ */
+export const clientFieldService = {
+  async list(signal?: AbortSignal): Promise<ClientFieldDefinition[]> {
+    if (isDemo()) return delay(demoClientFields)
+    const res = await api.get('/client-fields', { signal })
+    return asArray(res)
+      .map(mapClientFieldDefinition)
+      .sort((a, b) => a.order - b.order)
+  },
+
+  async create(label: string): Promise<ClientFieldDefinition> {
+    if (isDemo()) {
+      const created: ClientFieldDefinition = {
+        id: `cf-${Date.now()}`,
+        label,
+        order: demoClientFields.length,
+      }
+      demoClientFields.push(created)
+      return delay(created, 200)
+    }
+    const res = await api.post<Raw>('/client-fields', { rotulo: label })
+    return mapClientFieldDefinition(res)
+  },
+
+  async update(id: string, input: Partial<{ label: string; order: number }>): Promise<ClientFieldDefinition> {
+    if (isDemo()) {
+      const found = demoClientFields.find((f) => f.id === id)
+      if (!found) throw new ApiError('Campo não encontrado.', 404)
+      if (input.label !== undefined) found.label = input.label
+      if (input.order !== undefined) found.order = input.order
+      return delay(found, 200)
+    }
+    const res = await api.patch<Raw>(`/client-fields/${id}`, { rotulo: input.label, ordem: input.order })
+    return mapClientFieldDefinition(res)
+  },
+
+  async remove(id: string): Promise<void> {
+    if (isDemo()) {
+      const idx = demoClientFields.findIndex((f) => f.id === id)
+      if (idx >= 0) demoClientFields.splice(idx, 1)
+      await delay(null, 200)
+      return
+    }
+    await api.delete(`/client-fields/${id}`)
   },
 }
 
@@ -2291,6 +2373,7 @@ function mapCrewMember(raw: Raw): CrewMember {
   return {
     id: pick(raw, ['id', '_id'], ''),
     name: pick(raw, ['name', 'nome'], ''),
+    userId: pick<string | null>(raw, ['userId', 'user_id', 'memberId', 'member_id'], null),
   }
 }
 
@@ -2407,16 +2490,23 @@ export const crewService = {
     return asArray(res).map(mapCrewMember)
   },
 
-  async create(name: string): Promise<CrewMember> {
+  /**
+   * `userId` vincula esse nome a uma conta real da equipe (`TeamMember`) —
+   * usado ao adicionar alguém pelo seletor "Conta da equipe" no calendário,
+   * em vez do campo de nome livre. `null` é o caso comum (freelancer, gente
+   * sem conta no Aprova).
+   */
+  async create(name: string, userId: string | null = null): Promise<CrewMember> {
     if (isDemo()) {
       const created: CrewMember = {
         id: `crew-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         name,
+        userId,
       }
       demoCrewRoster.push(created)
       return delay(created, 200)
     }
-    const res = await api.post<Raw>('/crew', { nome: name })
+    const res = await api.post<Raw>('/crew', { nome: name, userId })
     return mapCrewMember(res)
   },
 }

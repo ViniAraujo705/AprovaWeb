@@ -1,12 +1,11 @@
 import Image from 'next/image'
-import { Play } from 'lucide-react'
 import type { Branding } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 /**
  * Logo exibido no topo da tela pública do cliente.
  * Usa a marca da agência (branding.logoUrl) quando existe; caso contrário, cai
- * no logo padrão do sistema (APROVA). `size="lg"` amplia a marca para vitrines
+ * no logo padrão do sistema (CHECK). `size="lg"` amplia a marca para vitrines
  * onde ela é o elemento visual principal (ex.: sidebar do hub de portfólio).
  */
 export function AgencyLogo({
@@ -41,16 +40,11 @@ export function AgencyLogo({
   // Fallback: logo padrão do sistema.
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <span
-        className={cn(
-          'grid shrink-0 place-items-center rounded-md bg-primary text-primary-foreground',
-          lg ? 'size-14 rounded-xl' : 'size-7',
-        )}
-      >
-        <Play className={cn(lg ? 'size-6' : 'size-3.5', 'fill-current')} />
+      <span className={cn('relative shrink-0 overflow-hidden rounded-md', lg ? 'size-14 rounded-xl' : 'size-7')}>
+        <Image src="/logo-check.png" alt="Check" fill className="object-cover" sizes={lg ? '56px' : '28px'} />
       </span>
       <span className={cn('font-display leading-none tracking-wide', lg ? 'text-3xl' : 'text-xl')}>
-        APROVA
+        CHECK
       </span>
     </div>
   )
