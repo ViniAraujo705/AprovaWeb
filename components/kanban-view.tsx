@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Plus,
   Search,
@@ -197,6 +197,49 @@ export function KanbanView() {
   const [activeItem, setActiveItem] = useState<{ kind: 'video' | 'demand'; id: string } | null>(null)
   const [creatingStage, setCreatingStage] = useState<ProductionStage | null>(null)
 
+  // Auto-scroll horizontal do quadro: arrastar um card até perto da borda
+  // esquerda/direita rola o quadro pra revelar as colunas seguintes (sem
+  // isso, colunas depois de "Aguardando aprovação" ficam inalcançáveis
+  // durante o drag num quadro mais largo que a tela).
+  const boardScrollRef = useRef<HTMLDivElement>(null)
+  const scrollDirRef = useRef<0 | -1 | 1>(0)
+  const scrollRafRef = useRef<number | null>(null)
+  const BOARD_SCROLL_EDGE = 80
+  const BOARD_SCROLL_SPEED = 14
+
+  function stepBoardAutoScroll() {
+    const el = boardScrollRef.current
+    if (!el || scrollDirRef.current === 0) {
+      scrollRafRef.current = null
+      return
+    }
+    el.scrollLeft += scrollDirRef.current * BOARD_SCROLL_SPEED
+    scrollRafRef.current = requestAnimationFrame(stepBoardAutoScroll)
+  }
+
+  function handleBoardDragOver(e: React.DragEvent<HTMLDivElement>) {
+    const el = boardScrollRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    let dir: 0 | -1 | 1 = 0
+    if (e.clientX < rect.left + BOARD_SCROLL_EDGE) dir = -1
+    else if (e.clientX > rect.right - BOARD_SCROLL_EDGE) dir = 1
+    scrollDirRef.current = dir
+    if (dir !== 0 && scrollRafRef.current === null) {
+      scrollRafRef.current = requestAnimationFrame(stepBoardAutoScroll)
+    }
+  }
+
+  function stopBoardAutoScroll() {
+    scrollDirRef.current = 0
+    if (scrollRafRef.current !== null) {
+      cancelAnimationFrame(scrollRafRef.current)
+      scrollRafRef.current = null
+    }
+  }
+
+  useEffect(() => stopBoardAutoScroll, [])
+
   const responsibleName = (id: string | null) =>
     id ? team.data?.find((m) => m.id === id)?.name ?? null : null
 
@@ -380,7 +423,13 @@ export function KanbanView() {
           />
         </div>
       ) : (
-        <div className="mt-4 -mx-4 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+        <div
+          ref={boardScrollRef}
+          onDragOver={handleBoardDragOver}
+          onDragEnd={stopBoardAutoScroll}
+          onDrop={stopBoardAutoScroll}
+          className="mt-4 -mx-4 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0"
+        >
           {COLUMNS.map((col) => {
             const columnItems = filtered.filter((i) => i.stage === col.stage)
             return (
