@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, Film, User } from 'lucide-react'
+import { ChevronLeft, Film } from 'lucide-react'
 import type { PortfolioHubItem, PublicPortfolioHub } from '@/lib/types'
 import { AgencyLogo } from '@/components/agency-logo'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -50,21 +50,9 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
           */}
           {hub.branding?.logoUrl && <AgencyLogo branding={hub.branding} size="lg" />}
 
-          {(hub.photoUrl || hub.agencyName) && (
-            <div className="flex flex-col items-center gap-3">
-              <div className="relative size-14 shrink-0 overflow-hidden rounded-full border border-sidebar-border bg-secondary">
-                {hub.photoUrl ? (
-                  <Image src={hub.photoUrl} alt="" fill className="object-cover" sizes="56px" unoptimized />
-                ) : (
-                  <span className="grid h-full w-full place-items-center text-muted-foreground/60">
-                    <User className="size-5" />
-                  </span>
-                )}
-              </div>
-              {hub.agencyName && (
-                <span className="font-display text-lg tracking-wide">{hub.agencyName}</span>
-              )}
-            </div>
+          {/* Sem foto de perfil aqui — só o nome, igual à referência (logo + nome, sem avatar). */}
+          {hub.agencyName && (
+            <span className="font-display text-lg tracking-wide">{hub.agencyName}</span>
           )}
         </button>
 
