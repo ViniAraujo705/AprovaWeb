@@ -125,6 +125,8 @@ export interface Client {
    * preenchido pra um cliente específico simplesmente não aparece no mapa.
    */
   customFields: Record<string, string>
+  /** Id do profissional da equipe responsável por este cliente (gerente de conta), definido pelo owner. */
+  responsibleId: string | null
 }
 
 /**
@@ -207,6 +209,29 @@ export interface ProjectMember {
   userId: string
   name: string
   email: string
+}
+
+/**
+ * Tipo de um card genérico do Kanban que não é vídeo — vídeo continua sendo
+ * um `Video` normal, não entra aqui. Ver `scratchpad/mensagem-backend-demandas-genericas.md`.
+ */
+export type DemandKind = 'projeto' | 'campanha' | 'gravacao' | 'demanda'
+
+/**
+ * Card genérico do quadro Kanban sem vídeo associado (`GET/POST/PATCH/DELETE
+ * /demandas`) — projeto, campanha, gravação ou demanda avulsa. Reaproveita o
+ * mesmo `ProductionStage` de `Video.productionStage`, já que o quadro trata
+ * os dois tipos de card igual.
+ */
+export interface Demand {
+  id: string
+  title: string
+  kind: DemandKind
+  clientId: string | null
+  responsibleId: string | null
+  deadline: string | null
+  productionStage: ProductionStage
+  createdAt: string
 }
 
 // Estado do processamento do vídeo otimizado no backend. Enquanto está

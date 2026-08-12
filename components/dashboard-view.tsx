@@ -31,7 +31,9 @@ import {
 import { useAuth } from '@/components/auth-provider'
 import {
   calendarService,
+  clientService,
   dashboardService,
+  demandService,
   publicService,
   sampleDataService,
   teamService,
@@ -40,7 +42,9 @@ import {
 import {
   productionStageLabel,
   statusLabel,
+  type Client,
   type DashboardInsights,
+  type Demand,
   type ProductionStage,
   type RecordingEvent,
   type TeamMember,
@@ -349,7 +353,7 @@ export function DashboardView() {
         loadingVideos={loading}
       />
 
-      {/* Produção por etapa (kanban) + carga da equipe (cruza vídeo × prazo × calendário) */}
+      {/* Produção por etapa (kanban) + carga da equipe (cruza vídeo × demanda × cliente × prazo × calendário) */}
       {!loading && !error && videos.length > 0 && <StageBreakdown videos={videos} />}
       {isOwner && !loading && !error && <TeamWorkloadPanel videos={videos} />}
 
@@ -1211,14 +1215,17 @@ function StageBreakdown({ videos }: { videos: Video[] }) {
 }
 
 /**
- * Cruza vídeo × prazo × calendário por responsável — sinaliza sobrecarga
- * (vídeos ativos + atrasados) e o que a pessoa tem agendado nos próximos 7
- * dias. `Video.editorId` e `RecordingEvent.crew[].userId` apontam pro mesmo
- * `TeamMember.id`, então dá pra juntar as três fontes sem endpoint novo.
+ * Cruza vídeo × demanda × cliente × prazo × calendário por responsável —
+ * sinaliza sobrecarga (itens ativos + atrasados) e o que a pessoa tem
+ * agendado nos próximos 7 dias. `Video.editorId`, `Demand.responsibleId`,
+ * `Client.responsibleId` e `RecordingEvent.crew[].userId` apontam pro mesmo
+ * `TeamMember.id`, então dá pra juntar tudo sem endpoint novo.
  */
 function TeamWorkloadPanel({ videos }: { videos: Video[] }) {
   const members = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
   const events = useQuery<RecordingEvent[]>((signal) => calendarService.list(signal), [])
+  const demands = useQuery<Demand[]>((signal) => demandService.list(signal), [])
+  const clients = useQuery<Client[]>((signal) => clientService.list(signal), [])
 
   const rows = useMemo(() => {
     const now = Date.now()
@@ -1230,21 +1237,32 @@ function TeamWorkloadPanel({ videos }: { videos: Video[] }) {
       // de mostrar aqui, não algo pra esconder.
       .filter((m) => m.name)
       .map((m) => {
-        const assigned = videos.filter((v) => v.editorId === m.id)
-        const active = assigned.filter((v) => v.status !== 'aprovado' && v.productionStage !== 'entregue')
-        const overdue = active.filter((v) => v.deadline && new Date(v.deadline).getTime() < now)
+        const assignedVideos = videos.filter((v) => v.editorId === m.id)
+        const activeVideos = assignedVideos.filter((v) => v.status !== 'aprovado' && v.productionStage !== 'entregue')
+        const assignedDemands = (demands.data ?? []).filter((d) => d.responsibleId === m.id)
+        const activeDemands = assignedDemands.filter((d) => d.productionStage !== 'entregue')
+        const overdue = [...activeVideos, ...activeDemands].filter(
+          (i) => i.deadline && new Date(i.deadline).getTime() < now,
+        )
         const upcoming = (events.data ?? []).filter((ev) => {
           const t = new Date(ev.startAt).getTime()
           return t >= now && t <= in7d && ev.crew.some((c) => c.userId === m.id)
         })
-        return { member: m, activeCount: active.length, overdueCount: overdue.length, upcomingCount: upcoming.length }
+        const clientsCount = (clients.data ?? []).filter((c) => c.responsibleId === m.id).length
+        return {
+          member: m,
+          activeCount: activeVideos.length + activeDemands.length,
+          overdueCount: overdue.length,
+          upcomingCount: upcoming.length,
+          clientsCount,
+        }
       })
       .sort((a, b) => b.overdueCount - a.overdueCount || b.activeCount - a.activeCount)
-  }, [members.data, events.data, videos])
+  }, [members.data, events.data, demands.data, clients.data, videos])
 
-  const unassignedCount = videos.filter(
-    (v) => !v.editorId && v.status !== 'aprovado' && v.productionStage !== 'entregue',
-  ).length
+  const unassignedCount =
+    videos.filter((v) => !v.editorId && v.status !== 'aprovado' && v.productionStage !== 'entregue').length +
+    (demands.data ?? []).filter((d) => !d.responsibleId && d.productionStage !== 'entregue').length
 
   if (members.loading) return <Skeleton className="mt-6 h-40 w-full rounded-xl" />
   if (rows.length === 0) return null
@@ -1255,10 +1273,10 @@ function TeamWorkloadPanel({ videos }: { videos: Video[] }) {
         <UserCog className="size-4 text-muted-foreground" /> Carga da equipe
       </h2>
       <p className="mt-0.5 text-xs text-muted-foreground">
-        Vídeos ativos e gravações dos próximos 7 dias, por responsável.
+        Vídeos e demandas ativos, clientes atribuídos e gravações dos próximos 7 dias, por responsável.
       </p>
       <div className="mt-3 flex flex-col gap-2">
-        {rows.map(({ member, activeCount, overdueCount, upcomingCount }) => {
+        {rows.map(({ member, activeCount, overdueCount, upcomingCount, clientsCount }) => {
           const overdue = overdueCount > 0
           // Atrasado nunca fica ocioso (só conta como atrasado se ainda ativo), então os dois nunca coincidem.
           const idle = activeCount === 0 && !overdue
@@ -1274,10 +1292,15 @@ function TeamWorkloadPanel({ videos }: { videos: Video[] }) {
               <span className="min-w-0 truncate text-sm font-medium text-foreground">
                 {member.name || member.email}
               </span>
-              <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+              <div className="flex shrink-0 flex-wrap items-center gap-3 text-xs text-muted-foreground">
                 <span>
-                  {activeCount} vídeo{activeCount === 1 ? '' : 's'} ativo{activeCount === 1 ? '' : 's'}
+                  {activeCount} ativo{activeCount === 1 ? '' : 's'}
                 </span>
+                {clientsCount > 0 && (
+                  <span>
+                    {clientsCount} cliente{clientsCount === 1 ? '' : 's'}
+                  </span>
+                )}
                 {overdue && (
                   <span className="inline-flex items-center gap-1 font-medium text-destructive">
                     <AlertTriangle className="size-3" /> {overdueCount} atrasado{overdueCount === 1 ? '' : 's'}
@@ -1294,7 +1317,7 @@ function TeamWorkloadPanel({ videos }: { videos: Video[] }) {
           <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
             <span>Sem responsável</span>
             <span>
-              {unassignedCount} vídeo{unassignedCount === 1 ? '' : 's'}
+              {unassignedCount} ativo{unassignedCount === 1 ? '' : 's'}
             </span>
           </div>
         )}

@@ -21,6 +21,8 @@ import type {
   Comment,
   CrewMember,
   DashboardInsights,
+  Demand,
+  DemandKind,
   EditorPerformance,
   GalleryVideoItem,
   PlanId,
@@ -30,6 +32,7 @@ import type {
   PortfolioItem,
   PortfolioItemMediaType,
   PortfolioProfile,
+  ProductionStage,
   Project,
   ProjectGallery,
   ProjectMember,
@@ -104,10 +107,11 @@ export const demoClients: Client[] = [
     // galeria pública do projeto de exemplo (p1) sem precisar subir logo.
     branding: { logoUrl: null, agencyName: 'Bela Cosméticos', accentColor: '#d6336c' },
     customFields: { 'cf-1': '@belacosmeticos', 'cf-2': '12.345.678/0001-90' },
+    responsibleId: 'm2',
   },
-  { id: 'c2', name: 'Burger House', email: 'contato@burgerhouse.com', isExample: false, description: null, photoUrl: null, branding: null, customFields: { 'cf-1': '@burgerhouseoficial' } },
-  { id: 'c3', name: 'Studio Moda', email: 'contato@studiomoda.com', isExample: false, description: null, photoUrl: null, branding: null, customFields: {} },
-  { id: 'c4', name: 'Café Aurora', email: 'contato@cafeaurora.com', isExample: false, description: null, photoUrl: null, branding: null, customFields: {} },
+  { id: 'c2', name: 'Burger House', email: 'contato@burgerhouse.com', isExample: false, description: null, photoUrl: null, branding: null, customFields: { 'cf-1': '@burgerhouseoficial' }, responsibleId: 'm3' },
+  { id: 'c3', name: 'Studio Moda', email: 'contato@studiomoda.com', isExample: false, description: null, photoUrl: null, branding: null, customFields: {}, responsibleId: null },
+  { id: 'c4', name: 'Café Aurora', email: 'contato@cafeaurora.com', isExample: false, description: null, photoUrl: null, branding: null, customFields: {}, responsibleId: null },
 ]
 
 /** Campos personalizados de cadastro de cliente (`/configuracoes/campos-cliente`) — schema por conta, mutável igual a `demoCrewRoster`. */
@@ -165,6 +169,88 @@ export function demoRemoveProjectMember(projectId: string, memberId: string): Pr
   if (!project) return []
   project.members = (project.members ?? []).filter((m) => m.userId !== memberId)
   return project.members
+}
+
+/** Cards genéricos de exemplo pro Kanban (`/kanban`) — mutação in-memory, não persiste entre reloads. */
+export const demoDemands: Demand[] = [
+  {
+    id: 'd1',
+    title: 'Roteiro campanha de verão',
+    kind: 'campanha',
+    clientId: 'c1',
+    responsibleId: 'm2',
+    deadline: null,
+    productionStage: 'planejado',
+    createdAt: new Date(Date.now() - 48 * 3600_000).toISOString(),
+  },
+  {
+    id: 'd2',
+    title: 'Gravação institucional',
+    kind: 'gravacao',
+    clientId: 'c2',
+    responsibleId: 'm3',
+    deadline: null,
+    productionStage: 'producao',
+    createdAt: new Date(Date.now() - 24 * 3600_000).toISOString(),
+  },
+]
+
+function demoDemandId(): string {
+  return `d-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+}
+
+export function demoCreateDemand(input: {
+  title: string
+  kind: DemandKind
+  clientId?: string | null
+  responsibleId?: string | null
+  deadline?: string | null
+}): Demand {
+  const created: Demand = {
+    id: demoDemandId(),
+    title: input.title,
+    kind: input.kind,
+    clientId: input.clientId ?? null,
+    responsibleId: input.responsibleId ?? null,
+    deadline: input.deadline ?? null,
+    productionStage: 'planejado',
+    createdAt: new Date().toISOString(),
+  }
+  demoDemands.push(created)
+  return created
+}
+
+export function demoUpdateDemand(
+  id: string,
+  input: {
+    title?: string
+    kind?: DemandKind
+    clientId?: string | null
+    responsibleId?: string | null
+    deadline?: string | null
+  },
+): Demand {
+  const found = demoDemands.find((d) => d.id === id)
+  if (!found) throw new Error('Demanda não encontrada.')
+  if (input.title !== undefined) found.title = input.title
+  if (input.kind !== undefined) found.kind = input.kind
+  if (input.clientId !== undefined) found.clientId = input.clientId
+  if (input.responsibleId !== undefined) found.responsibleId = input.responsibleId
+  if (input.deadline !== undefined) found.deadline = input.deadline
+  return found
+}
+
+export function demoUpdateDemandStage(id: string, stage: ProductionStage): Demand {
+  const found = demoDemands.find((d) => d.id === id)
+  if (!found) throw new Error('Demanda não encontrada.')
+  found.productionStage = stage
+  return found
+}
+
+export function demoRemoveDemand(id: string): null {
+  const idx = demoDemands.findIndex((d) => d.id === id)
+  if (idx !== -1) demoDemands.splice(idx, 1)
+  return null
 }
 
 const now = Date.now()

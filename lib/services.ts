@@ -23,9 +23,11 @@ import {
   demoClientFiles,
   demoClients,
   demoCreateCategory,
+  demoCreateDemand,
   demoCreatePortfolio,
   demoCrewRoster,
   demoDeletePortfolio,
+  demoDemands,
   demoInsights,
   demoInternalComments,
   demoMe,
@@ -46,6 +48,7 @@ import {
   demoRatingQuestions,
   demoRecordingEvents,
   demoRemoveCategory,
+  demoRemoveDemand,
   demoRemovePortfolioVideo,
   demoRemoveProjectMember,
   demoReorderCategories,
@@ -54,6 +57,8 @@ import {
   demoTeamMembers,
   demoTeamPerformance,
   demoUpdateCategory,
+  demoUpdateDemand,
+  demoUpdateDemandStage,
   demoUpdatePortfolio,
   demoUpdatePortfolioProfilePhoto,
   demoUpdatePortfolioVideo,
@@ -84,6 +89,8 @@ import type {
   CommentAuthorRole,
   CrewMember,
   DashboardInsights,
+  Demand,
+  DemandKind,
   EditorPerformance,
   GalleryVideoItem,
   LoginResult,
@@ -223,6 +230,7 @@ function mapClient(raw: Raw): Client {
       ['customFields', 'camposPersonalizados', 'campos_personalizados'],
       {},
     ),
+    responsibleId: pick<string | null>(raw, ['responsavelId', 'responsavel_id', 'responsibleId'], null),
   }
 }
 
@@ -283,6 +291,19 @@ function mapProject(raw: Raw): Project {
     isExample: Boolean(pick(raw, ['isExemplo', 'is_exemplo', 'isExample'], false)),
     publicLink: pick<string | null>(raw, ['linkPublico', 'link_publico', 'publicLink'], null),
     members: membersRaw ? membersRaw.map(mapProjectMember) : undefined,
+  }
+}
+
+function mapDemand(raw: Raw): Demand {
+  return {
+    id: String(pick(raw, ['id', '_id'], '')),
+    title: pick(raw, ['titulo', 'title'], ''),
+    kind: pick<DemandKind>(raw, ['tipo', 'kind'], 'demanda'),
+    clientId: pick<string | null>(raw, ['clienteId', 'cliente_id', 'clientId'], null),
+    responsibleId: pick<string | null>(raw, ['responsavelId', 'responsavel_id', 'responsibleId'], null),
+    deadline: pick<string | null>(raw, ['prazo', 'deadline'], null),
+    productionStage: normalizeProductionStage(pick(raw, ['etapa', 'productionStage'], 'planejado')),
+    createdAt: pick(raw, ['criadoEm', 'createdAt', 'created_at'], new Date().toISOString()),
   }
 }
 
@@ -1146,6 +1167,7 @@ export const clientService = {
         photoUrl: null,
         branding: null,
         customFields: input.customFields ?? {},
+        responsibleId: null,
       }
       demoClients.push(created)
       return delay(created, 300)
@@ -1165,6 +1187,7 @@ export const clientService = {
       description?: string | null
       photoUrl?: string | null
       customFields?: Record<string, string>
+      responsibleId?: string | null
     },
   ): Promise<Client> {
     if (isDemo()) {
@@ -1175,6 +1198,7 @@ export const clientService = {
       if (input.description !== undefined) found.description = input.description
       if (input.photoUrl !== undefined) found.photoUrl = input.photoUrl
       if (input.customFields !== undefined) found.customFields = input.customFields
+      if (input.responsibleId !== undefined) found.responsibleId = input.responsibleId
       return delay(found, 300)
     }
     const res = await api.patch<Raw>(`/clients/${id}`, {
@@ -1183,6 +1207,7 @@ export const clientService = {
       descricao: input.description,
       fotoUrl: input.photoUrl,
       camposPersonalizados: input.customFields,
+      responsavelId: input.responsibleId,
     })
     return mapClient(res)
   },
@@ -1480,6 +1505,73 @@ export const projectService = {
     if (isDemo()) return delay(demoRemoveProjectMember(projectId, memberId), 300)
     const res = await api.delete<Raw>(`/projects/${projectId}/members/${memberId}`)
     return asArray(res).map(mapProjectMember)
+  },
+}
+
+/* ------------------------------ demandas ---------------------------------- */
+
+/**
+ * Cards genéricos do Kanban (projeto/campanha/gravação/demanda) sem vídeo
+ * associado — ver `scratchpad/mensagem-backend-demandas-genericas.md` pro
+ * contrato completo negociado com o backend.
+ */
+export const demandService = {
+  async list(signal?: AbortSignal): Promise<Demand[]> {
+    // Cópia rasa: `demoDemands` é mutado in-place por create/update/remove (ver
+    // lib/demo.ts), e o array retornado aqui vira o estado local do componente
+    // (`useQuery` + `setData`). Sem a cópia, os dois apontam pro mesmo array e
+    // uma criação otimista duplica a entrada (a mutação síncrona do módulo já
+    // inclui o item novo antes do componente fazer o próprio append).
+    if (isDemo()) return delay([...demoDemands])
+    const res = await api.get('/demandas', { signal })
+    return asArray(res).map(mapDemand)
+  },
+  async create(input: {
+    title: string
+    kind: DemandKind
+    clientId?: string | null
+    responsibleId?: string | null
+    deadline?: string | null
+  }): Promise<Demand> {
+    if (isDemo()) return delay(demoCreateDemand(input), 300)
+    const res = await api.post<Raw>('/demandas', {
+      titulo: input.title,
+      tipo: input.kind,
+      clienteId: input.clientId,
+      responsavelId: input.responsibleId,
+      prazo: input.deadline,
+    })
+    return mapDemand(res)
+  },
+  async update(
+    id: string,
+    input: {
+      title?: string
+      kind?: DemandKind
+      clientId?: string | null
+      responsibleId?: string | null
+      deadline?: string | null
+    },
+  ): Promise<Demand> {
+    if (isDemo()) return delay(demoUpdateDemand(id, input), 300)
+    const res = await api.patch<Raw>(`/demandas/${id}`, {
+      titulo: input.title,
+      tipo: input.kind,
+      clienteId: input.clientId,
+      responsavelId: input.responsibleId,
+      prazo: input.deadline,
+    })
+    return mapDemand(res)
+  },
+  /** Move a demanda entre etapas do quadro Kanban — mesmo shape de `videoService.updateStage`. */
+  async updateStage(id: string, etapa: ProductionStage): Promise<Demand> {
+    if (isDemo()) return delay(demoUpdateDemandStage(id, etapa), 300)
+    const res = await api.patch<Raw>(`/demandas/${id}/etapa`, { etapa })
+    return mapDemand(res)
+  },
+  async remove(id: string): Promise<void> {
+    if (isDemo()) return void (await delay(demoRemoveDemand(id), 300))
+    await api.delete(`/demandas/${id}`)
   },
 }
 

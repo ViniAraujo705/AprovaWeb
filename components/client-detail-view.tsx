@@ -31,6 +31,7 @@ import {
   clientFileService,
   clientService,
   projectService,
+  teamService,
   videoService,
 } from '@/lib/services'
 import type {
@@ -42,6 +43,7 @@ import type {
   ClientFileCategory,
   Project,
   RecordingEvent,
+  TeamMember,
   Video,
 } from '@/lib/types'
 import { statusLabel } from '@/lib/types'
@@ -636,10 +638,12 @@ function ClientForm({
   onUpdated: (updater: Client | ((prev: Client | null) => Client)) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const team = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
 
   const [name, setName] = useState(client.name)
   const [description, setDescription] = useState(client.description ?? '')
   const [photoUrl, setPhotoUrl] = useState<string | null>(client.photoUrl)
+  const [responsibleId, setResponsibleId] = useState(client.responsibleId ?? '')
   const [dragging, setDragging] = useState(false)
   const [fileError, setFileError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -659,6 +663,7 @@ function ClientForm({
       const updated = await clientService.update(client.id, {
         name: name.trim(),
         description: description.trim() || null,
+        responsibleId: responsibleId || null,
       })
       onUpdated(updated)
       flashSaved()
@@ -809,6 +814,26 @@ function ClientForm({
             onChange={(e) => setName(e.target.value)}
             className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
           />
+        </label>
+
+        {/* Responsável */}
+        <label className="mt-4 flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">Responsável</span>
+          <select
+            value={responsibleId}
+            onChange={(e) => setResponsibleId(e.target.value)}
+            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value="">Sem responsável</option>
+            {(team.data ?? []).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name || m.email}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-muted-foreground">
+            Profissional da equipe responsável por este cliente — alimenta a carga de trabalho no dashboard.
+          </span>
         </label>
 
         {/* Descrição / legenda do Reels */}

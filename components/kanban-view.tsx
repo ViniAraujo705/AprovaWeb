@@ -20,12 +20,16 @@ import {
   Lock,
   Users,
   ExternalLink,
+  Loader2,
   type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
-import { videoService, teamService } from '@/lib/services'
+import { videoService, teamService, demandService, clientService } from '@/lib/services'
 import {
   productionStageLabel,
+  type Client,
+  type Demand,
+  type DemandKind,
   type ProductionStage,
   type TeamMember,
   type Video,
@@ -63,12 +67,7 @@ const stageBadgeStyles: Record<ProductionStage, string> = {
 const ALL_CLIENTS = 'Todos os clientes'
 const ALL_KINDS = 'Todos os tipos'
 
-/**
- * `video` vem do backend real (upload de verdade). Os outros tipos ainda não
- * têm entidade nenhuma no backend — só existem como cards criados na hora,
- * guardados no localStorage deste navegador (ver `LOCAL_DEMANDS_KEY`).
- */
-type DemandKind = 'projeto' | 'campanha' | 'gravacao' | 'demanda'
+/** `video` vem de `GET /videos`; os demais tipos vêm de `GET /demandas` (ver `demandService`). */
 type CardKind = 'video' | DemandKind
 
 const DEMAND_KINDS: DemandKind[] = ['projeto', 'campanha', 'gravacao', 'demanda']
@@ -81,38 +80,18 @@ const KIND_META: Record<CardKind, { label: string; icon: LucideIcon }> = {
   demanda: { label: 'Demanda', icon: ListChecks },
 }
 
-interface LocalDemand {
-  id: string
+/** Entrada do formulário do `DemandModal` — id presente só ao editar uma demanda existente. */
+interface DemandInput {
+  id?: string
   title: string
   kind: DemandKind
-  clientName: string
+  clientId: string | null
   responsibleId: string | null
   deadline: string | null
   stage: ProductionStage
-  createdAt: string
 }
 
-const LOCAL_DEMANDS_KEY = 'aprova_kanban_demandas_locais'
-
-function loadLocalDemands(): LocalDemand[] {
-  try {
-    const raw = localStorage.getItem(LOCAL_DEMANDS_KEY)
-    const parsed = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-function cryptoId(): string {
-  try {
-    return crypto.randomUUID()
-  } catch {
-    return Math.random().toString(36).slice(2)
-  }
-}
-
-/** Formato unificado que os cards/coluna consomem, seja o vídeo real ou uma demanda local. */
+/** Formato unificado que os cards/coluna consomem, seja o vídeo real ou uma demanda. */
 interface BoardItem {
   id: string
   kind: CardKind
@@ -143,16 +122,16 @@ function videoToItem(v: Video, responsibleName: string | null): BoardItem {
   }
 }
 
-function demandToItem(d: LocalDemand, responsibleName: string | null): BoardItem {
+function demandToItem(d: Demand, responsibleName: string | null, clientName: string): BoardItem {
   return {
     id: d.id,
     kind: d.kind,
     title: d.title,
-    clientName: d.clientName,
+    clientName,
     responsibleName,
     responsibleSeed: d.responsibleId ?? responsibleName,
     deadline: d.deadline,
-    stage: d.stage,
+    stage: d.productionStage,
     commentsCount: 0,
     posterUrl: null,
     duration: 0,
@@ -168,27 +147,12 @@ export function KanbanView() {
     [],
   )
   const team = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
+  const clients = useQuery<Client[]>((signal) => clientService.list(signal), [])
+  const demandsQuery = useQuery<Demand[]>((signal) => demandService.list(signal), [])
 
   // Mesma regra do dashboard: só a versão mais recente de cada vídeo aparece no board.
   const videos = (data ?? []).filter((v) => v.latestVersionId === v.id)
-
-  // Demandas genéricas (não-vídeo) — locais a este navegador até existir uma
-  // entidade real no backend. Hidrata do localStorage só no client. O flag de
-  // hidratação PRECISA ser estado (não ref): com ref, o efeito de salvar roda
-  // com o closure antigo (demands ainda `[]`) antes do setDemands do efeito de
-  // carregar ser commitado, e sobrescreve o localStorage com `[]` — perdendo
-  // tudo que já estava salvo. Como estado, o efeito de salvar só "vê"
-  // hydrated=true depois que o re-render com os dados carregados já aconteceu.
-  const [demands, setDemands] = useState<LocalDemand[]>([])
-  const [hydrated, setHydrated] = useState(false)
-  useEffect(() => {
-    setDemands(loadLocalDemands())
-    setHydrated(true)
-  }, [])
-  useEffect(() => {
-    if (!hydrated) return
-    localStorage.setItem(LOCAL_DEMANDS_KEY, JSON.stringify(demands))
-  }, [demands, hydrated])
+  const demands = demandsQuery.data ?? []
 
   const [search, setSearch] = useState('')
   const [client, setClient] = useState(ALL_CLIENTS)
@@ -242,13 +206,17 @@ export function KanbanView() {
 
   const responsibleName = (id: string | null) =>
     id ? team.data?.find((m) => m.id === id)?.name ?? null : null
+  const clientNameById = (id: string | null) =>
+    id ? clients.data?.find((c) => c.id === id)?.name ?? '' : ''
 
   const items: BoardItem[] = useMemo(() => {
     const videoItems = videos.map((v) => videoToItem(v, responsibleName(v.editorId)))
-    const demandItems = demands.map((d) => demandToItem(d, responsibleName(d.responsibleId)))
+    const demandItems = demands.map((d) =>
+      demandToItem(d, responsibleName(d.responsibleId), clientNameById(d.clientId)),
+    )
     return [...videoItems, ...demandItems]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videos, demands, team.data])
+  }, [videos, demands, team.data, clients.data])
 
   const clientNames = useMemo(() => {
     const set = new Set<string>()
@@ -269,6 +237,13 @@ export function KanbanView() {
     entregue: items.filter((i) => i.stage === 'entregue').length,
   }
 
+  const boardLoading = loading || demandsQuery.loading
+  const boardError = error || demandsQuery.error
+  const retryBoard = () => {
+    refetch()
+    demandsQuery.refetch()
+  }
+
   async function moveVideo(id: string, stage: ProductionStage) {
     const previous = videos.find((v) => v.id === id)?.productionStage
     if (!previous || previous === stage) return
@@ -281,8 +256,18 @@ export function KanbanView() {
     }
   }
 
-  function moveDemand(id: string, stage: ProductionStage) {
-    setDemands((prev) => prev.map((d) => (d.id === id ? { ...d, stage } : d)))
+  async function moveDemand(id: string, stage: ProductionStage) {
+    const previous = demands.find((d) => d.id === id)?.productionStage
+    if (!previous || previous === stage) return
+    demandsQuery.setData((prev) => (prev ?? []).map((d) => (d.id === id ? { ...d, productionStage: stage } : d)))
+    try {
+      await demandService.updateStage(id, stage)
+    } catch (err) {
+      demandsQuery.setData((prev) =>
+        (prev ?? []).map((d) => (d.id === id ? { ...d, productionStage: previous } : d)),
+      )
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível mover a demanda.')
+    }
   }
 
   function moveItem(item: BoardItem, stage: ProductionStage) {
@@ -290,18 +275,41 @@ export function KanbanView() {
     else moveDemand(item.id, stage)
   }
 
-  function saveDemand(demand: LocalDemand) {
-    setDemands((prev) => {
-      const idx = prev.findIndex((d) => d.id === demand.id)
-      if (idx === -1) return [...prev, demand]
-      const next = [...prev]
-      next[idx] = demand
-      return next
-    })
+  async function saveDemand(input: DemandInput) {
+    try {
+      const payload = {
+        title: input.title,
+        kind: input.kind,
+        clientId: input.clientId,
+        responsibleId: input.responsibleId,
+        deadline: input.deadline,
+      }
+      let saved: Demand
+      if (input.id) {
+        saved = await demandService.update(input.id, payload)
+        if (saved.productionStage !== input.stage) saved = await demandService.updateStage(input.id, input.stage)
+        const finalSaved = saved
+        demandsQuery.setData((prev) => (prev ?? []).map((d) => (d.id === finalSaved.id ? finalSaved : d)))
+      } else {
+        saved = await demandService.create(payload)
+        if (saved.productionStage !== input.stage) saved = await demandService.updateStage(saved.id, input.stage)
+        const finalSaved = saved
+        demandsQuery.setData((prev) => [...(prev ?? []), finalSaved])
+      }
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível salvar a demanda.')
+    }
   }
 
-  function deleteDemand(id: string) {
-    setDemands((prev) => prev.filter((d) => d.id !== id))
+  async function deleteDemand(id: string) {
+    const previous = demands
+    demandsQuery.setData((prev) => (prev ?? []).filter((d) => d.id !== id))
+    try {
+      await demandService.remove(id)
+    } catch (err) {
+      demandsQuery.setData(previous)
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível excluir a demanda.')
+    }
   }
 
   const activeVideo = activeItem?.kind === 'video' ? videos.find((v) => v.id === activeItem.id) ?? null : null
@@ -342,11 +350,11 @@ export function KanbanView() {
           label="Aguardando aprovação"
           value={counts.aguardando_aprovacao}
           hint="depende do cliente"
-          loading={loading}
+          loading={boardLoading}
         />
-        <SummaryCard dot="bg-orange-500" label="Em ajustes" value={counts.ajustes} hint="voltou pra equipe" loading={loading} />
-        <SummaryCard dot="bg-foreground" label="Entregues" value={counts.entregue} hint="ciclo completo" loading={loading} />
-        <SummaryCard dot="bg-muted-foreground" label="Total no quadro" value={items.length} hint="todas as etapas" loading={loading} />
+        <SummaryCard dot="bg-orange-500" label="Em ajustes" value={counts.ajustes} hint="voltou pra equipe" loading={boardLoading} />
+        <SummaryCard dot="bg-foreground" label="Entregues" value={counts.entregue} hint="ciclo completo" loading={boardLoading} />
+        <SummaryCard dot="bg-muted-foreground" label="Total no quadro" value={items.length} hint="todas as etapas" loading={boardLoading} />
       </div>
 
       {/* Quadro */}
@@ -391,7 +399,7 @@ export function KanbanView() {
         </div>
       </div>
 
-      {loading ? (
+      {boardLoading ? (
         <div className="mt-4 flex gap-4 overflow-x-auto pb-2">
           {COLUMNS.map((col) => (
             <div key={col.stage} className="flex w-72 shrink-0 flex-col gap-3">
@@ -401,9 +409,9 @@ export function KanbanView() {
             </div>
           ))}
         </div>
-      ) : error ? (
+      ) : boardError ? (
         <div className="mt-4">
-          <ErrorState message={error} onRetry={refetch} />
+          <ErrorState message={boardError} onRetry={retryBoard} />
         </div>
       ) : items.length === 0 ? (
         <div className="mt-4">
@@ -506,8 +514,9 @@ export function KanbanView() {
         {activeDemand && (
           <DemandModal
             demand={activeDemand}
-            initialStage={activeDemand.stage}
+            initialStage={activeDemand.productionStage}
             teamMembers={team.data ?? []}
+            clients={clients.data ?? []}
             onClose={() => setActiveItem(null)}
             onSave={saveDemand}
             onDelete={(id) => {
@@ -521,6 +530,7 @@ export function KanbanView() {
             demand={null}
             initialStage={creatingStage}
             teamMembers={team.data ?? []}
+            clients={clients.data ?? []}
             onClose={() => setCreatingStage(null)}
             onSave={saveDemand}
             onDelete={() => setCreatingStage(null)}
@@ -820,39 +830,46 @@ function DemandModal({
   demand,
   initialStage,
   teamMembers,
+  clients,
   onClose,
   onSave,
   onDelete,
 }: {
-  demand: LocalDemand | null
+  demand: Demand | null
   initialStage: ProductionStage
   teamMembers: TeamMember[]
+  clients: Client[]
   onClose: () => void
-  onSave: (demand: LocalDemand) => void
+  onSave: (input: DemandInput) => Promise<void>
   onDelete: (id: string) => void
 }) {
   const isEditing = demand !== null
   const [title, setTitle] = useState(demand?.title ?? '')
   const [kind, setKind] = useState<DemandKind>(demand?.kind ?? 'demanda')
-  const [clientName, setClientName] = useState(demand?.clientName ?? '')
+  const [clientId, setClientId] = useState(demand?.clientId ?? '')
   const [responsibleId, setResponsibleId] = useState(demand?.responsibleId ?? '')
   const [deadlineInput, setDeadlineInput] = useState(demand?.deadline ? demand.deadline.slice(0, 10) : '')
-  const [stage, setStage] = useState<ProductionStage>(demand?.stage ?? initialStage)
+  const [stage, setStage] = useState<ProductionStage>(demand?.productionStage ?? initialStage)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  function handleSave() {
-    if (!title.trim()) return
-    onSave({
-      id: demand?.id ?? cryptoId(),
-      title: title.trim(),
-      kind,
-      clientName: clientName.trim(),
-      responsibleId: responsibleId || null,
-      deadline: deadlineInput ? new Date(`${deadlineInput}T00:00:00`).toISOString() : null,
-      stage,
-      createdAt: demand?.createdAt ?? new Date().toISOString(),
-    })
-    onClose()
+  async function handleSave() {
+    if (!title.trim() || saving) return
+    setSaving(true)
+    try {
+      await onSave({
+        id: demand?.id,
+        title: title.trim(),
+        kind,
+        clientId: clientId || null,
+        responsibleId: responsibleId || null,
+        deadline: deadlineInput ? new Date(`${deadlineInput}T00:00:00`).toISOString() : null,
+        stage,
+      })
+      onClose()
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -882,9 +899,6 @@ function DemandModal({
             <X className="size-4" />
           </button>
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Salva só neste navegador por enquanto — ainda não integrado ao backend.
-        </p>
 
         <div className="mt-4 flex flex-col gap-3">
           <Field label="Título">
@@ -907,13 +921,14 @@ function DemandModal({
             </select>
           </Field>
           <Field label="Cliente">
-            <input
-              type="text"
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-              placeholder="Nome do cliente"
-              className={fieldInputClass}
-            />
+            <select value={clientId} onChange={(e) => setClientId(e.target.value)} className={fieldInputClass}>
+              <option value="">Sem cliente</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Responsável">
             <select
@@ -992,10 +1007,10 @@ function DemandModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={!title.trim()}
+            disabled={!title.trim() || saving}
             className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            {isEditing ? 'Salvar' : 'Criar demanda'}
+            {saving ? <Loader2 className="size-4 animate-spin" /> : isEditing ? 'Salvar' : 'Criar demanda'}
           </button>
         </div>
       </motion.div>
