@@ -14,6 +14,7 @@ import type {
   AdminMetrics,
   AdminUser,
   AppNotification,
+  CalendarActivity,
   Client,
   ClientActivity,
   ClientFieldDefinition,
@@ -41,7 +42,6 @@ import type {
   PublicVideo,
   QueueVideoItem,
   RatingQuestion,
-  RecordingEvent,
   Session,
   TeamMember,
   User,
@@ -429,56 +429,76 @@ export const demoCrewRoster: CrewMember[] = [
 ]
 
 /**
- * Escala de gravações (aba Calendário) — array mutável: `calendarService`
+ * Calendário operacional (aba Calendário) — array mutável: `calendarService`
  * em modo demo faz `push`/edita/remove direto aqui, igual a `demoClients`,
  * então altura feitas na tela persistem durante a sessão (até recarregar).
  */
-export const demoRecordingEvents: RecordingEvent[] = [
+export const demoCalendarActivities: CalendarActivity[] = [
   {
     id: 'ev-1',
     title: 'Gravação — Batom matte (novo lançamento)',
+    type: 'gravacao',
     startAt: futureIso(26),
     endAt: plusHours(futureIso(26), 2),
     clientId: 'c1',
     clientName: 'Bela Cosméticos',
     crew: [demoCrewRoster[0], demoCrewRoster[2]],
+    demandId: null,
     notes: 'Estúdio próprio. Levar o kit de iluminação extra.',
   },
   {
     id: 'ev-2',
-    title: 'Gravação externa — Bastidores da cozinha',
+    title: 'Captação externa — Bastidores da cozinha',
+    type: 'captacao',
     startAt: futureIso(74),
     endAt: plusHours(futureIso(74), 3),
     clientId: 'c2',
     clientName: 'Burger House',
     crew: [demoCrewRoster[1]],
+    demandId: null,
     notes: null,
   },
   {
     id: 'ev-3',
     title: 'Reunião de briefing — coleção verão',
+    type: 'reuniao',
     startAt: iso(20),
     endAt: plusHours(iso(20), 1),
     clientId: 'c3',
     clientName: 'Studio Moda',
     crew: [{ id: 'demo-user', name: 'Você (demo)', userId: 'demo-user' }],
+    demandId: null,
     notes: null,
   },
   {
     id: 'ev-4',
     title: 'Gravação — café especial (Reels)',
+    type: 'gravacao',
     startAt: futureIso(170),
     endAt: plusHours(futureIso(170), 2),
     clientId: 'c4',
     clientName: 'Café Aurora',
     crew: [demoCrewRoster[0], demoCrewRoster[3]],
+    demandId: null,
     notes: 'Cliente pediu foco no processo de torra.',
+  },
+  {
+    id: 'ev-5',
+    title: 'Roteiro campanha de verão',
+    type: 'demanda_interna',
+    startAt: futureIso(48),
+    endAt: null,
+    clientId: 'c1',
+    clientName: 'Bela Cosméticos',
+    crew: [demoCrewRoster[0]],
+    demandId: 'd1',
+    notes: 'Entrega do roteiro pro cliente aprovar antes da gravação.',
   },
 ]
 
 /**
  * Trilha de auditoria por cliente (aba Histórico da central de cliente) —
- * array mutável, igual a `demoRecordingEvents`: `clientActivityService` em
+ * array mutável, igual a `demoCalendarActivities`: `clientActivityService` em
  * modo demo faz `push` direto aqui (via `clientFileService`, ao registrar
  * envio/remoção de arquivo), então ações na tela persistem durante a sessão.
  */
@@ -597,7 +617,7 @@ function buildDemoNotification(
 
 /** Lembrete de gravação próxima (aba Calendário) — só pro owner, sem vídeo associado. */
 function buildDemoRecordingReminder(id: string, eventId: string, hoursAgo: number, read: boolean): AppNotification {
-  const event = demoRecordingEvents.find((e) => e.id === eventId)!
+  const event = demoCalendarActivities.find((e) => e.id === eventId)!
   return {
     id,
     type: 'lembrete_gravacao',

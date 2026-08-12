@@ -34,7 +34,7 @@ import {
   Printer,
 } from 'lucide-react'
 import { calendarService, clientService, teamService, videoService } from '@/lib/services'
-import { productionStageLabel, type Client, type ProductionStage, type RecordingEvent, type TeamMember, type Video } from '@/lib/types'
+import { productionStageLabel, type Client, type ProductionStage, type CalendarActivity, type TeamMember, type Video } from '@/lib/types'
 import { useQuery } from '@/lib/use-query'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
@@ -113,7 +113,7 @@ export function ReportsView() {
   const videosQuery = useQuery<Video[]>((signal) => videoService.list(undefined, signal), [])
   const clientsQuery = useQuery<Client[]>((signal) => clientService.list(signal), [])
   const membersQuery = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
-  const eventsQuery = useQuery<RecordingEvent[]>((signal) => calendarService.list(signal), [])
+  const eventsQuery = useQuery<CalendarActivity[]>((signal) => calendarService.list(signal), [])
 
   const loading = videosQuery.loading || clientsQuery.loading || membersQuery.loading || eventsQuery.loading
   const error = videosQuery.error || clientsQuery.error || membersQuery.error || eventsQuery.error

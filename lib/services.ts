@@ -46,7 +46,7 @@ import {
   demoPublicPortfolioHub,
   demoPublicVideo,
   demoRatingQuestions,
-  demoRecordingEvents,
+  demoCalendarActivities,
   demoRemoveCategory,
   demoRemoveDemand,
   demoRemovePortfolioVideo,
@@ -78,6 +78,8 @@ import type {
   AppNotification,
   AuthResponse,
   Branding,
+  CalendarActivity,
+  CalendarActivityType,
   Client,
   ClientActivity,
   ClientActivityActorType,
@@ -116,7 +118,6 @@ import type {
   QueueVideoItem,
   Rating,
   RatingQuestion,
-  RecordingEvent,
   Session,
   SessionDeviceType,
   TeamMember,
@@ -2690,100 +2691,112 @@ function mapCrewMember(raw: Raw): CrewMember {
   }
 }
 
-function mapRecordingEvent(raw: Raw): RecordingEvent {
+function mapCalendarActivity(raw: Raw): CalendarActivity {
   const crewRaw = pick<Raw[]>(raw, ['crew', 'equipe'], [])
   return {
     id: pick(raw, ['id', '_id'], ''),
     title: pick(raw, ['title', 'titulo'], ''),
+    type: pick<CalendarActivityType>(raw, ['type', 'tipo'], 'gravacao'),
     startAt: pick(raw, ['startAt', 'inicio', 'dataInicio', 'start_at'], ''),
     endAt: pick<string | null>(raw, ['endAt', 'fim', 'dataFim', 'end_at'], null),
     clientId: pick<string | null>(raw, ['clientId', 'clienteId', 'client_id'], null),
     clientName: pick<string | null>(raw, ['clientName', 'clienteNome', 'client_name'], null),
     crew: Array.isArray(crewRaw) ? crewRaw.map(mapCrewMember) : [],
+    demandId: pick<string | null>(raw, ['demandId', 'demandaId'], null),
     notes: pick<string | null>(raw, ['notes', 'notas', 'observacoes'], null),
   }
 }
 
 /**
- * Escala de gravação da agência (aba Calendário). Endpoints `/recording-events`
+ * Calendário operacional da agência (aba Calendário). Endpoints `/recording-events`
  * ainda não existem no backend documentado em API.md — precisam ser
  * adicionados lá (aceitando/devolvendo os campos mapeados acima) antes disso
  * funcionar fora do demo.
  */
 export const calendarService = {
-  async list(signal?: AbortSignal): Promise<RecordingEvent[]> {
-    if (isDemo()) return delay(demoRecordingEvents)
+  async list(signal?: AbortSignal): Promise<CalendarActivity[]> {
+    if (isDemo()) return delay(demoCalendarActivities)
     const res = await api.get('/recording-events', { signal })
-    return asArray(res).map(mapRecordingEvent)
+    return asArray(res).map(mapCalendarActivity)
   },
 
   async create(input: {
     title: string
+    type: CalendarActivityType
     startAt: string
     endAt?: string | null
     clientId?: string | null
     clientName?: string | null
     crew?: CrewMember[]
+    demandId?: string | null
     notes?: string | null
-  }): Promise<RecordingEvent> {
+  }): Promise<CalendarActivity> {
     if (isDemo()) {
-      const created: RecordingEvent = {
+      const created: CalendarActivity = {
         id: `ev-${Date.now()}`,
         title: input.title,
+        type: input.type,
         startAt: input.startAt,
         endAt: input.endAt ?? null,
         clientId: input.clientId ?? null,
         clientName: input.clientName ?? null,
         crew: input.crew ?? [],
+        demandId: input.demandId ?? null,
         notes: input.notes ?? null,
       }
-      demoRecordingEvents.push(created)
+      demoCalendarActivities.push(created)
       return delay(created, 300)
     }
     const res = await api.post<Raw>('/recording-events', {
       titulo: input.title,
+      tipo: input.type,
       dataInicio: input.startAt,
       dataFim: input.endAt,
       clienteId: input.clientId,
       equipeIds: input.crew?.map((c) => c.id),
+      demandaId: input.demandId,
       observacoes: input.notes,
     })
-    return mapRecordingEvent(res)
+    return mapCalendarActivity(res)
   },
 
   async update(
     id: string,
     input: Partial<{
       title: string
+      type: CalendarActivityType
       startAt: string
       endAt: string | null
       clientId: string | null
       clientName: string | null
       crew: CrewMember[]
+      demandId: string | null
       notes: string | null
     }>,
-  ): Promise<RecordingEvent> {
+  ): Promise<CalendarActivity> {
     if (isDemo()) {
-      const found = demoRecordingEvents.find((e) => e.id === id)
+      const found = demoCalendarActivities.find((e) => e.id === id)
       if (!found) throw new ApiError('Evento não encontrado.', 404)
       Object.assign(found, input)
       return delay(found, 300)
     }
     const res = await api.patch<Raw>(`/recording-events/${id}`, {
       titulo: input.title,
+      tipo: input.type,
       dataInicio: input.startAt,
       dataFim: input.endAt,
       clienteId: input.clientId,
       equipeIds: input.crew?.map((c) => c.id),
+      demandaId: input.demandId,
       observacoes: input.notes,
     })
-    return mapRecordingEvent(res)
+    return mapCalendarActivity(res)
   },
 
   async remove(id: string): Promise<void> {
     if (isDemo()) {
-      const idx = demoRecordingEvents.findIndex((e) => e.id === id)
-      if (idx >= 0) demoRecordingEvents.splice(idx, 1)
+      const idx = demoCalendarActivities.findIndex((e) => e.id === id)
+      if (idx >= 0) demoCalendarActivities.splice(idx, 1)
       await delay(null, 200)
       return
     }

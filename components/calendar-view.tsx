@@ -15,9 +15,17 @@ import {
   StickyNote,
   Download,
   UserCheck,
+  Video,
+  Camera,
+  MessagesSquare,
+  Package,
+  Flag,
+  PartyPopper,
+  ClipboardList,
 } from 'lucide-react'
-import { calendarService, clientService, crewService, teamService } from '@/lib/services'
-import type { Client, CrewMember, RecordingEvent, TeamMember } from '@/lib/types'
+import { calendarService, clientService, crewService, demandService, teamService } from '@/lib/services'
+import type { CalendarActivity, CalendarActivityType, Client, CrewMember, Demand, TeamMember } from '@/lib/types'
+import { CALENDAR_ACTIVITY_TYPES, CALENDAR_ACTIVITY_TYPE_LABEL } from '@/lib/calendar-format'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { ErrorState, LoadingState } from '@/components/states'
@@ -25,6 +33,35 @@ import { FadeIn, motion, AnimatePresence } from '@/components/motion'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import { downloadIcs } from '@/lib/ics'
+
+const CALENDAR_TYPE_META: Record<
+  CalendarActivityType,
+  { icon: typeof Video; chipBg: string; chipText: string; dot: string }
+> = {
+  gravacao: { icon: Video, chipBg: 'bg-primary/15 hover:bg-primary/25', chipText: 'text-primary', dot: 'bg-primary' },
+  captacao: { icon: Camera, chipBg: 'bg-sky-500/15 hover:bg-sky-500/25', chipText: 'text-sky-500', dot: 'bg-sky-500' },
+  ensaio: { icon: UsersIcon, chipBg: 'bg-violet-500/15 hover:bg-violet-500/25', chipText: 'text-violet-500', dot: 'bg-violet-500' },
+  reuniao: {
+    icon: MessagesSquare,
+    chipBg: 'bg-amber-500/15 hover:bg-amber-500/25',
+    chipText: 'text-amber-600 dark:text-amber-400',
+    dot: 'bg-amber-500',
+  },
+  entrega: {
+    icon: Package,
+    chipBg: 'bg-emerald-500/15 hover:bg-emerald-500/25',
+    chipText: 'text-emerald-600 dark:text-emerald-400',
+    dot: 'bg-emerald-500',
+  },
+  prazo: { icon: Flag, chipBg: 'bg-destructive/15 hover:bg-destructive/25', chipText: 'text-destructive', dot: 'bg-destructive' },
+  evento: { icon: PartyPopper, chipBg: 'bg-pink-500/15 hover:bg-pink-500/25', chipText: 'text-pink-500', dot: 'bg-pink-500' },
+  demanda_interna: {
+    icon: ClipboardList,
+    chipBg: 'bg-indigo-500/15 hover:bg-indigo-500/25',
+    chipText: 'text-indigo-500',
+    dot: 'bg-indigo-500',
+  },
+}
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -68,7 +105,7 @@ export function CalendarView() {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
-  const { data: events, loading, error, refetch, setData } = useQuery<RecordingEvent[]>(
+  const { data: events, loading, error, refetch, setData } = useQuery<CalendarActivity[]>(
     () => calendarService.list(),
     [],
   )
@@ -78,14 +115,28 @@ export function CalendarView() {
     [],
   )
   const teamMembers = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
+  const demands = useQuery<Demand[]>((signal) => demandService.list(signal), [])
 
-  const [modal, setModal] = useState<{ date: Date; event: RecordingEvent | null } | null>(null)
+  const [modal, setModal] = useState<{ date: Date; event: CalendarActivity | null } | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
+  const [visibleTypes, setVisibleTypes] = useState<Set<CalendarActivityType>>(
+    () => new Set(CALENDAR_ACTIVITY_TYPES),
+  )
+
+  function toggleType(type: CalendarActivityType) {
+    setVisibleTypes((prev) => {
+      const next = new Set(prev)
+      if (next.has(type)) next.delete(type)
+      else next.add(type)
+      return next
+    })
+  }
 
   const grid = useMemo(() => buildMonthGrid(monthStart), [monthStart])
   const eventsByDay = useMemo(() => {
-    const map = new Map<string, RecordingEvent[]>()
+    const map = new Map<string, CalendarActivity[]>()
     for (const ev of events ?? []) {
+      if (!visibleTypes.has(ev.type)) continue
       const key = dateKey(new Date(ev.startAt))
       const list = map.get(key) ?? []
       list.push(ev)
@@ -93,7 +144,7 @@ export function CalendarView() {
     }
     for (const list of map.values()) list.sort((a, b) => a.startAt.localeCompare(b.startAt))
     return map
-  }, [events])
+  }, [events, visibleTypes])
 
   const today = dateKey(new Date())
   const monthLabel = monthStart
@@ -109,7 +160,7 @@ export function CalendarView() {
     setMonthStart(new Date(now.getFullYear(), now.getMonth(), 1))
   }
 
-  function upsertLocal(saved: RecordingEvent) {
+  function upsertLocal(saved: CalendarActivity) {
     setData((prev) => {
       const list = prev ?? []
       const idx = list.findIndex((e) => e.id === saved.id)
@@ -130,7 +181,7 @@ export function CalendarView() {
         <div>
           <h1 className="font-display text-4xl tracking-wide sm:text-5xl">CALENDÁRIO</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Monte a escala de gravações da equipe.
+            Organize gravações, entregas, reuniões e prazos da equipe.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -146,7 +197,7 @@ export function CalendarView() {
             onClick={() => setModal({ date: new Date(), event: null })}
             className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
-            <Plus className="size-4" /> Nova gravação
+            <Plus className="size-4" /> Nova atividade
           </button>
         </div>
       </div>
@@ -178,6 +229,30 @@ export function CalendarView() {
         >
           Hoje
         </button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {CALENDAR_ACTIVITY_TYPES.map((t) => {
+          const meta = CALENDAR_TYPE_META[t]
+          const active = visibleTypes.has(t)
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => toggleType(t)}
+              aria-pressed={active}
+              className={cn(
+                'inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors',
+                active
+                  ? cn('border-transparent', meta.chipBg, meta.chipText)
+                  : 'border-border bg-secondary text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <meta.icon className="size-3.5" />
+              {CALENDAR_ACTIVITY_TYPE_LABEL[t]}
+            </button>
+          )
+        })}
       </div>
 
       {loading ? (
@@ -251,10 +326,10 @@ export function CalendarView() {
                                   setModal({ date: new Date(ev.startAt), event: ev })
                                 }
                               }}
-                              className="flex flex-col rounded-md bg-primary/15 px-1.5 py-0.5 hover:bg-primary/25"
+                              className={cn('flex flex-col rounded-md px-1.5 py-0.5', CALENDAR_TYPE_META[ev.type].chipBg)}
                               title={[ev.title, extra].filter(Boolean).join(' — ')}
                             >
-                              <span className="break-words text-[10px] font-medium text-primary sm:text-xs">
+                              <span className={cn('break-words text-[10px] font-medium sm:text-xs', CALENDAR_TYPE_META[ev.type].chipText)}>
                                 {timeLabel(ev.startAt)} {ev.title}
                               </span>
                               {extra && (
@@ -288,6 +363,7 @@ export function CalendarView() {
             clients={clients.data ?? []}
             crewRoster={crewRoster ?? []}
             teamMembers={teamMembers.data ?? []}
+            demands={demands.data ?? []}
             onCrewCreated={(created) => setCrewRoster((prev) => [...(prev ?? []), created])}
             onClose={() => setModal(null)}
             onSaved={(saved) => {
@@ -321,7 +397,7 @@ function ExportModal({
   monthLabel,
   onClose,
 }: {
-  events: RecordingEvent[]
+  events: CalendarActivity[]
   crewRoster: CrewMember[]
   monthStart: Date
   monthLabel: string
@@ -329,6 +405,7 @@ function ExportModal({
 }) {
   const [period, setPeriod] = useState<ExportPeriod>('month')
   const [crewId, setCrewId] = useState('')
+  const [typeFilter, setTypeFilter] = useState<CalendarActivityType | ''>('')
 
   function download() {
     let range: { start: Date; end: Date } | null = null
@@ -347,18 +424,20 @@ function ExportModal({
         if (startAt < range.start || startAt > range.end) return false
       }
       if (crewId && !ev.crew.some((c) => c.id === crewId)) return false
+      if (typeFilter && ev.type !== typeFilter) return false
       return true
     })
 
     if (filtered.length === 0) {
-      toast.error('Nenhuma gravação encontrada nesse filtro.')
+      toast.error('Nenhuma atividade encontrada nesse filtro.')
       return
     }
 
     const periodSlug = period === 'week' ? 'semana' : period === 'month' ? 'mes' : 'tudo'
     const crewSlug = crewName ? `-${crewName.toLowerCase().replace(/\s+/g, '-')}` : ''
-    downloadIcs(filtered, `agenda-aprova-${periodSlug}${crewSlug}.ics`)
-    toast.success(`${filtered.length} gravação(ões) exportada(s)`)
+    const typeSlug = typeFilter ? `-${typeFilter.replace(/_/g, '-')}` : ''
+    downloadIcs(filtered, `agenda-aprova-${periodSlug}${crewSlug}${typeSlug}.ics`)
+    toast.success(`${filtered.length} atividade(s) exportada(s)`)
     onClose()
   }
 
@@ -424,6 +503,22 @@ function ExportModal({
           </select>
         </label>
 
+        <label className="mt-4 flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">Tipo de atividade</span>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as CalendarActivityType | '')}
+            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value="">Todos</option>
+            {CALENDAR_ACTIVITY_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {CALENDAR_ACTIVITY_TYPE_LABEL[t]}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <div className="mt-5 flex gap-2">
           <button
             type="button"
@@ -456,19 +551,21 @@ function EventModal({
   clients,
   crewRoster,
   teamMembers,
+  demands,
   onCrewCreated,
   onClose,
   onSaved,
   onDeleted,
 }: {
   date: Date
-  event: RecordingEvent | null
+  event: CalendarActivity | null
   clients: Client[]
   crewRoster: CrewMember[]
   teamMembers: TeamMember[]
+  demands: Demand[]
   onCrewCreated: (created: CrewMember) => void
   onClose: () => void
-  onSaved: (saved: RecordingEvent) => void
+  onSaved: (saved: CalendarActivity) => void
   onDeleted: (id: string) => void
 }) {
   const defaultStart = useMemo(() => {
@@ -485,6 +582,8 @@ function EventModal({
   }, [event, defaultStart])
 
   const [title, setTitle] = useState(event?.title ?? '')
+  const [type, setType] = useState<CalendarActivityType>(event?.type ?? 'gravacao')
+  const [demandId, setDemandId] = useState<string | null>(event?.demandId ?? null)
   const [startAt, setStartAt] = useState(toDateTimeLocalValue(defaultStart))
   const [endAt, setEndAt] = useState(toDateTimeLocalValue(defaultEnd))
   const [clientId, setClientId] = useState(event?.clientId ?? '')
@@ -575,17 +674,19 @@ function EventModal({
       const client = clients.find((c) => c.id === clientId)
       const input = {
         title: trimmed,
+        type,
         startAt: new Date(startAt).toISOString(),
         endAt: endAt ? new Date(endAt).toISOString() : null,
         clientId: clientId || null,
         clientName: client?.name ?? null,
         crew,
+        demandId,
         notes: notes.trim() || null,
       }
       const saved = event
         ? await calendarService.update(event.id, input)
         : await calendarService.create(input)
-      toast.success(event ? 'Gravação atualizada' : 'Gravação agendada')
+      toast.success(event ? 'Atividade atualizada' : 'Atividade agendada')
       onSaved(saved)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível salvar. Tente novamente.')
@@ -600,7 +701,7 @@ function EventModal({
     setError(null)
     try {
       await calendarService.remove(event.id)
-      toast.success('Gravação removida')
+      toast.success('Atividade removida')
       onDeleted(event.id)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível remover. Tente novamente.')
@@ -628,7 +729,7 @@ function EventModal({
       >
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-medium">
-            {event ? 'Editar gravação' : 'Nova gravação'}
+            {event ? 'Editar atividade' : 'Nova atividade'}
           </h3>
           <button
             type="button"
@@ -641,18 +742,75 @@ function EventModal({
         </div>
 
         <label className="mt-4 flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">Tipo</span>
+          <select
+            value={type}
+            onChange={(e) => {
+              const next = e.target.value as CalendarActivityType
+              setType(next)
+              if (next !== 'demanda_interna') setDemandId(null)
+            }}
+            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+          >
+            {CALENDAR_ACTIVITY_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {CALENDAR_ACTIVITY_TYPE_LABEL[t]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {type === 'demanda_interna' && (
+          <label className="mt-4 flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-foreground">
+              Vincular a uma demanda existente{' '}
+              <span className="font-normal text-muted-foreground">(opcional)</span>
+            </span>
+            <select
+              value={demandId ?? ''}
+              onChange={(e) => {
+                const id = e.target.value
+                if (!id) {
+                  setDemandId(null)
+                  return
+                }
+                const demand = demands.find((d) => d.id === id)
+                if (!demand) return
+                setDemandId(demand.id)
+                setTitle(demand.title)
+                setClientId(demand.clientId ?? '')
+              }}
+              className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+            >
+              <option value="">Nenhuma — criar avulsa</option>
+              {demands.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        <label className="mt-4 flex flex-col gap-1.5">
           <span className="text-sm font-medium text-foreground">Título</span>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Ex: Gravação — campanha de verão"
             aria-invalid={!!titleError}
+            disabled={!!demandId}
             className={cn(
-              'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary',
+              'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary disabled:opacity-60',
               titleError ? 'border-destructive' : 'border-border',
             )}
           />
           {titleError && <span className="text-xs text-destructive">{titleError}</span>}
+          {demandId && (
+            <span className="text-xs text-muted-foreground">
+              Título e cliente vêm da demanda vinculada — desmarque acima pra editar livremente.
+            </span>
+          )}
         </label>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
@@ -685,7 +843,8 @@ function EventModal({
           <select
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
-            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+            disabled={!!demandId}
+            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-60"
           >
             <option value="">Sem cliente</option>
             {clients.map((c) => (
@@ -821,7 +980,7 @@ function EventModal({
                 type="button"
                 onClick={() => setConfirmingDelete(true)}
                 disabled={busy}
-                aria-label="Excluir gravação"
+                aria-label="Excluir atividade"
                 className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 text-sm font-medium text-destructive hover:bg-destructive/10"
               >
                 <Trash2 className="size-4" />

@@ -42,7 +42,7 @@ import type {
   ClientFile,
   ClientFileCategory,
   Project,
-  RecordingEvent,
+  CalendarActivity,
   TeamMember,
   Video,
 } from '@/lib/types'
@@ -151,7 +151,7 @@ function ClientWorkspace({
   const [tab, setTab] = useState<ClientTab>('overview')
   const projects = useQuery<Project[]>((signal) => projectService.list(client.id, signal), [client.id])
   const videos = useQuery<Video[]>((signal) => videoService.list(undefined, signal), [])
-  const events = useQuery<RecordingEvent[]>((signal) => calendarService.list(signal), [])
+  const events = useQuery<CalendarActivity[]>((signal) => calendarService.list(signal), [])
 
   const clientVideos = useMemo(() => {
     const projectIds = new Set((projects.data ?? []).map((project) => project.id))
@@ -207,7 +207,7 @@ function ClientWorkspace({
   )
 }
 
-function ClientMetrics({ projects, videos, events, compact = false }: { projects: Project[]; videos: Video[]; events: RecordingEvent[]; compact?: boolean }) {
+function ClientMetrics({ projects, videos, events, compact = false }: { projects: Project[]; videos: Video[]; events: CalendarActivity[]; compact?: boolean }) {
   const items = [
     { label: 'Projetos', value: projects.length, tone: 'text-primary' },
     { label: 'Conteúdos', value: videos.length, tone: 'text-foreground' },
@@ -228,7 +228,7 @@ function ClientVideos({ videos, loading, error, approvalOnly = false }: { videos
   return <div className="mt-6 space-y-2">{videos.map((video) => <Link key={video.id} href={`/videos/${video.id}/revisao`} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"><FileVideo className="size-5 shrink-0 text-primary" /><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{video.title}</p><p className="mt-0.5 text-xs text-muted-foreground">{video.commentsCount} comentário{video.commentsCount === 1 ? '' : 's'}{video.deadline ? ` · Prazo: ${new Date(video.deadline).toLocaleDateString('pt-BR')}` : ''}</p></div><span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', statusStyle[video.status])}>{statusLabel[video.status]}</span></Link>)}</div>
 }
 
-function ClientCalendar({ events, loading, error }: { events: RecordingEvent[]; loading: boolean; error: string | null }) {
+function ClientCalendar({ events, loading, error }: { events: CalendarActivity[]; loading: boolean; error: string | null }) {
   if (loading) return <div className="mt-6 grid gap-3">{Array.from({ length: 2 }).map((_, index) => <Skeleton key={index} className="h-16 w-full" />)}</div>
   if (error) return <div className="mt-6"><ErrorState message={error} /></div>
   const ordered = [...events].sort((a, b) => a.startAt.localeCompare(b.startAt))

@@ -1,4 +1,5 @@
-import type { RecordingEvent } from './types'
+import type { CalendarActivity } from './types'
+import { CALENDAR_ACTIVITY_TYPE_LABEL } from './calendar-format'
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
@@ -32,8 +33,8 @@ function foldLine(line: string): string {
   return result
 }
 
-/** Gera o conteúdo de um arquivo .ics (iCalendar) a partir da escala de gravações, pra importar em Google Calendar, Apple Calendar, Outlook etc. */
-export function buildIcs(events: RecordingEvent[]): string {
+/** Gera o conteúdo de um arquivo .ics (iCalendar) a partir do calendário operacional, pra importar em Google Calendar, Apple Calendar, Outlook etc. */
+export function buildIcs(events: CalendarActivity[]): string {
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Aprova//Agenda//PT-BR', 'CALSCALE:GREGORIAN']
   const now = toIcsDate(new Date().toISOString())
   for (const ev of events) {
@@ -42,6 +43,7 @@ export function buildIcs(events: RecordingEvent[]): string {
       ? toIcsDate(ev.endAt)
       : toIcsDate(new Date(new Date(ev.startAt).getTime() + 60 * 60 * 1000).toISOString())
     const descriptionParts = [
+      `Tipo: ${CALENDAR_ACTIVITY_TYPE_LABEL[ev.type]}`,
       ev.clientName ? `Cliente: ${ev.clientName}` : null,
       ev.crew.length ? `Equipe: ${ev.crew.map((c) => c.name).join(', ')}` : null,
       ev.notes,
@@ -62,7 +64,7 @@ export function buildIcs(events: RecordingEvent[]): string {
   return lines.map(foldLine).join('\r\n')
 }
 
-export function downloadIcs(events: RecordingEvent[], filename: string) {
+export function downloadIcs(events: CalendarActivity[], filename: string) {
   const content = buildIcs(events)
   const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' })
   const url = URL.createObjectURL(blob)

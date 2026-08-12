@@ -46,7 +46,7 @@ import {
   type DashboardInsights,
   type Demand,
   type ProductionStage,
-  type RecordingEvent,
+  type CalendarActivity,
   type TeamMember,
   type Video,
   type VideoStatus,
@@ -1218,12 +1218,12 @@ function StageBreakdown({ videos }: { videos: Video[] }) {
  * Cruza vídeo × demanda × cliente × prazo × calendário por responsável —
  * sinaliza sobrecarga (itens ativos + atrasados) e o que a pessoa tem
  * agendado nos próximos 7 dias. `Video.editorId`, `Demand.responsibleId`,
- * `Client.responsibleId` e `RecordingEvent.crew[].userId` apontam pro mesmo
+ * `Client.responsibleId` e `CalendarActivity.crew[].userId` apontam pro mesmo
  * `TeamMember.id`, então dá pra juntar tudo sem endpoint novo.
  */
 function TeamWorkloadPanel({ videos }: { videos: Video[] }) {
   const members = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
-  const events = useQuery<RecordingEvent[]>((signal) => calendarService.list(signal), [])
+  const events = useQuery<CalendarActivity[]>((signal) => calendarService.list(signal), [])
   const demands = useQuery<Demand[]>((signal) => demandService.list(signal), [])
   const clients = useQuery<Client[]>((signal) => clientService.list(signal), [])
 

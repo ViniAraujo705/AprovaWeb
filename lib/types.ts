@@ -698,10 +698,22 @@ export interface CrewMember {
   userId: string | null
 }
 
-/** Escala de gravação da agência (aba Calendário). */
-export interface RecordingEvent {
+/** Categoria de uma atividade do calendário operacional. */
+export type CalendarActivityType =
+  | 'gravacao'
+  | 'captacao'
+  | 'ensaio'
+  | 'reuniao'
+  | 'entrega'
+  | 'prazo'
+  | 'evento'
+  | 'demanda_interna'
+
+/** Atividade da agência no calendário operacional (aba Calendário). */
+export interface CalendarActivity {
   id: string
   title: string
+  type: CalendarActivityType
   /** Data e hora de início (ISO). */
   startAt: string
   /** Data e hora de término (ISO), opcional — mesmo dia do início. */
@@ -709,7 +721,9 @@ export interface RecordingEvent {
   clientId: string | null
   /** Nome do cliente resolvido (pra exibir sem precisar de outra chamada). */
   clientName: string | null
-  /** Quem vai gravar — pode incluir gente sem conta no Aprova. */
+  /** Quem vai participar — pode incluir gente sem conta no Aprova. */
   crew: CrewMember[]
+  /** Demanda do Kanban vinculada, quando `type === 'demanda_interna'`. */
+  demandId: string | null
   notes: string | null
 }
