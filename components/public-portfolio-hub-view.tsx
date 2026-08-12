@@ -50,10 +50,14 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
           */}
           {hub.branding?.logoUrl && <AgencyLogo branding={hub.branding} size="lg" />}
 
-          {/* Foto de perfil sem moldura (sem crop circular, sem borda) — imagem lisa, como um logo. */}
+          {/*
+            object-contain (não object-cover): a foto se adapta à proporção
+            real da imagem do cliente em vez de forçar um recorte quadrado —
+            mesmo tratamento do logo (AgencyLogo), sem moldura/crop.
+          */}
           {hub.photoUrl && (
-            <div className="relative size-16 shrink-0 overflow-hidden bg-secondary">
-              <Image src={hub.photoUrl} alt="" fill className="object-cover" sizes="64px" unoptimized />
+            <div className="relative h-20 w-56 shrink-0">
+              <Image src={hub.photoUrl} alt="" fill className="object-contain" sizes="224px" unoptimized />
             </div>
           )}
 
