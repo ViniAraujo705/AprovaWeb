@@ -2049,9 +2049,11 @@ export const userService = {
   },
 
   /**
-   * Passo 2: salva o branding. O DTO real aceita `{ logoUrl?, corDestaque?, nome? }`
-   * — `nome` aqui atualiza o nome de exibição da agência (`nomeAgencia`), não o
-   * nome da pessoa dona da conta.
+   * Passo 2: salva o branding. O DTO documentado (`API.md`) só aceita
+   * `{ logoUrl?, corDestaque? }` — `nome` não é um campo aceito por esse
+   * endpoint. Enviar `nome: null` (agência sem nome definido) faz o backend
+   * responder 400 "Dados invalidos enviados ao banco de dados", então só
+   * incluímos `nome` no body quando há um valor não vazio.
    */
   async updateBranding(input: {
     logoUrl?: string | null
@@ -2064,11 +2066,12 @@ export const userService = {
         agencyName: input.agencyName ?? null,
         accentColor: input.accentColor ?? null,
       }
-    const res = await api.patch<Raw>('/users/me/branding', {
+    const body: Raw = {
       logoUrl: input.logoUrl,
-      nome: input.agencyName,
       corDestaque: input.accentColor,
-    })
+    }
+    if (input.agencyName) body.nome = input.agencyName
+    const res = await api.patch<Raw>('/users/me/branding', body)
     return (
       mapBranding(res) ?? {
         logoUrl: input.logoUrl ?? null,
