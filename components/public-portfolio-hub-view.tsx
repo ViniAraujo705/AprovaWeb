@@ -50,7 +50,13 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
           */}
           {hub.branding?.logoUrl && <AgencyLogo branding={hub.branding} size="lg" />}
 
-          {/* Sem foto de perfil aqui — só o nome, igual à referência (logo + nome, sem avatar). */}
+          {/* Foto de perfil sem moldura (sem crop circular, sem borda) — imagem lisa, como um logo. */}
+          {hub.photoUrl && (
+            <div className="relative size-16 shrink-0 overflow-hidden bg-secondary">
+              <Image src={hub.photoUrl} alt="" fill className="object-cover" sizes="64px" unoptimized />
+            </div>
+          )}
+
           {hub.agencyName && (
             <span className="font-display text-lg tracking-wide">{hub.agencyName}</span>
           )}
