@@ -6,24 +6,25 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Loader2, Lock, User as UserIcon, Eye, EyeOff } from 'lucide-react'
 import { inviteService } from '@/lib/services'
+import { useAuth } from '@/components/auth-provider'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 export function AcceptInviteView({ token }: { token: string }) {
   const router = useRouter()
+  const { applySession } = useAuth()
 
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [errors, setErrors] = useState<{ name?: string; password?: string }>({})
+  const [errors, setErrors] = useState<{ password?: string }>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   function validate() {
-    const next: { name?: string; password?: string } = {}
-    if (!name.trim()) next.name = 'Informe seu nome.'
-    if (!password) next.password = 'Crie uma senha.'
+    const next: { password?: string } = {}
+    if (!password) next.password = 'Informe a senha.'
     else if (password.length < 6) next.password = 'A senha deve ter ao menos 6 caracteres.'
     setErrors(next)
     return Object.keys(next).length === 0
@@ -35,11 +36,20 @@ export function AcceptInviteView({ token }: { token: string }) {
     if (!validate()) return
     setSubmitting(true)
     try {
-      await inviteService.accept(token, { name: name.trim(), password })
-      router.replace('/login?invited=1')
+      // O backend decide sozinho se é um e-mail novo (cria conta com `name`)
+      // ou um e-mail que já tem conta em outra agência (`password` confirma
+      // a identidade, `name` é ignorado) — ver API.md "Conta / equipe".
+      const { token: accessToken, user } = await inviteService.accept(token, {
+        name: name.trim() || undefined,
+        password,
+      })
+      applySession(accessToken, user)
+      router.replace('/dashboard')
     } catch (err) {
       if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
         setFormError('Este convite é inválido ou já expirou. Peça um novo à agência.')
+      } else if (err instanceof ApiError && err.status === 401) {
+        setFormError('Senha incorreta. Se você já tem uma conta, informe a senha atual dela.')
       } else if (err instanceof ApiError) {
         setFormError(err.message)
       } else {
@@ -64,12 +74,15 @@ export function AcceptInviteView({ token }: { token: string }) {
 
         <h1 className="mt-8 text-center font-display text-4xl tracking-wide">ACEITAR CONVITE</h1>
         <p className="mt-1 text-center text-sm text-muted-foreground">
-          Crie sua senha para entrar como editor da agência.
+          Já tem conta com este e-mail em outra agência? Informe só sua senha
+          atual. Se não, preencha seu nome e crie uma senha.
         </p>
 
         <form onSubmit={handleSubmit} noValidate className="mt-8 flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-foreground">Nome</span>
+            <span className="text-sm font-medium text-foreground">
+              Nome <span className="text-muted-foreground">(se for sua primeira conta)</span>
+            </span>
             <div className="relative">
               <UserIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -77,15 +90,10 @@ export function AcceptInviteView({ token }: { token: string }) {
                 autoComplete="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                aria-invalid={!!errors.name}
                 placeholder="Seu nome"
-                className={cn(
-                  'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary',
-                  errors.name ? 'border-destructive' : 'border-border',
-                )}
+                className="min-h-11 w-full rounded-lg border border-border bg-secondary pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
               />
             </div>
-            {errors.name && <span className="text-xs text-destructive">{errors.name}</span>}
           </label>
 
           <label className="flex flex-col gap-1.5">
@@ -98,7 +106,7 @@ export function AcceptInviteView({ token }: { token: string }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 aria-invalid={!!errors.password}
-                placeholder="Mínimo de 6 caracteres"
+                placeholder="Nova senha (ou senha atual, se já tiver conta)"
                 className={cn(
                   'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary',
                   errors.password ? 'border-destructive' : 'border-border',
@@ -132,10 +140,10 @@ export function AcceptInviteView({ token }: { token: string }) {
           >
             {submitting ? (
               <>
-                <Loader2 className="size-5 animate-spin" /> CRIANDO ACESSO…
+                <Loader2 className="size-5 animate-spin" /> ACEITANDO…
               </>
             ) : (
-              'ACEITAR E CRIAR ACESSO'
+              'ACEITAR CONVITE'
             )}
           </button>
         </form>

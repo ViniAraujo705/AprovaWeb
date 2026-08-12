@@ -38,6 +38,28 @@ export interface AuthResponse {
   user: User
 }
 
+/** Uma agência da qual o usuário logado é membro (owner ou editor). */
+export interface AccountOption {
+  accountId: string
+  nomeAgencia: string
+  role: TeamRole
+  /** Só presente em `GET /auth/my-accounts`: marca a conta do token atual. */
+  isCurrent?: boolean
+}
+
+/**
+ * Resultado de login/cadastro social: sucesso direto (1 conta vinculada) ou
+ * um passo intermediário de seleção quando o e-mail tem 2+ agências — ver
+ * `authService.selectAccount` e a seção "Multi-conta" em API.md.
+ */
+export type LoginResult =
+  | ({ requiresAccountSelection?: false } & AuthResponse)
+  | {
+      requiresAccountSelection: true
+      pendingToken: string
+      accounts: AccountOption[]
+    }
+
 // Status exibidos na UI (pt-BR). O backend pode devolver em inglês; ver
 // `normalizeStatus` em services.ts.
 export type VideoStatus = 'pendente' | 'aprovado' | 'ajuste' | 'erro'

@@ -11,6 +11,7 @@ import { API_URL } from '@/lib/config'
 import { getToken } from '@/lib/auth'
 import {
   buildDemoReport,
+  DEMO_TOKEN,
   delay,
   demoAdminUsers,
   demoAddExistingPortfolioVideo,
@@ -54,6 +55,7 @@ import {
   demoUpdatePortfolio,
   demoUpdatePortfolioProfilePhoto,
   demoUpdatePortfolioVideo,
+  demoUser,
   demoVideos,
   demoVideosForProject,
   isDemo,
@@ -63,6 +65,7 @@ import {
   isDemoVideoLink,
 } from '@/lib/demo'
 import type {
+  AccountOption,
   AdminMetrics,
   AdminUser,
   AppNotification,
@@ -76,6 +79,7 @@ import type {
   DashboardInsights,
   EditorPerformance,
   GalleryVideoItem,
+  LoginResult,
   MemberStatus,
   NotificationType,
   PerformanceTier,
@@ -684,13 +688,67 @@ function cryptoId(): string {
 
 /* -------------------------------- auth ----------------------------------- */
 
+/** `{ user, access_token }` normal, ou o passo intermediário de seleção de conta. */
+function mapLoginResult(res: Raw): LoginResult {
+  if (pick<boolean>(res, ['requiresAccountSelection'], false)) {
+    return {
+      requiresAccountSelection: true,
+      pendingToken: pick(res, ['pendingToken'], ''),
+      accounts: asArray<Raw>(pick(res, ['accounts'], [])).map(mapAccountOption),
+    }
+  }
+  const token = pick(res, ['access_token', 'accessToken'], '')
+  const userRaw = pick<Raw | null>(res, ['user'], null)
+  if (!token) throw new Error('Resposta de login sem token.')
+  return { token, user: userRaw ? mapUser(userRaw) : mapUser(res) }
+}
+
+function mapAccountOption(raw: Raw): AccountOption {
+  return {
+    accountId: pick(raw, ['accountId', 'account_id'], ''),
+    nomeAgencia: pick(raw, ['nomeAgencia', 'nome_agencia'], ''),
+    role: pick(raw, ['role', 'teamRole'], 'owner') as TeamRole,
+    isCurrent: pick(raw, ['isCurrent', 'is_current'], undefined) as boolean | undefined,
+  }
+}
+
 export const authService = {
-  async login(email: string, password: string): Promise<AuthResponse> {
+  async login(email: string, password: string): Promise<LoginResult> {
     const res = await api.post<Raw>('/auth/login', { email, senha: password }, { auth: false })
+    return mapLoginResult(res)
+  },
+
+  /**
+   * Termina o login quando `login` devolveu `requiresAccountSelection`
+   * (passa o `pendingToken` recebido), ou troca a conta ativa de uma sessão
+   * já logada (sem `pendingToken` — reaproveita o token da sessão atual).
+   */
+  async selectAccount(accountId: string, pendingToken?: string): Promise<AuthResponse> {
+    if (isDemo()) {
+      await delay(null, 300)
+      return { token: DEMO_TOKEN, user: demoUser }
+    }
+    const res = await api.post<Raw>(
+      '/auth/select-account',
+      { accountId },
+      pendingToken
+        ? { auth: false, headers: { Authorization: `Bearer ${pendingToken}` } }
+        : undefined,
+    )
     const token = pick(res, ['access_token', 'accessToken'], '')
     const userRaw = pick<Raw | null>(res, ['user'], null)
-    if (!token) throw new Error('Resposta de login sem token.')
+    if (!token) throw new Error('Resposta de seleção de conta sem token.')
     return { token, user: userRaw ? mapUser(userRaw) : mapUser(res) }
+  },
+
+  /** Agências das quais o usuário logado é membro — para o seletor "trocar de agência". */
+  async myAccounts(signal?: AbortSignal): Promise<AccountOption[]> {
+    if (isDemo()) {
+      await delay(null, 200)
+      return [{ accountId: 'demo-account', nomeAgencia: 'Demo', role: demoUser.teamRole, isCurrent: true }]
+    }
+    const res = await api.get<Raw[]>('/auth/my-accounts', { signal })
+    return asArray<Raw>(res).map(mapAccountOption)
   },
 
   /**
@@ -2514,19 +2572,29 @@ export const crewService = {
 /* ------------------------------- convites -------------------------------- */
 
 export const inviteService = {
-  /** Aceita um convite: cria a conta do editor (nome + senha). */
+  /**
+   * Aceita um convite. O backend decide sozinho o caso a partir do e-mail do
+   * convite: e-mail novo cria a conta (`name` obrigatório, `password` vira a
+   * senha); e-mail que já tem conta em qualquer agência só confirma
+   * identidade (`password` é a senha atual, `name` é ignorado). Retorna
+   * sessão já autenticada, igual login.
+   */
   async accept(
     token: string,
-    input: { name: string; password: string },
-  ): Promise<void> {
+    input: { name?: string; password: string },
+  ): Promise<AuthResponse> {
     if (isDemo()) {
       await delay(null, 400)
-      return
+      return { token: DEMO_TOKEN, user: demoUser }
     }
-    await api.post(
+    const res = await api.post<Raw>(
       `/account/invite/${encodeURIComponent(token)}/accept`,
       { nome: input.name, senha: input.password },
       { auth: false },
     )
+    const accessToken = pick(res, ['access_token', 'accessToken'], '')
+    const userRaw = pick<Raw | null>(res, ['user'], null)
+    if (!accessToken) throw new Error('Resposta de aceite de convite sem token.')
+    return { token: accessToken, user: userRaw ? mapUser(userRaw) : mapUser(res) }
   },
 }

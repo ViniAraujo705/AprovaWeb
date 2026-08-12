@@ -15,14 +15,21 @@ import {
 } from '@/lib/auth'
 import { authService } from '@/lib/services'
 import { DEMO_TOKEN, clearDemoFlag, demoUser, enableDemoFlag } from '@/lib/demo'
-import type { User } from '@/lib/types'
+import type { LoginResult, User } from '@/lib/types'
 
 interface AuthContextValue {
   user: User | null
   loading: boolean
   isAuthenticated: boolean
-  login: (email: string, password: string) => Promise<User>
+  /** Pode devolver `requiresAccountSelection` — ver `completeAccountSelection`. */
+  login: (email: string, password: string) => Promise<LoginResult>
   register: (name: string, email: string, password: string) => Promise<User>
+  /** Termina o login após um passo de seleção de conta (`pendingToken` do `login`). */
+  completeAccountSelection: (pendingToken: string, accountId: string) => Promise<User>
+  /** Troca a conta ativa de uma sessão já logada (dropdown "trocar de agência"). */
+  switchAccount: (accountId: string) => Promise<User>
+  /** Aplica uma sessão já emitida por outro fluxo (ex.: aceite de convite). */
+  applySession: (token: string, sessionUser: User) => void
   loginDemo: () => void
   logout: () => void
   /** Atualiza campos do usuário logado em memória + sessão (após editar o perfil). */
@@ -48,21 +55,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false)
   }, [])
 
-  const login = useCallback(async (email: string, password: string) => {
-    const { token, user: loggedUser } = await authService.login(email, password)
+  const applySession = useCallback((token: string, sessionUser: User) => {
     clearDemoFlag() // um login real desliga o modo demo
-    setSession(token, loggedUser)
-    setUser(loggedUser)
-    return loggedUser
+    setSession(token, sessionUser)
+    setUser(sessionUser)
+  }, [])
+
+  const login = useCallback(async (email: string, password: string) => {
+    const result = await authService.login(email, password)
+    if (!result.requiresAccountSelection) applySession(result.token, result.user)
+    return result
+  }, [applySession])
+
+  const completeAccountSelection = useCallback(
+    async (pendingToken: string, accountId: string) => {
+      const { token, user: loggedUser } = await authService.selectAccount(accountId, pendingToken)
+      applySession(token, loggedUser)
+      return loggedUser
+    },
+    [applySession],
+  )
+
+  const switchAccount = useCallback(async (accountId: string) => {
+    const { token, user: nextUser } = await authService.selectAccount(accountId)
+    setSession(token, nextUser)
+    setUser(nextUser)
+    return nextUser
   }, [])
 
   const register = useCallback(async (name: string, email: string, password: string) => {
     const { token, user: newUser } = await authService.register({ name, email, password })
-    clearDemoFlag()
-    setSession(token, newUser)
-    setUser(newUser)
+    applySession(token, newUser)
     return newUser
-  }, [])
+  }, [applySession])
 
   const loginDemo = useCallback(() => {
     enableDemoFlag()
@@ -94,11 +119,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: !!user,
       login,
       register,
+      completeAccountSelection,
+      switchAccount,
+      applySession,
       loginDemo,
       logout,
       updateUser,
     }),
-    [user, loading, login, register, loginDemo, logout, updateUser],
+    [
+      user,
+      loading,
+      login,
+      register,
+      completeAccountSelection,
+      switchAccount,
+      applySession,
+      loginDemo,
+      logout,
+      updateUser,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -4,13 +4,88 @@ import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Loader2, Mail, Lock, Check, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Mail, Lock, Check, Eye, EyeOff, Building2, ChevronRight } from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { teamRoleLabel, type AccountOption } from '@/lib/types'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** Passo intermediário quando o e-mail tem 2+ agências vinculadas. */
+function AccountPicker({
+  pendingToken,
+  accounts,
+  onDone,
+}: {
+  pendingToken: string
+  accounts: AccountOption[]
+  onDone: () => void
+}) {
+  const { completeAccountSelection } = useAuth()
+  const [selecting, setSelecting] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  async function pick(accountId: string) {
+    setError(null)
+    setSelecting(accountId)
+    try {
+      await completeAccountSelection(pendingToken, accountId)
+      onDone()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível entrar. Tente novamente.')
+      setSelecting(null)
+    }
+  }
+
+  return (
+    <div className="w-full max-w-sm">
+      <div className="flex items-center justify-center gap-2">
+        <span className="relative size-9 shrink-0 overflow-hidden rounded-lg">
+          <Image src="/logo-check.png" alt="Check" fill className="object-cover" sizes="36px" />
+        </span>
+        <span className="font-display text-3xl leading-none tracking-wide">CHECK</span>
+      </div>
+
+      <h1 className="mt-8 text-center font-display text-4xl tracking-wide">QUAL AGÊNCIA?</h1>
+      <p className="mt-1 text-center text-sm text-muted-foreground">
+        Seu e-mail está vinculado a mais de uma agência. Escolha em qual entrar.
+      </p>
+
+      <div className="mt-8 flex flex-col gap-2">
+        {accounts.map((acc) => (
+          <button
+            key={acc.accountId}
+            type="button"
+            disabled={selecting !== null}
+            onClick={() => pick(acc.accountId)}
+            className="flex min-h-14 items-center gap-3 rounded-lg border border-border bg-secondary px-4 text-left transition-colors hover:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Building2 className="size-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium text-foreground">
+                {acc.nomeAgencia}
+              </span>
+              <span className="block text-xs text-muted-foreground">{teamRoleLabel[acc.role]}</span>
+            </span>
+            {selecting === acc.accountId ? (
+              <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />
+            ) : (
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {error && (
+        <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
 
 export function LoginView() {
   const { login, loginDemo } = useAuth()
@@ -23,6 +98,10 @@ export function LoginView() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [accountSelection, setAccountSelection] = useState<{
+    pendingToken: string
+    accounts: AccountOption[]
+  } | null>(null)
 
   // Vindo da tela de aceitar convite: acesso criado com sucesso.
   const justInvited = params.get('invited') === '1'
@@ -50,7 +129,11 @@ export function LoginView() {
     if (!validate()) return
     setSubmitting(true)
     try {
-      await login(email.trim(), password)
+      const result = await login(email.trim(), password)
+      if (result.requiresAccountSelection) {
+        setAccountSelection({ pendingToken: result.pendingToken, accounts: result.accounts })
+        return
+      }
       const redirect = params.get('redirect')
       router.replace(redirect && redirect.startsWith('/') ? redirect : '/dashboard')
     } catch (err) {
@@ -64,6 +147,22 @@ export function LoginView() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (accountSelection) {
+    return (
+      <div className="grid min-h-screen place-items-center px-4 py-10">
+        <ThemeToggle className="fixed right-4 top-4" />
+        <AccountPicker
+          pendingToken={accountSelection.pendingToken}
+          accounts={accountSelection.accounts}
+          onDone={() => {
+            const redirect = params.get('redirect')
+            router.replace(redirect && redirect.startsWith('/') ? redirect : '/dashboard')
+          }}
+        />
+      </div>
+    )
   }
 
   return (

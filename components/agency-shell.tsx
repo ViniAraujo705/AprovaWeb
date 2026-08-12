@@ -34,6 +34,7 @@ import { BackButton } from '@/components/back-button'
 import { useAuth } from '@/components/auth-provider'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { NotificationBell } from '@/components/notification-bell'
+import { AccountSwitcher } from '@/components/account-switcher'
 import { teamRoleLabel, type Role, type TeamRole } from '@/lib/types'
 import { AnimatePresence, motion, useReducedMotion } from '@/components/motion'
 import { brandAccentStyle } from '@/lib/theme'
@@ -319,6 +320,7 @@ function RailUserFooter() {
           (user?.name || user?.email || '?').slice(0, 1)
         )}
       </span>
+      <AccountSwitcher direction="up" className="!min-h-0 !px-1.5" />
       <NotificationBell direction="up" />
       <ThemeToggle />
       <button
@@ -369,6 +371,7 @@ function MobileUserFooter() {
         )}
       </div>
       <div className="flex items-center justify-end gap-1">
+        <AccountSwitcher direction="up" />
         <NotificationBell direction="up" />
         <ThemeToggle />
         <button
