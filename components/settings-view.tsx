@@ -470,6 +470,10 @@ function BrandingForm({ user }: { user: User }) {
         agencyName: agencyName.trim() || null,
       })
       setLogoUrl(branding.logoUrl)
+      // Mantém a sessão local coerente com o que acabou de ser salvo. Sem
+      // isso, voltar para esta tela antes de um novo login ainda mostrava o
+      // branding anterior, apesar do PATCH já ter persistido o logo.
+      updateUser({ branding })
       flashSaved()
     } catch (err) {
       if (handlePlanLimitError(err)) return
@@ -513,7 +517,18 @@ function BrandingForm({ user }: { user: User }) {
     setError(null)
     setBusy(true)
     try {
-      if (!isDemo()) await userService.updateBranding({ logoUrl: null })
+      if (!isDemo()) {
+        const branding = await userService.updateBranding({ logoUrl: null })
+        updateUser({ branding })
+      } else {
+        updateUser({
+          branding: {
+            logoUrl: null,
+            agencyName: user.branding?.agencyName ?? null,
+            accentColor: user.branding?.accentColor ?? null,
+          },
+        })
+      }
       setLogoUrl(null)
       flashSaved()
     } catch (err) {
