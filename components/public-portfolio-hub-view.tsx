@@ -95,14 +95,14 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
         </button>
 
         {categories.length > 0 && (
-          <nav className="mt-14 space-y-2">
+          <nav className="mt-14 space-y-5">
             {categories.map((c) => (
               <button
                 key={c.id}
                 type="button"
                 onClick={() => selectCategory(c.id)}
                 className={cn(
-                  'block w-full truncate text-left text-xs font-semibold uppercase tracking-[0.2em] transition-colors',
+                  'block w-full text-xs font-semibold uppercase tracking-[0.2em] transition-colors',
                   c.id === catId
                     ? 'text-sidebar-foreground'
                     : 'text-muted-foreground hover:text-sidebar-foreground',
