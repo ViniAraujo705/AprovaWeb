@@ -15,7 +15,9 @@ import type {
   AdminUser,
   AppNotification,
   Client,
+  ClientActivity,
   ClientFieldDefinition,
+  ClientFile,
   Comment,
   CrewMember,
   DashboardInsights,
@@ -385,6 +387,98 @@ export const demoRecordingEvents: RecordingEvent[] = [
     clientName: 'Café Aurora',
     crew: [demoCrewRoster[0], demoCrewRoster[3]],
     notes: 'Cliente pediu foco no processo de torra.',
+  },
+]
+
+/**
+ * Trilha de auditoria por cliente (aba Histórico da central de cliente) —
+ * array mutável, igual a `demoRecordingEvents`: `clientActivityService` em
+ * modo demo faz `push` direto aqui (via `clientFileService`, ao registrar
+ * envio/remoção de arquivo), então ações na tela persistem durante a sessão.
+ */
+export const demoClientActivity: (ClientActivity & { clientId: string })[] = [
+  {
+    id: 'act-1',
+    clientId: 'c1',
+    type: 'video_enviado',
+    createdAt: iso(3),
+    actorType: 'sistema',
+    actorName: null,
+    videoId: 'rv-01',
+    projectId: 'p1',
+    fileId: null,
+    description: 'Conteúdo enviado: Reel lançamento batom matte',
+  },
+  {
+    id: 'act-2',
+    clientId: 'c1',
+    type: 'ajuste_solicitado',
+    createdAt: iso(2),
+    actorType: 'cliente',
+    actorName: 'Bela Cosméticos',
+    videoId: 'rv-01',
+    projectId: 'p1',
+    fileId: null,
+    description: 'Solicitou ajustes em Reel lançamento batom matte',
+  },
+  {
+    id: 'act-3',
+    clientId: 'c1',
+    type: 'video_enviado',
+    createdAt: iso(60),
+    actorType: 'sistema',
+    actorName: null,
+    videoId: 'rv-04',
+    projectId: 'p1',
+    fileId: null,
+    description: 'Conteúdo enviado: Teaser novo blush',
+  },
+  {
+    id: 'act-4',
+    clientId: 'c2',
+    type: 'aprovacao_cliente',
+    createdAt: iso(30),
+    actorType: 'cliente',
+    actorName: 'Burger House',
+    videoId: 'rv-05',
+    projectId: 'p2',
+    fileId: null,
+    description: 'Aprovou Bastidores hambúrguer artesanal',
+  },
+]
+
+/** Pagina `demoClientActivity` por `clientId`, mais recente primeiro — cursor é só o índice como string. */
+export function demoClientActivityPage(
+  clientId: string,
+  params: { cursor?: string; limit?: number },
+): { items: ClientActivity[]; nextCursor: string | null } {
+  const all = demoClientActivity
+    .filter((activity) => activity.clientId === clientId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  const limit = params.limit ?? 30
+  const start = params.cursor ? Number(params.cursor) : 0
+  const page = all.slice(start, start + limit)
+  const nextCursor = start + limit < all.length ? String(start + limit) : null
+  return { items: page, nextCursor }
+}
+
+/**
+ * Arquivos operacionais por cliente (aba Arquivos) — array mutável, igual a
+ * `demoClients`: `clientFileService` em modo demo faz push/edita/remove
+ * direto aqui, então ações na tela persistem durante a sessão.
+ */
+export const demoClientFiles: (ClientFile & { clientId: string })[] = [
+  {
+    id: 'file-1',
+    clientId: 'c1',
+    fileName: 'briefing-lancamento-batom.pdf',
+    fileUrl: '#',
+    mimeType: 'application/pdf',
+    sizeBytes: 482_000,
+    category: 'briefing',
+    description: 'Briefing do lançamento de batom matte',
+    uploadedByName: 'Você (demo)',
+    createdAt: iso(72),
   },
 ]
 

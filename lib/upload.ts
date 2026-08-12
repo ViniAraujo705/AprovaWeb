@@ -52,6 +52,36 @@ export function validatePhotoFile(file: File): string | null {
   return null
 }
 
+// Arquivos operacionais do cliente (briefing, contrato, roteiro, referência):
+// documentos e mídia de referência em geral, não só imagem.
+export const CLIENT_FILE_ACCEPTED_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain',
+  'text/csv',
+  'application/zip',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+]
+export const CLIENT_FILE_MAX_BYTES = 25 * 1024 * 1024 // 25MB
+
+/** Valida um arquivo operacional do cliente antes de qualquer chamada de rede. */
+export function validateClientFile(file: File): string | null {
+  const typeOk =
+    CLIENT_FILE_ACCEPTED_TYPES.includes(file.type) ||
+    /\.(pdf|docx?|xlsx?|pptx?|txt|csv|zip|png|jpe?g|webp)$/i.test(file.name)
+  if (!typeOk) return 'Formato inválido. Envie PDF, Word, Excel, PowerPoint, TXT, CSV, ZIP ou imagem.'
+  if (file.size > CLIENT_FILE_MAX_BYTES) return 'Arquivo muito grande. O limite é 25MB.'
+  if (file.size === 0) return 'O arquivo está vazio.'
+  return null
+}
+
 /** Bytes por segundo (média desde o início) e ETA em segundos, junto do percentual. */
 export interface UploadProgressInfo {
   loaded: number
