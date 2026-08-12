@@ -28,6 +28,7 @@ import {
   Gauge,
   CalendarDays,
   Images,
+  ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/back-button'
@@ -451,7 +452,7 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
           <RailUserFooter />
         </div>
         <AnimatePresence initial={false}>
-          {openModule && (
+          {openModule ? (
             <motion.div
               key={openModule.key}
               initial={{ width: 0, opacity: 0 }}
@@ -462,6 +463,26 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
             >
               <NavPanel module={openModule} onClose={() => setOpenModuleKey(null)} />
             </motion.div>
+          ) : (
+            // Painel recolhido: aba fina grudada na borda pra "puxar de volta"
+            // o painel — sem isso, a única forma de reabrir é lembrar de
+            // clicar de novo no ícone já ativo no rail (nada indica isso).
+            activeModuleKey && (
+              <motion.button
+                key="collapsed-handle"
+                type="button"
+                onClick={() => setOpenModuleKey(activeModuleKey)}
+                title="Expandir menu"
+                aria-label="Expandir menu"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex h-full w-3 shrink-0 items-center justify-center border-l border-sidebar-border bg-sidebar text-muted-foreground/60 transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <ChevronRight className="size-3" />
+              </motion.button>
+            )
           )}
         </AnimatePresence>
       </aside>
