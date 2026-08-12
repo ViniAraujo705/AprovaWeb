@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   ImagePlus,
   Loader2,
@@ -16,9 +16,15 @@ import {
   Building2,
   Lock,
   ListPlus,
+  CalendarDays,
+  CheckCircle2,
+  FileVideo,
+  History,
+  LayoutDashboard,
 } from 'lucide-react'
-import { clientFieldService, clientService, projectService } from '@/lib/services'
-import type { Client, ClientFieldDefinition, Project } from '@/lib/types'
+import { calendarService, clientFieldService, clientService, projectService, videoService } from '@/lib/services'
+import type { Client, ClientFieldDefinition, Project, RecordingEvent, Video } from '@/lib/types'
+import { statusLabel } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
@@ -52,7 +58,7 @@ export function ClientDetailView({ id }: { id: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-10">
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:py-10">
       {client.loading ? (
         <Skeleton className="h-12 w-64" />
       ) : client.error ? (
@@ -82,25 +88,9 @@ export function ClientDetailView({ id }: { id: string }) {
               Excluir cliente
             </button>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Configure os dados do cliente e a legenda/foto exibidas no modo Reels da tela de aprovação.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Central de projetos, conteúdos, aprovações, calendário e dados operacionais.</p>
 
-          <div className="mt-8">
-            <ClientForm client={client.data} onUpdated={client.setData} />
-          </div>
-
-          <div className="mt-8">
-            <ClientCustomFieldsForm client={client.data} onUpdated={client.setData} />
-          </div>
-
-          <div className="mt-8">
-            <ClientBrandingForm client={client.data} onUpdated={client.setData} />
-          </div>
-
-          <div className="mt-8">
-            <ClientProjects clientId={id} />
-          </div>
+          <ClientWorkspace client={client.data} onUpdated={client.setData} />
 
           <AnimatePresence>
             {confirmingDelete && (
@@ -115,6 +105,119 @@ export function ClientDetailView({ id }: { id: string }) {
       ) : null}
     </div>
   )
+}
+
+type ClientTab = 'overview' | 'projects' | 'content' | 'approvals' | 'calendar' | 'history'
+
+const clientTabs: { id: ClientTab; label: string; icon: typeof LayoutDashboard }[] = [
+  { id: 'overview', label: 'Visão geral', icon: LayoutDashboard },
+  { id: 'projects', label: 'Projetos', icon: FolderOpen },
+  { id: 'content', label: 'Conteúdos', icon: FileVideo },
+  { id: 'approvals', label: 'Aprovações', icon: CheckCircle2 },
+  { id: 'calendar', label: 'Calendário', icon: CalendarDays },
+  { id: 'history', label: 'Histórico', icon: History },
+]
+
+function ClientWorkspace({
+  client,
+  onUpdated,
+}: {
+  client: Client
+  onUpdated: (updater: Client | ((prev: Client | null) => Client)) => void
+}) {
+  const [tab, setTab] = useState<ClientTab>('overview')
+  const projects = useQuery<Project[]>((signal) => projectService.list(client.id, signal), [client.id])
+  const videos = useQuery<Video[]>((signal) => videoService.list(undefined, signal), [])
+  const events = useQuery<RecordingEvent[]>((signal) => calendarService.list(signal), [])
+
+  const clientVideos = useMemo(() => {
+    const projectIds = new Set((projects.data ?? []).map((project) => project.id))
+    return (videos.data ?? []).filter((video) => video.projectId !== null && projectIds.has(video.projectId))
+  }, [projects.data, videos.data])
+  const clientEvents = useMemo(() => (events.data ?? []).filter((event) => event.clientId === client.id), [client.id, events.data])
+  const pendingVideos = clientVideos.filter((video) => video.status === 'pendente')
+  const approvedVideos = clientVideos.filter((video) => video.status === 'aprovado')
+  const changesVideos = clientVideos.filter((video) => video.status === 'ajuste')
+
+  return (
+    <div className="mt-8">
+      <div className="-mx-4 overflow-x-auto border-y border-border px-4 sm:mx-0 sm:rounded-xl sm:border sm:px-2">
+        <div className="flex min-w-max gap-1 py-2" role="tablist" aria-label="Central do cliente">
+          {clientTabs.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={cn(
+                'inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors',
+                tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+              )}
+            >
+              <Icon className="size-3.5" /> {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === 'overview' && (
+        <div className="mt-6 space-y-8">
+          <ClientMetrics projects={projects.data ?? []} videos={clientVideos} events={clientEvents} />
+          <ClientForm client={client} onUpdated={onUpdated} />
+          <ClientCustomFieldsForm client={client} onUpdated={onUpdated} />
+          <ClientBrandingForm client={client} onUpdated={onUpdated} />
+        </div>
+      )}
+      {tab === 'projects' && <div className="mt-6"><ClientProjects clientId={client.id} /></div>}
+      {tab === 'content' && <ClientVideos videos={clientVideos} loading={projects.loading || videos.loading} error={projects.error ?? videos.error} />}
+      {tab === 'approvals' && (
+        <div className="mt-6 space-y-6">
+          <ClientMetrics projects={[]} videos={clientVideos} events={[]} compact />
+          <ClientVideos videos={[...pendingVideos, ...changesVideos, ...approvedVideos]} loading={projects.loading || videos.loading} error={projects.error ?? videos.error} approvalOnly />
+        </div>
+      )}
+      {tab === 'calendar' && <ClientCalendar events={clientEvents} loading={events.loading} error={events.error} />}
+      {tab === 'history' && <ClientHistory videos={clientVideos} loading={projects.loading || videos.loading} error={projects.error ?? videos.error} />}
+    </div>
+  )
+}
+
+function ClientMetrics({ projects, videos, events, compact = false }: { projects: Project[]; videos: Video[]; events: RecordingEvent[]; compact?: boolean }) {
+  const items = [
+    { label: 'Projetos', value: projects.length, tone: 'text-primary' },
+    { label: 'Conteúdos', value: videos.length, tone: 'text-foreground' },
+    { label: 'Aguardando aprovação', value: videos.filter((video) => video.status === 'pendente').length, tone: 'text-amber-500' },
+    { label: 'Em ajustes', value: videos.filter((video) => video.status === 'ajuste').length, tone: 'text-amber-500' },
+    { label: 'Aprovados', value: videos.filter((video) => video.status === 'aprovado').length, tone: 'text-emerald-500' },
+    { label: 'Gravações agendadas', value: events.length, tone: 'text-primary' },
+  ].filter((item) => !compact || !['Projetos', 'Conteúdos', 'Gravações agendadas'].includes(item.label))
+  return <div className="grid gap-3 sm:grid-cols-3">{items.map((item) => <div key={item.label} className="rounded-xl border border-border bg-card p-4"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{item.label}</p><p className={cn('mt-1 text-3xl font-bold tracking-tight', item.tone)}>{item.value}</p></div>)}</div>
+}
+
+const statusStyle = { pendente: 'bg-secondary text-muted-foreground', aprovado: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400', ajuste: 'bg-amber-500/15 text-amber-600 dark:text-amber-400', erro: 'bg-destructive/15 text-destructive' }
+
+function ClientVideos({ videos, loading, error, approvalOnly = false }: { videos: Video[]; loading: boolean; error: string | null; approvalOnly?: boolean }) {
+  if (loading) return <div className="mt-6 grid gap-3">{Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-16 w-full" />)}</div>
+  if (error) return <div className="mt-6"><ErrorState message={error} /></div>
+  if (videos.length === 0) return <div className="mt-6"><EmptyState icon={<FileVideo className="size-7" />} title={approvalOnly ? 'Nenhuma aprovação para acompanhar' : 'Nenhum conteúdo ainda'} description={approvalOnly ? 'Os conteúdos enviados ao cliente aparecerão aqui conforme avançarem no fluxo.' : 'Envie um vídeo dentro de um projeto para centralizá-lo aqui.'} /></div>
+  return <div className="mt-6 space-y-2">{videos.map((video) => <Link key={video.id} href={`/videos/${video.id}/revisao`} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"><FileVideo className="size-5 shrink-0 text-primary" /><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{video.title}</p><p className="mt-0.5 text-xs text-muted-foreground">{video.commentsCount} comentário{video.commentsCount === 1 ? '' : 's'}{video.deadline ? ` · Prazo: ${new Date(video.deadline).toLocaleDateString('pt-BR')}` : ''}</p></div><span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', statusStyle[video.status])}>{statusLabel[video.status]}</span></Link>)}</div>
+}
+
+function ClientCalendar({ events, loading, error }: { events: RecordingEvent[]; loading: boolean; error: string | null }) {
+  if (loading) return <div className="mt-6 grid gap-3">{Array.from({ length: 2 }).map((_, index) => <Skeleton key={index} className="h-16 w-full" />)}</div>
+  if (error) return <div className="mt-6"><ErrorState message={error} /></div>
+  const ordered = [...events].sort((a, b) => a.startAt.localeCompare(b.startAt))
+  if (ordered.length === 0) return <div className="mt-6"><EmptyState icon={<CalendarDays className="size-7" />} title="Nenhuma gravação agendada" description="Os eventos vinculados a este cliente no calendário aparecerão aqui." action={<Link href="/calendario" className="mt-2 inline-flex min-h-10 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">Abrir calendário</Link>} /></div>
+  return <div className="mt-6 space-y-2">{ordered.map((event) => <Link key={event.id} href="/calendario" className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"><CalendarDays className="size-5 shrink-0 text-primary" /><div className="min-w-0"><p className="font-medium text-foreground">{event.title}</p><p className="text-xs text-muted-foreground">{new Date(event.startAt).toLocaleString('pt-BR', { dateStyle: 'medium', timeStyle: 'short' })}{event.notes ? ` · ${event.notes}` : ''}</p></div></Link>)}</div>
+}
+
+function ClientHistory({ videos, loading, error }: { videos: Video[]; loading: boolean; error: string | null }) {
+  if (loading) return <div className="mt-6"><Skeleton className="h-24 w-full" /></div>
+  if (error) return <div className="mt-6"><ErrorState message={error} /></div>
+  const ordered = [...videos].filter((video) => video.createdAt).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+  if (ordered.length === 0) return <div className="mt-6"><EmptyState icon={<History className="size-7" />} title="Sem atividade registrada" description="Os envios de conteúdo deste cliente aparecerão aqui." /></div>
+  return <div className="mt-6"><p className="mb-3 text-sm text-muted-foreground">Histórico disponível de envios. O registro detalhado de cada mudança de status depende de uma trilha de auditoria no backend.</p><div className="space-y-2">{ordered.map((video) => <div key={video.id} className="flex gap-3 rounded-xl border border-border bg-card p-4"><History className="mt-0.5 size-4 shrink-0 text-primary" /><p className="text-sm text-foreground"><span className="font-medium">Conteúdo enviado:</span> {video.title}<span className="text-muted-foreground"> · {new Date(video.createdAt!).toLocaleString('pt-BR', { dateStyle: 'medium', timeStyle: 'short' })}</span></p></div>)}</div></div>
 }
 
 function DeleteClientModal({
