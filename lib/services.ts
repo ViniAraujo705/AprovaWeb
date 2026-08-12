@@ -17,8 +17,10 @@ import {
   demoAddExistingPortfolioVideo,
   demoAddUploadedPortfolioVideo,
   demoAssignProjectMember,
+  demoClientActivityPage,
   demoClientChannel,
   demoClientFields,
+  demoClientFiles,
   demoClients,
   demoCreateCategory,
   demoCreatePortfolio,
@@ -72,7 +74,12 @@ import type {
   AuthResponse,
   Branding,
   Client,
+  ClientActivity,
+  ClientActivityActorType,
+  ClientActivityType,
   ClientFieldDefinition,
+  ClientFile,
+  ClientFileCategory,
   Comment,
   CommentAuthorRole,
   CrewMember,
@@ -224,6 +231,34 @@ function mapClientFieldDefinition(raw: Raw): ClientFieldDefinition {
     id: String(pick(raw, ['id', '_id'], '')),
     label: pick(raw, ['rotulo', 'label', 'nome'], ''),
     order: Number(pick(raw, ['ordem', 'order'], 0)) || 0,
+  }
+}
+
+function mapClientActivity(raw: Raw): ClientActivity {
+  return {
+    id: String(pick(raw, ['id', '_id'], '')),
+    type: pick<ClientActivityType>(raw, ['tipo', 'type'], 'nota_atualizada'),
+    createdAt: pick(raw, ['criadoEm', 'createdAt', 'created_at'], new Date().toISOString()),
+    actorType: pick<ClientActivityActorType | null>(raw, ['atorTipo', 'actorType'], null),
+    actorName: pick<string | null>(raw, ['atorNome', 'actorName'], null),
+    videoId: pick<string | null>(raw, ['videoId', 'video_id'], null),
+    projectId: pick<string | null>(raw, ['projectId', 'project_id'], null),
+    fileId: pick<string | null>(raw, ['arquivoId', 'fileId', 'file_id'], null),
+    description: pick(raw, ['descricao', 'description'], ''),
+  }
+}
+
+function mapClientFile(raw: Raw): ClientFile {
+  return {
+    id: String(pick(raw, ['id', '_id'], '')),
+    fileName: pick(raw, ['nomeArquivo', 'fileName', 'nome'], ''),
+    fileUrl: pick(raw, ['urlStorage', 'fileUrl', 'url'], ''),
+    mimeType: pick(raw, ['mimeType', 'mime_type'], ''),
+    sizeBytes: pick<number | null>(raw, ['tamanhoBytes', 'sizeBytes', 'tamanho_bytes'], null),
+    category: pick<ClientFileCategory>(raw, ['categoria', 'category'], 'outro'),
+    description: pick<string | null>(raw, ['descricao', 'description'], null),
+    uploadedByName: pick<string | null>(raw, ['enviadoPorNome', 'uploadedByName'], null),
+    createdAt: pick(raw, ['criadoEm', 'createdAt', 'created_at'], new Date().toISOString()),
   }
 }
 
@@ -1279,6 +1314,131 @@ export const clientFieldService = {
       return
     }
     await api.delete(`/client-fields/${id}`)
+  },
+}
+
+/**
+ * Trilha de auditoria do cliente (`GET /clients/:id/activity`) — timeline
+ * paginada por cursor, gravada automaticamente pelo backend nas rotas já
+ * existentes (aprovação, ajuste, comentário, nova versão, arquivo); o
+ * frontend só lista, nunca cria um item diretamente. Endpoint pedido em
+ * `scratchpad/mensagem-backend-central-cliente.md`.
+ */
+export const clientActivityService = {
+  async list(
+    clientId: string,
+    params: { cursor?: string; limit?: number } = {},
+    signal?: AbortSignal,
+  ): Promise<{ items: ClientActivity[]; nextCursor: string | null }> {
+    if (isDemo()) return delay(demoClientActivityPage(clientId, params))
+    const res = await api.get<Raw>(`/clients/${clientId}/activity`, {
+      query: { cursor: params.cursor, limit: params.limit },
+      signal,
+    })
+    return {
+      items: asArray<Raw>(res).map(mapClientActivity),
+      nextCursor: pick<string | null>(res, ['nextCursor', 'next_cursor'], null),
+    }
+  },
+}
+
+/**
+ * Arquivos operacionais internos do cliente (briefing, contrato, roteiro,
+ * referência) — nunca aparecem em rotas públicas. Mesmo fluxo presigned URL
+ * → PUT no R2 → registro usado por vídeos/branding. Endpoint pedido em
+ * `scratchpad/mensagem-backend-central-cliente.md`.
+ */
+export const clientFileService = {
+  async list(clientId: string, signal?: AbortSignal): Promise<ClientFile[]> {
+    if (isDemo()) return delay(demoClientFiles.filter((f) => f.clientId === clientId))
+    const res = await api.get(`/clients/${clientId}/files`, { signal })
+    return asArray(res).map(mapClientFile)
+  },
+
+  /** Passo 1 do upload: presigned URL pro R2, mesmo formato de `clientService.getPhotoUploadUrl`. */
+  async getUploadUrl(input: {
+    clientId: string
+    fileName: string
+    contentType: string
+  }): Promise<{ uploadUrl: string; key: string; publicUrl: string | null; headers?: Record<string, string> }> {
+    const res = await api.post<Raw>(`/clients/${input.clientId}/files/upload-url`, {
+      nomeArquivo: input.fileName,
+      contentType: input.contentType,
+    })
+    return {
+      uploadUrl: pick(res, ['uploadUrl'], ''),
+      key: pick(res, ['key'], ''),
+      publicUrl: pick<string | null>(res, ['publicUrl'], null),
+      headers: pick<Record<string, string> | undefined>(res, ['headers'], undefined),
+    }
+  },
+
+  /** Passo 2: registra o arquivo já enviado ao R2. */
+  async create(
+    clientId: string,
+    input: {
+      fileName: string
+      fileUrl: string
+      mimeType: string
+      sizeBytes?: number
+      category?: ClientFileCategory
+      description?: string
+    },
+  ): Promise<ClientFile> {
+    if (isDemo()) {
+      const created: ClientFile & { clientId: string } = {
+        id: `file-${Date.now()}`,
+        clientId,
+        fileName: input.fileName,
+        fileUrl: input.fileUrl,
+        mimeType: input.mimeType,
+        sizeBytes: input.sizeBytes ?? null,
+        category: input.category ?? 'outro',
+        description: input.description ?? null,
+        uploadedByName: 'Você (demo)',
+        createdAt: new Date().toISOString(),
+      }
+      demoClientFiles.push(created)
+      return delay(created, 300)
+    }
+    const res = await api.post<Raw>(`/clients/${clientId}/files`, {
+      nomeArquivo: input.fileName,
+      urlStorage: input.fileUrl,
+      mimeType: input.mimeType,
+      tamanhoBytes: input.sizeBytes,
+      categoria: input.category,
+      descricao: input.description,
+    })
+    return mapClientFile(res)
+  },
+
+  async update(
+    clientId: string,
+    fileId: string,
+    input: { category?: ClientFileCategory; description?: string | null },
+  ): Promise<ClientFile> {
+    if (isDemo()) {
+      const found = demoClientFiles.find((f) => f.id === fileId && f.clientId === clientId)
+      if (!found) throw new ApiError('Arquivo não encontrado.', 404)
+      if (input.category !== undefined) found.category = input.category
+      if (input.description !== undefined) found.description = input.description
+      return delay(found, 200)
+    }
+    const res = await api.patch<Raw>(`/clients/${clientId}/files/${fileId}`, {
+      categoria: input.category,
+      descricao: input.description,
+    })
+    return mapClientFile(res)
+  },
+
+  async remove(clientId: string, fileId: string): Promise<void> {
+    if (isDemo()) {
+      const idx = demoClientFiles.findIndex((f) => f.id === fileId && f.clientId === clientId)
+      if (idx >= 0) demoClientFiles.splice(idx, 1)
+      await delay(null, 200)
+      return
+    }
+    await api.delete(`/clients/${clientId}/files/${fileId}`)
   },
 }
 

@@ -138,6 +138,56 @@ export interface ClientFieldDefinition {
   order: number
 }
 
+export type ClientActivityType =
+  | 'video_enviado'
+  | 'aprovacao_cliente'
+  | 'ajuste_solicitado'
+  | 'comentario_cliente'
+  | 'resposta_agencia'
+  | 'nova_versao'
+  | 'arquivo_enviado'
+  | 'arquivo_removido'
+  | 'nota_atualizada'
+
+export type ClientActivityActorType = 'cliente' | 'owner' | 'editor' | 'sistema'
+
+/**
+ * Item da trilha de auditoria do cliente (`GET /clients/:id/activity`),
+ * gravado automaticamente pelo backend nas rotas já existentes (aprovação,
+ * ajuste, comentário, nova versão, arquivo) — o frontend nunca cria isso
+ * diretamente, só lista. Ver `scratchpad/mensagem-backend-central-cliente.md`.
+ */
+export interface ClientActivity {
+  id: string
+  type: ClientActivityType
+  createdAt: string
+  actorType: ClientActivityActorType | null
+  actorName: string | null
+  videoId: string | null
+  projectId: string | null
+  fileId: string | null
+  description: string
+}
+
+export type ClientFileCategory = 'briefing' | 'contrato' | 'referencia' | 'roteiro' | 'outro'
+
+/**
+ * Arquivo operacional interno do cliente (briefing, contrato, roteiro,
+ * referência) — distinto dos vídeos de aprovação, nunca exposto em rotas
+ * públicas. Mesmo fluxo de upload presigned URL → R2 usado por vídeos/branding.
+ */
+export interface ClientFile {
+  id: string
+  fileName: string
+  fileUrl: string
+  mimeType: string
+  sizeBytes: number | null
+  category: ClientFileCategory
+  description: string | null
+  uploadedByName: string | null
+  createdAt: string
+}
+
 export interface Project {
   id: string
   name: string

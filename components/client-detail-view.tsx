@@ -21,14 +21,34 @@ import {
   FileVideo,
   History,
   LayoutDashboard,
+  Paperclip,
+  MessageSquare,
 } from 'lucide-react'
-import { calendarService, clientFieldService, clientService, projectService, videoService } from '@/lib/services'
-import type { Client, ClientFieldDefinition, Project, RecordingEvent, Video } from '@/lib/types'
+import {
+  calendarService,
+  clientActivityService,
+  clientFieldService,
+  clientFileService,
+  clientService,
+  projectService,
+  videoService,
+} from '@/lib/services'
+import type {
+  Client,
+  ClientActivity,
+  ClientActivityType,
+  ClientFieldDefinition,
+  ClientFile,
+  ClientFileCategory,
+  Project,
+  RecordingEvent,
+  Video,
+} from '@/lib/types'
 import { statusLabel } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
-import { validateImageFile, uploadToPresignedUrl, UploadError } from '@/lib/upload'
+import { validateImageFile, validateClientFile, uploadToPresignedUrl, UploadError } from '@/lib/upload'
 import { isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
 import { FadeIn, AnimatePresence, motion, StaggerList, staggerItem } from '@/components/motion'
@@ -107,7 +127,7 @@ export function ClientDetailView({ id }: { id: string }) {
   )
 }
 
-type ClientTab = 'overview' | 'projects' | 'content' | 'approvals' | 'calendar' | 'history'
+type ClientTab = 'overview' | 'projects' | 'content' | 'approvals' | 'calendar' | 'files' | 'history'
 
 const clientTabs: { id: ClientTab; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'overview', label: 'Visão geral', icon: LayoutDashboard },
@@ -115,6 +135,7 @@ const clientTabs: { id: ClientTab; label: string; icon: typeof LayoutDashboard }
   { id: 'content', label: 'Conteúdos', icon: FileVideo },
   { id: 'approvals', label: 'Aprovações', icon: CheckCircle2 },
   { id: 'calendar', label: 'Calendário', icon: CalendarDays },
+  { id: 'files', label: 'Arquivos', icon: Paperclip },
   { id: 'history', label: 'Histórico', icon: History },
 ]
 
@@ -178,7 +199,8 @@ function ClientWorkspace({
         </div>
       )}
       {tab === 'calendar' && <ClientCalendar events={clientEvents} loading={events.loading} error={events.error} />}
-      {tab === 'history' && <ClientHistory videos={clientVideos} loading={projects.loading || videos.loading} error={projects.error ?? videos.error} />}
+      {tab === 'files' && <ClientFiles clientId={client.id} />}
+      {tab === 'history' && <ClientHistory clientId={client.id} />}
     </div>
   )
 }
@@ -212,12 +234,317 @@ function ClientCalendar({ events, loading, error }: { events: RecordingEvent[]; 
   return <div className="mt-6 space-y-2">{ordered.map((event) => <Link key={event.id} href="/calendario" className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"><CalendarDays className="size-5 shrink-0 text-primary" /><div className="min-w-0"><p className="font-medium text-foreground">{event.title}</p><p className="text-xs text-muted-foreground">{new Date(event.startAt).toLocaleString('pt-BR', { dateStyle: 'medium', timeStyle: 'short' })}{event.notes ? ` · ${event.notes}` : ''}</p></div></Link>)}</div>
 }
 
-function ClientHistory({ videos, loading, error }: { videos: Video[]; loading: boolean; error: string | null }) {
-  if (loading) return <div className="mt-6"><Skeleton className="h-24 w-full" /></div>
-  if (error) return <div className="mt-6"><ErrorState message={error} /></div>
-  const ordered = [...videos].filter((video) => video.createdAt).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
-  if (ordered.length === 0) return <div className="mt-6"><EmptyState icon={<History className="size-7" />} title="Sem atividade registrada" description="Os envios de conteúdo deste cliente aparecerão aqui." /></div>
-  return <div className="mt-6"><p className="mb-3 text-sm text-muted-foreground">Histórico disponível de envios. O registro detalhado de cada mudança de status depende de uma trilha de auditoria no backend.</p><div className="space-y-2">{ordered.map((video) => <div key={video.id} className="flex gap-3 rounded-xl border border-border bg-card p-4"><History className="mt-0.5 size-4 shrink-0 text-primary" /><p className="text-sm text-foreground"><span className="font-medium">Conteúdo enviado:</span> {video.title}<span className="text-muted-foreground"> · {new Date(video.createdAt!).toLocaleString('pt-BR', { dateStyle: 'medium', timeStyle: 'short' })}</span></p></div>)}</div></div>
+const clientActivityTypeMeta: Record<ClientActivityType, { icon: typeof History }> = {
+  video_enviado: { icon: FileVideo },
+  aprovacao_cliente: { icon: CheckCircle2 },
+  ajuste_solicitado: { icon: AlertTriangle },
+  comentario_cliente: { icon: MessageSquare },
+  resposta_agencia: { icon: MessageSquare },
+  nova_versao: { icon: FileVideo },
+  arquivo_enviado: { icon: Paperclip },
+  arquivo_removido: { icon: Trash2 },
+  nota_atualizada: { icon: History },
+}
+
+function ClientHistory({ clientId }: { clientId: string }) {
+  const activity = useQuery<{ items: ClientActivity[]; nextCursor: string | null }>(
+    (signal) => clientActivityService.list(clientId, {}, signal),
+    [clientId],
+  )
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
+
+  async function loadMore() {
+    const cursor = activity.data?.nextCursor
+    if (loadingMore || !cursor) return
+    setLoadingMore(true)
+    setLoadMoreError(null)
+    try {
+      const next = await clientActivityService.list(clientId, { cursor })
+      activity.setData((prev) => {
+        const state = prev ?? { items: [], nextCursor: null }
+        return { items: [...state.items, ...next.items], nextCursor: next.nextCursor }
+      })
+    } catch (err) {
+      setLoadMoreError(err instanceof ApiError ? err.message : 'Não foi possível carregar mais atividades.')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  if (activity.loading) return <div className="mt-6"><Skeleton className="h-24 w-full" /></div>
+  if (activity.error) return <div className="mt-6"><ErrorState message={activity.error} onRetry={activity.refetch} /></div>
+  const items = activity.data?.items ?? []
+  if (items.length === 0) {
+    return (
+      <div className="mt-6">
+        <EmptyState
+          icon={<History className="size-7" />}
+          title="Sem atividade registrada"
+          description="Aprovações, ajustes, comentários e envios deste cliente aparecerão aqui."
+        />
+      </div>
+    )
+  }
+  return (
+    <div className="mt-6">
+      <div className="space-y-2">
+        {items.map((item) => {
+          const Icon = clientActivityTypeMeta[item.type].icon
+          return (
+            <div key={item.id} className="flex gap-3 rounded-xl border border-border bg-card p-4">
+              <Icon className="mt-0.5 size-4 shrink-0 text-primary" />
+              <p className="text-sm text-foreground">
+                {item.description}
+                <span className="text-muted-foreground">
+                  {' · '}
+                  {new Date(item.createdAt).toLocaleString('pt-BR', { dateStyle: 'medium', timeStyle: 'short' })}
+                  {item.actorName ? ` · ${item.actorName}` : ''}
+                </span>
+              </p>
+            </div>
+          )
+        })}
+      </div>
+      {loadMoreError && (
+        <p className="mt-3 flex items-center gap-1.5 text-sm text-destructive">
+          <AlertTriangle className="size-4" /> {loadMoreError}
+        </p>
+      )}
+      {activity.data?.nextCursor && (
+        <div className="mt-4 flex justify-center">
+          <button
+            type="button"
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-50"
+          >
+            {loadingMore && <Loader2 className="size-4 animate-spin" />}
+            Carregar mais
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const clientFileCategoryLabel: Record<ClientFileCategory, string> = {
+  briefing: 'Briefing',
+  contrato: 'Contrato',
+  referencia: 'Referência',
+  roteiro: 'Roteiro',
+  outro: 'Outro',
+}
+
+function formatFileSize(bytes: number | null): string {
+  if (!bytes) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function ClientFiles({ clientId }: { clientId: string }) {
+  const files = useQuery<ClientFile[]>((signal) => clientFileService.list(clientId, signal), [clientId])
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const [category, setCategory] = useState<ClientFileCategory>('briefing')
+  const [dragging, setDragging] = useState(false)
+  const [fileError, setFileError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleFile(file: File | undefined | null) {
+    if (!file) return
+    const invalid = validateClientFile(file)
+    if (invalid) {
+      setFileError(invalid)
+      return
+    }
+    setFileError(null)
+    setError(null)
+    setBusy(true)
+    try {
+      // Modo demo: sem R2 de verdade, registra direto com um link fictício.
+      if (isDemo()) {
+        const created = await clientFileService.create(clientId, {
+          fileName: file.name,
+          fileUrl: '#',
+          mimeType: file.type || 'application/octet-stream',
+          sizeBytes: file.size,
+          category,
+        })
+        files.setData((prev) => [created, ...(prev ?? [])])
+        toast.success('Arquivo enviado')
+        return
+      }
+
+      // 1) presigned URL
+      const presigned = await clientFileService.getUploadUrl({
+        clientId,
+        fileName: file.name,
+        contentType: file.type || 'application/octet-stream',
+      })
+      if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
+
+      // 2) upload direto pro R2
+      await uploadToPresignedUrl({ url: presigned.uploadUrl, file, headers: presigned.headers })
+
+      // 3) registra o arquivo
+      const created = await clientFileService.create(clientId, {
+        fileName: file.name,
+        fileUrl: presigned.publicUrl ?? presigned.key,
+        mimeType: file.type || 'application/octet-stream',
+        sizeBytes: file.size,
+        category,
+      })
+      files.setData((prev) => [created, ...(prev ?? [])])
+      toast.success('Arquivo enviado')
+    } catch (err) {
+      if (err instanceof UploadError || err instanceof ApiError) setError(err.message)
+      else setError('Falha ao enviar o arquivo. Tente novamente.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function removeFile(fileId: string, fileName: string) {
+    const previous = files.data ?? []
+    files.setData(previous.filter((f) => f.id !== fileId))
+    try {
+      await clientFileService.remove(clientId, fileId)
+      toast.success('Arquivo removido')
+    } catch (err) {
+      files.setData(previous)
+      toast.error(err instanceof ApiError ? err.message : `Falha ao remover ${fileName}.`)
+    }
+  }
+
+  return (
+    <div className="mt-6">
+      <FadeIn y={6}>
+        <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
+          <div className="text-sm font-medium text-foreground">Enviar arquivo</div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Briefing, contrato, roteiro ou referência — fica interno, nunca aparece nos links públicos deste cliente.
+          </p>
+
+          <label className="mt-4 flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-foreground">Categoria</span>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as ClientFileCategory)}
+              className="min-h-11 w-full max-w-xs rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+            >
+              {Object.entries(clientFileCategoryLabel).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div
+            onDragOver={(e) => {
+              e.preventDefault()
+              if (!busy) setDragging(true)
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setDragging(false)
+              if (!busy) handleFile(e.dataTransfer.files?.[0])
+            }}
+            onClick={() => !busy && inputRef.current?.click()}
+            className={cn(
+              'mt-4 flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition-colors',
+              busy ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
+              fileError
+                ? 'border-destructive/60 bg-destructive/5'
+                : dragging
+                  ? 'border-primary bg-primary/10'
+                  : 'border-primary/50 bg-background hover:border-primary hover:bg-primary/5',
+            )}
+          >
+            <input ref={inputRef} type="file" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
+            <span className="grid size-12 place-items-center rounded-full bg-primary/15 text-primary">
+              {busy ? <Loader2 className="size-6 animate-spin" /> : <Paperclip className="size-6" />}
+            </span>
+            <p className="mt-2 text-sm font-medium text-foreground">
+              {busy ? 'Enviando…' : 'Arraste um arquivo ou clique para selecionar'}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              PDF, Word, Excel, PowerPoint, TXT, CSV, ZIP ou imagem — até 25MB.
+            </p>
+          </div>
+          {fileError && (
+            <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
+              <AlertTriangle className="size-4" /> {fileError}
+            </p>
+          )}
+          {error && (
+            <p className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <AlertTriangle className="size-4 shrink-0" /> {error}
+            </p>
+          )}
+        </div>
+      </FadeIn>
+
+      <div className="mt-6">
+        {files.loading ? (
+          <div className="grid gap-3">
+            {Array.from({ length: 2 }).map((_, index) => (
+              <Skeleton key={index} className="h-16 w-full" />
+            ))}
+          </div>
+        ) : files.error ? (
+          <ErrorState message={files.error} onRetry={files.refetch} />
+        ) : (files.data ?? []).length === 0 ? (
+          <EmptyState
+            icon={<Paperclip className="size-7" />}
+            title="Nenhum arquivo ainda"
+            description="Envie briefing, contrato ou roteiro pra centralizar aqui."
+          />
+        ) : (
+          <StaggerList className="space-y-2">
+            {(files.data ?? []).map((file) => (
+              <motion.div
+                key={file.id}
+                variants={staggerItem}
+                className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"
+              >
+                <Paperclip className="size-5 shrink-0 text-primary" />
+                <div className="min-w-0 flex-1">
+                  <a
+                    href={file.fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="truncate font-medium text-foreground hover:text-primary"
+                    title={file.fileName}
+                  >
+                    {file.fileName}
+                  </a>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {clientFileCategoryLabel[file.category]}
+                    {formatFileSize(file.sizeBytes) ? ` · ${formatFileSize(file.sizeBytes)}` : ''}
+                    {' · '}
+                    {new Date(file.createdAt).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeFile(file.id, file.fileName)}
+                  aria-label={`Remover ${file.fileName}`}
+                  className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </motion.div>
+            ))}
+          </StaggerList>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function DeleteClientModal({
