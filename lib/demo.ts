@@ -763,7 +763,8 @@ export function demoPublicPortfolioHub(): PublicPortfolioHub {
   return {
     agencyName: null,
     photoUrl: demoPortfolioProfile.photoUrl,
-    // branding null → o hub usa o logo padrão do sistema (fallback).
+    // branding null → sem logo próprio, a sidebar não mostra nenhuma marca
+    // (nem o fallback "CHECK" — essa vitrine é do cliente, não da CHECK).
     branding: null,
     categories: sortedCategories
       .map((c) => ({

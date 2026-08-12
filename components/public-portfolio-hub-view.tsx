@@ -67,7 +67,14 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
     >
       <aside className="hidden w-72 shrink-0 flex-col overflow-y-auto bg-sidebar px-10 py-12 text-center text-sidebar-foreground md:flex">
         <button type="button" onClick={goHome} className="flex flex-col items-center gap-4">
-          <AgencyLogo branding={hub.branding} size="lg" />
+          {/*
+            Só mostra a marca da agência quando ela tem um logo próprio
+            configurado — sem isso, AgencyLogo cai no fallback "CHECK", que
+            não faz sentido aqui: essa vitrine é a marca do cliente pros
+            clientes dele, a foto+nome do perfil logo abaixo já cobre a
+            identidade quando não há logo.
+          */}
+          {hub.branding?.logoUrl && <AgencyLogo branding={hub.branding} size="lg" />}
 
           {(hub.photoUrl || hub.agencyName) && (
             <div className="flex flex-col items-center gap-3">
