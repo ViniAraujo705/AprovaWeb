@@ -35,7 +35,7 @@ import {
   type Video,
 } from '@/lib/types'
 import { ClientAvatar } from '@/components/client-avatar'
-import { DeadlineBadge } from '@/components/deadline-badge'
+import { DeadlineBadge, DeadlineField } from '@/components/deadline-badge'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
@@ -509,6 +509,9 @@ export function KanbanView() {
             isOwner={isOwner}
             onClose={() => setActiveItem(null)}
             onUpdateStage={(stage) => moveVideo(activeVideo.id, stage)}
+            onDeadlineUpdated={(deadline) =>
+              setData((prev) => (prev ?? []).map((v) => (v.id === activeVideo.id ? { ...v, deadline } : v)))
+            }
           />
         )}
         {activeDemand && (
@@ -670,13 +673,17 @@ function VideoDetailModal({
   isOwner,
   onClose,
   onUpdateStage,
+  onDeadlineUpdated,
 }: {
   video: Video
   editorName: string | null
   isOwner: boolean
   onClose: () => void
   onUpdateStage: (stage: ProductionStage) => void
+  onDeadlineUpdated: (deadline: string | null) => void
 }) {
+  const [playing, setPlaying] = useState(false)
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -693,12 +700,35 @@ function VideoDetailModal({
         onClick={(e) => e.stopPropagation()}
         className="grid w-full max-w-3xl overflow-hidden rounded-2xl bg-card shadow-2xl md:grid-cols-2"
       >
-        <CardVisual
-          kind="video"
-          posterUrl={video.posterUrl}
-          duration={video.duration}
-          className="aspect-video md:aspect-auto md:h-full"
-        />
+        {playing && video.url ? (
+          // eslint-disable-next-line jsx-a11y/media-has-caption
+          <video
+            src={video.url}
+            controls
+            autoPlay
+            className="aspect-video w-full bg-black md:aspect-auto md:h-full"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setPlaying(true)}
+            disabled={!video.url}
+            aria-label="Assistir vídeo"
+            className="relative block aspect-video w-full text-left disabled:cursor-not-allowed md:aspect-auto md:h-full"
+          >
+            <CardVisual
+              kind="video"
+              posterUrl={video.posterUrl}
+              duration={video.duration}
+              className="h-full w-full"
+            />
+            {!video.url && (
+              <span className="absolute inset-x-0 bottom-2 text-center text-[11px] font-medium text-white/80">
+                Vídeo ainda processando…
+              </span>
+            )}
+          </button>
+        )}
 
         <div className="flex max-h-[85vh] flex-col overflow-y-auto p-5">
           <div className="flex items-start justify-between gap-3">
@@ -737,7 +767,15 @@ function VideoDetailModal({
             ) : (
               <p className="text-sm text-muted-foreground">Sem responsável atribuído</p>
             )}
-            <DeadlineBadge deadline={video.deadline} />
+            {isOwner ? (
+              <DeadlineField
+                videoId={video.id}
+                deadline={video.deadline}
+                onUpdated={onDeadlineUpdated}
+              />
+            ) : (
+              <DeadlineBadge deadline={video.deadline} />
+            )}
           </div>
 
           <div className="mt-4 flex flex-col gap-2">

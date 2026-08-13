@@ -51,6 +51,9 @@ import type {
 export const DEMO_TOKEN = 'demo'
 export const DEMO_LINK = 'demo'
 
+// Amostra pública pequena — permite testar player, seek e marcadores nos vídeos de exemplo.
+const DEMO_SAMPLE_URL = 'https://www.w3schools.com/html/mov_bbb.mp4'
+
 export function isDemo(): boolean {
   if (typeof window === 'undefined') return false
   try {
@@ -265,8 +268,8 @@ export const demoVideos: Video[] = [
     type: 'Reels',
     status: 'pendente',
     duration: 28,
-    url: null,
-    originalUrl: null,
+    url: DEMO_SAMPLE_URL,
+    originalUrl: DEMO_SAMPLE_URL,
     posterUrl: '/videos/reel-cosmetics.png',
     publicLink: DEMO_LINK,
     clientName: 'Bela Cosméticos',
@@ -289,8 +292,8 @@ export const demoVideos: Video[] = [
     type: 'Post',
     status: 'ajuste',
     duration: 15,
-    url: null,
-    originalUrl: null,
+    url: DEMO_SAMPLE_URL,
+    originalUrl: DEMO_SAMPLE_URL,
     posterUrl: '/videos/reel-food.png',
     publicLink: `${DEMO_LINK}-rv-02`,
     clientName: 'Burger House',
@@ -313,8 +316,8 @@ export const demoVideos: Video[] = [
     type: 'Reels',
     status: 'aprovado',
     duration: 34,
-    url: null,
-    originalUrl: null,
+    url: DEMO_SAMPLE_URL,
+    originalUrl: DEMO_SAMPLE_URL,
     posterUrl: '/videos/reel-fashion.png',
     publicLink: `${DEMO_LINK}-rv-03`,
     clientName: 'Studio Moda',
@@ -361,8 +364,8 @@ export const demoVideos: Video[] = [
     type: 'Reels',
     status: 'aprovado',
     duration: 41,
-    url: null,
-    originalUrl: null,
+    url: DEMO_SAMPLE_URL,
+    originalUrl: DEMO_SAMPLE_URL,
     posterUrl: '/videos/reel-food.png',
     publicLink: `${DEMO_LINK}-rv-05`,
     clientName: 'Burger House',
@@ -651,9 +654,6 @@ export function demoRatingQuestions(): RatingQuestion[] {
     { id: 'q4', text: 'Ritmo da edição', order: 3, active: false },
   ]
 }
-
-// Amostra pública pequena — permite testar player, seek e marcadores nos vídeos de exemplo.
-const DEMO_SAMPLE_URL = 'https://www.w3schools.com/html/mov_bbb.mp4'
 
 /** Comentários de exemplo por vídeo (id). Vídeos sem entrada aqui entram sem comentários. */
 function demoCommentsFor(videoId: string): Comment[] {
