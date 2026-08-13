@@ -20,13 +20,19 @@ export function AgencyLogo({
   if (branding?.logoUrl) {
     return (
       <div className="flex min-w-0 items-center gap-2">
-        <span className={cn('relative shrink-0', lg ? 'h-20 w-64' : 'h-7 w-28')}>
+        {/*
+          Caixa moderadamente quadrada (não um retângulo largo e baixo): logos
+          empilhadas/quadradas (comuns em marcas reais) ficam pequenas demais
+          num box muito largo e curto, já que object-contain preserva a
+          proporção original.
+        */}
+        <span className={cn('relative shrink-0', lg ? 'h-16 w-32' : 'h-7 w-28')}>
           <Image
             src={branding.logoUrl}
             alt={branding.agencyName || 'Logo da agência'}
             fill
             className="object-contain object-left"
-            sizes={lg ? '256px' : '112px'}
+            sizes={lg ? '128px' : '112px'}
             unoptimized
           />
         </span>
@@ -40,10 +46,10 @@ export function AgencyLogo({
   // Fallback: logo padrão do sistema.
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <span className={cn('relative shrink-0 overflow-hidden rounded-md', lg ? 'size-14 rounded-xl' : 'size-7')}>
-        <Image src="/logo-check.png" alt="Check" fill className="object-cover" sizes={lg ? '56px' : '28px'} />
+      <span className={cn('relative shrink-0 overflow-hidden rounded-md', lg ? 'size-11 rounded-lg' : 'size-7')}>
+        <Image src="/logo-check.png" alt="Check" fill className="object-cover" sizes={lg ? '44px' : '28px'} />
       </span>
-      <span className={cn('font-display leading-none tracking-wide', lg ? 'text-3xl' : 'text-xl')}>
+      <span className={cn('font-display leading-none tracking-wide', lg ? 'text-2xl' : 'text-xl')}>
         CHECK
       </span>
     </div>

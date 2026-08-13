@@ -515,6 +515,8 @@ export interface PortfolioHubItem {
   link: string
   coverUrl: string | null
   mediaType: PortfolioItemMediaType
+  /** Logo do cliente dono do álbum (`Portfolio.clientId` → `Client.branding.logoUrl`), quando configurada — mostrada no hover do card na vitrine. `null` = sem logo, cai no nome. */
+  logoUrl: string | null
 }
 
 /** Hub público da agência (rota /portfolio/:hubLink): perfil + álbuns agrupados por categoria, sem nenhum dado de cliente/projeto. */

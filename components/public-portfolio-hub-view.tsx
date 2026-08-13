@@ -39,13 +39,16 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
       className="flex min-h-screen flex-col bg-background"
       style={brandAccentStyle(hub.branding?.accentColor)}
     >
-      {hub.coverUrl && (
-        <div className="relative h-36 w-full shrink-0 sm:h-52">
-          <Image src={hub.coverUrl} alt="" fill className="object-cover" sizes="100vw" unoptimized />
-        </div>
-      )}
       <div className="flex min-w-0 flex-1">
-        <aside className="hidden w-72 shrink-0 flex-col overflow-y-auto bg-sidebar px-10 py-12 text-center text-sidebar-foreground md:flex">
+        <aside className="hidden w-72 shrink-0 flex-col overflow-y-auto bg-sidebar text-center text-sidebar-foreground md:flex">
+          {/* Capa fica só na sidebar (largura da coluna), não mais como faixa
+              cruzando a página inteira por cima do conteúdo. */}
+          {hub.coverUrl && (
+            <div className="relative mx-6 mt-12 h-36 shrink-0 overflow-hidden rounded-lg">
+              <Image src={hub.coverUrl} alt="" fill className="object-cover" sizes="240px" unoptimized />
+            </div>
+          )}
+          <div className="flex flex-1 flex-col px-10 py-12">
           <button type="button" onClick={goHome} className="flex flex-col items-center gap-4">
             {/*
               Só mostra a marca da agência quando ela tem um logo próprio
@@ -62,8 +65,8 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
               mesmo tratamento do logo (AgencyLogo), sem moldura/crop.
             */}
             {hub.photoUrl && (
-              <div className="relative h-20 w-56 shrink-0">
-                <Image src={hub.photoUrl} alt="" fill className="object-contain" sizes="224px" unoptimized />
+              <div className="relative h-16 w-32 shrink-0">
+                <Image src={hub.photoUrl} alt="" fill className="object-contain" sizes="128px" unoptimized />
               </div>
             )}
 
@@ -130,6 +133,7 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
           )}
 
           <ThemeToggle />
+          </div>
         </aside>
 
         <div className="min-w-0 flex-1">
@@ -257,7 +261,7 @@ function AlbumGrid({
                   src={p.coverUrl}
                   alt=""
                   fill
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  className="object-cover transition-transform duration-700 ease-out md:group-hover:scale-110"
                   sizes="50vw"
                   unoptimized
                 />
@@ -266,10 +270,36 @@ function AlbumGrid({
                   <Film className="size-6" />
                 </span>
               )}
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent p-3 pt-10 transition-opacity duration-300 md:opacity-0 md:group-hover:opacity-100">
-                <h3 className="truncate font-display text-sm tracking-wide text-white sm:text-base">
-                  {p.name}
-                </h3>
+              {/* Painel semi-transparente "flutuando" com margem da borda do
+                  card (não cobre 100% — a foto continua visível através
+                  dele), centraliza a logo do cliente — ou o nome, quando não
+                  há logo. */}
+              <div className="pointer-events-none absolute inset-3 flex flex-col items-center justify-center gap-3 bg-black/0 text-center opacity-0 transition-all duration-500 md:group-hover:bg-black/45 md:group-hover:opacity-100">
+                {p.logoUrl ? (
+                  // Chip branco por trás da logo: garante contraste em cima de
+                  // qualquer foto, sem forçar a cor da marca do cliente pra
+                  // monocromático (a logo pode ter cor própria).
+                  <div className="scale-95 rounded-xl bg-white/95 px-5 py-3 shadow-lg transition-transform duration-500 ease-out md:group-hover:scale-100">
+                    <div className="relative h-10 w-28 max-w-full">
+                      <Image
+                        src={p.logoUrl}
+                        alt={p.name}
+                        fill
+                        className="object-contain"
+                        sizes="112px"
+                        unoptimized
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <h3 className="truncate font-display text-lg tracking-[0.15em] text-white sm:text-2xl">
+                    {p.name}
+                  </h3>
+                )}
+              </div>
+              {/* Mobile (sem hover): mantém o nome sempre legível na base. */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent p-3 pt-10 md:hidden">
+                <h3 className="truncate font-display text-sm tracking-wide text-white">{p.name}</h3>
               </div>
             </Link>
           </motion.div>

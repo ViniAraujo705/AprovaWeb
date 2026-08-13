@@ -108,8 +108,9 @@ export const demoClients: Client[] = [
     description: 'Gostou do resultado?💛',
     photoUrl: null,
     // Marca própria já configurada, pra exercitar de cara a sobreposição na
-    // galeria pública do projeto de exemplo (p1) sem precisar subir logo.
-    branding: { logoUrl: null, agencyName: 'Bela Cosméticos', accentColor: '#d6336c' },
+    // galeria pública do projeto de exemplo (p1) e o hover com logo na
+    // vitrine (pf1, abaixo) sem precisar subir nada.
+    branding: { logoUrl: '/placeholder-logo.svg', agencyName: 'Bela Cosméticos', accentColor: '#d6336c' },
     customFields: { 'cf-1': '@belacosmeticos', 'cf-2': '12.345.678/0001-90' },
     responsibleId: 'm2',
   },
@@ -783,7 +784,9 @@ export const demoPortfolios: Portfolio[] = [
     link: 'demo-reels',
     categoryId: 'pfc-video',
     coverUrl: '/videos/reel-cosmetics.png',
-    clientId: null,
+    // Álbum personalizado pra Bela Cosméticos — exercita o logo no hover
+    // do card na vitrine (demoPublicPortfolioHub, abaixo).
+    clientId: 'c1',
     videos: [
       {
         id: 'pfv1',
@@ -1014,6 +1017,7 @@ export function demoPublicPortfolioHub(): PublicPortfolioHub {
             link: p.link,
             coverUrl: p.coverUrl,
             mediaType: dominantMediaType(p.videos),
+            logoUrl: (p.clientId ? demoClients.find((c) => c.id === p.clientId) : null)?.branding?.logoUrl ?? null,
           })),
       }))
       .filter((c) => c.portfolios.length > 0),

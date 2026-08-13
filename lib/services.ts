@@ -663,6 +663,11 @@ function mapPortfolioProfile(raw: Raw): PortfolioProfile {
 }
 
 function mapPortfolioHubItem(raw: Raw): PortfolioHubItem {
+  // Logo do cliente vinculado ao álbum (Portfolio.clientId) — backend ainda
+  // não confirma o formato, então aceita tanto aninhado (cliente.branding.logoUrl)
+  // quanto achatado (logoUrl/clienteLogoUrl) na resposta do hub.
+  const clienteRaw = pick<Raw | null>(raw, ['cliente', 'client'], null)
+  const clienteBranding = mapBranding(pick<Raw | null>(clienteRaw, ['branding'], null))
   return {
     id: String(pick(raw, ['id', '_id'], '')),
     name: pick(raw, ['nome', 'name', 'titulo'], 'Sem título'),
@@ -672,6 +677,9 @@ function mapPortfolioHubItem(raw: Raw): PortfolioHubItem {
     mediaType: normalizePortfolioMediaType(
       pick(raw, ['tipoMidiaPredominante', 'tipo_midia_predominante', 'mediaType', 'tipoMidia'], 'video'),
     ),
+    logoUrl:
+      clienteBranding?.logoUrl ??
+      pick<string | null>(raw, ['logoUrl', 'clienteLogoUrl', 'cliente_logo_url'], null),
   }
 }
 
