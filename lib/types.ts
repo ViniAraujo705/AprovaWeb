@@ -412,8 +412,15 @@ export interface ProjectGallery {
   videos: GalleryVideoItem[]
 }
 
-/** Um item de portfólio é um vídeo ou uma foto — `mediaType` distingue os dois. */
-export type PortfolioItemMediaType = 'video' | 'foto'
+/** Um item de portfólio é um vídeo, uma foto ou uma peça de design — `mediaType` distingue os três. */
+export type PortfolioItemMediaType = 'video' | 'foto' | 'design'
+
+/**
+ * Tema visual opcional aplicado ao hub público (`/portfolio/:hubLink`).
+ * `null` em `PortfolioProfile.templateId` = "Livre", o layout padrão de
+ * sempre (sidebar à esquerda, grade simples) — escolher um destes é opt-in.
+ */
+export type PortfolioTemplateId = 'minimalista' | 'grade' | 'revista' | 'editorial-escuro' | 'retrato'
 
 /** Link de contato/externo livre (site, WhatsApp, Instagram, ...) no perfil do portfólio. */
 export interface PortfolioLink {
@@ -499,6 +506,8 @@ export interface PortfolioProfile {
   links: PortfolioLink[]
   /** Nunca null — gerado automaticamente na primeira leitura, como o `publicLink` de projeto. */
   hubLink: string
+  /** Tema visual escolhido para o hub público — `null` = "Livre" (layout padrão). */
+  templateId: PortfolioTemplateId | null
 }
 
 /**
@@ -527,6 +536,7 @@ export interface PublicPortfolioHub {
   bio: string | null
   links: PortfolioLink[]
   branding: Branding | null
+  templateId: PortfolioTemplateId | null
   categories: { id: string; name: string; portfolios: PortfolioHubItem[] }[]
 }
 
@@ -710,10 +720,8 @@ export interface CrewMember {
   /**
    * Id do `TeamMember` (conta real, com login) por trás desse nome, quando
    * vinculado explicitamente pelo owner/editor — `null` pra gente da equipe
-   * sem conta no Aprova (freelancer, motorista etc.), o caso comum. Base
-   * necessária pro backend um dia poder notificar a pessoa certa quando
-   * entra numa gravação (hoje só existe `lembrete_gravacao` genérico, sem
-   * alvo por usuário) — ver `crewService.create`.
+   * sem conta no Aprova (freelancer, motorista etc.), o caso comum. Só quem
+   * tem `userId` pode ser notificado da gravação (ver `calendarService.notifyCrew`).
    */
   userId: string | null
 }

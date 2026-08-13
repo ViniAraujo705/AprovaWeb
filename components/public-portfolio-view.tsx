@@ -260,7 +260,7 @@ function PortfolioItemLightbox({
           <X className="size-5" />
         </button>
         <div className="overflow-hidden rounded-xl bg-black">
-          {item.mediaType === 'foto' ? (
+          {item.mediaType !== 'video' ? (
             item.posterUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- lightbox: URL pode ser um blob: local (upload em modo demo), o loader de Image não aceita.
               <img src={item.posterUrl} alt={item.title} className="max-h-[80vh] w-full object-contain" />

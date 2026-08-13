@@ -7,6 +7,7 @@ import {
   Plus,
   Loader2,
   AlertTriangle,
+  Bell,
   Trash2,
   X,
   Clock,
@@ -612,6 +613,7 @@ function EventModal({
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [notifying, setNotifying] = useState(false)
 
   // União do roster global com a equipe já salva neste evento — cobre o caso
   // de alguém ter sido removido do roster global depois de já vinculado
@@ -653,8 +655,8 @@ function EventModal({
   /**
    * Vincula um integrante com conta real (owner/editor) à gravação, em vez
    * de um nome livre — reaproveita uma entrada do roster já vinculada a esse
-   * `userId` se existir, pra não duplicar. Base pro backend um dia poder
-   * notificar essa pessoa especificamente (ver `CrewMember.userId`).
+   * `userId` se existir, pra não duplicar. Vincular aqui é o que habilita o
+   * botão "Notificar equipe vinculada" (ver `notifyCrewMembers`).
    */
   async function addTeamMember(memberId: string) {
     const member = teamMembers.find((m) => m.id === memberId)
@@ -707,6 +709,26 @@ function EventModal({
       setError(err instanceof ApiError ? err.message : 'Não foi possível salvar. Tente novamente.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function notifyCrewMembers() {
+    if (!event) return
+    const linkedIds = crew.filter((c) => c.userId).map((c) => c.id)
+    if (linkedIds.length === 0) return
+    setNotifying(true)
+    setError(null)
+    try {
+      const { notified } = await calendarService.notifyCrew(event.id, linkedIds)
+      toast.success(
+        notified > 0
+          ? `${notified} ${notified === 1 ? 'pessoa notificada' : 'pessoas notificadas'}`
+          : 'Ninguém pôde ser notificado',
+      )
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível notificar a equipe. Tente novamente.')
+    } finally {
+      setNotifying(false)
     }
   }
 
@@ -903,6 +925,17 @@ function EventModal({
               )
             })}
           </div>
+          {event && crew.some((c) => c.userId) && (
+            <button
+              type="button"
+              onClick={notifyCrewMembers}
+              disabled={notifying}
+              className="mt-1 inline-flex min-h-8 w-fit items-center gap-1.5 rounded-lg bg-secondary px-2.5 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+            >
+              {notifying ? <Loader2 className="size-3.5 animate-spin" /> : <Bell className="size-3.5" />}
+              Notificar equipe vinculada
+            </button>
+          )}
           {teamMembers.length > 0 && (
             <div className="mt-1 flex items-center gap-1.5">
               <select

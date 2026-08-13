@@ -15,6 +15,7 @@ import {
   ImagePlus,
   Link2,
   Loader2,
+  Palette,
   Pencil,
   Plus,
   Search,
@@ -886,6 +887,8 @@ function UploadPortfolioMediaForm({
                   <Check className="size-4" />
                 ) : item.status === 'error' ? (
                   <AlertTriangle className="size-4" />
+                ) : item.mediaType === 'design' ? (
+                  <Palette className="size-4" />
                 ) : item.mediaType === 'foto' ? (
                   <ImageIcon className="size-4" />
                 ) : (
@@ -905,6 +908,25 @@ function UploadPortfolioMediaForm({
                   <p className="truncate text-sm font-medium text-foreground" title={item.title}>
                     {item.title}
                   </p>
+                )}
+                {item.status === 'pending' && item.mediaType !== 'video' && (
+                  <div className="mt-1 inline-flex overflow-hidden rounded-md border border-border text-[11px]">
+                    {(['foto', 'design'] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => updateItem(item.id, { mediaType: t })}
+                        className={cn(
+                          'px-2 py-0.5 font-medium transition-colors',
+                          item.mediaType === t
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-transparent text-muted-foreground hover:bg-secondary',
+                        )}
+                      >
+                        {t === 'foto' ? 'Foto' : 'Design'}
+                      </button>
+                    ))}
+                  </div>
                 )}
                 {item.status === 'error' ? (
                   <p className="truncate text-xs text-destructive">{item.error}</p>
@@ -1032,7 +1054,11 @@ function PortfolioItemCard({
         )}
         <div className="absolute left-2 top-2 flex items-center gap-1">
           <span className="inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white">
-            {video.mediaType === 'foto' ? (
+            {video.mediaType === 'design' ? (
+              <>
+                <Palette className="size-3" /> Design
+              </>
+            ) : video.mediaType === 'foto' ? (
               <>
                 <ImageIcon className="size-3" /> Foto
               </>

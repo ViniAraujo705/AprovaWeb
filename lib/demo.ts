@@ -34,6 +34,7 @@ import type {
   PortfolioItemMediaType,
   PortfolioLink,
   PortfolioProfile,
+  PortfolioTemplateId,
   ProductionStage,
   Project,
   ProjectGallery,
@@ -647,6 +648,26 @@ export const demoNotifications: AppNotification[] = [
   buildDemoNotification('n5', 'aprovacao_cliente', 'rv-03', 50, true),
 ]
 
+let demoNotifyIdSeq = 0
+
+/**
+ * Notifica os integrantes vinculados a uma conta real (`CrewMember.userId`)
+ * de uma gravação — os sem `userId` (freelancer, motorista) são ignorados,
+ * já que não têm conta pra receber notificação. Cria um `lembrete_gravacao`
+ * pra simular o alerta que a pessoa veria no sino (`NotificationBell`).
+ */
+export function demoNotifyCrew(activityId: string, memberIds: string[]): { notified: number } {
+  const event = demoCalendarActivities.find((e) => e.id === activityId)
+  if (!event) throw new Error('Evento não encontrado.')
+  const linked = memberIds.filter((id) => demoCrewRoster.find((c) => c.id === id)?.userId)
+  if (linked.length > 0) {
+    demoNotifications.unshift(
+      buildDemoRecordingReminder(`n-notify-${++demoNotifyIdSeq}-${Date.now()}`, activityId, 0, false),
+    )
+  }
+  return { notified: linked.length }
+}
+
 /** Perguntas de avaliação da conta (para /configuracoes/perguntas e a tela do cliente). */
 export function demoRatingQuestions(): RatingQuestion[] {
   return [
@@ -774,6 +795,7 @@ export const demoPortfolioProfile: PortfolioProfile = {
     { id: 'pfl3', label: 'WhatsApp', url: 'https://wa.me/5511999999999' },
   ],
   hubLink: 'demo-agencia',
+  templateId: null,
 }
 
 export const demoPortfolios: Portfolio[] = [
@@ -823,6 +845,18 @@ export const demoPortfolios: Portfolio[] = [
         order: 2,
         highlighted: false,
         createdAt: iso(140),
+      },
+      {
+        id: 'pfv5',
+        mediaType: 'design',
+        title: 'Arte para carrossel de lançamento',
+        description: 'Peça gráfica usada no post de anúncio do produto.',
+        videoUrl: null,
+        posterUrl: '/videos/reel-cosmetics.png',
+        processingStatus: 'pronto',
+        order: 3,
+        highlighted: false,
+        createdAt: iso(130),
       },
     ],
     createdAt: iso(300),
@@ -935,6 +969,7 @@ let portfolioLinkIdSeq = 0
 export function demoUpdatePortfolioProfile(input: {
   bio?: string | null
   links?: { label: string; url: string }[]
+  templateId?: PortfolioTemplateId | null
 }): PortfolioProfile {
   if (input.bio !== undefined) demoPortfolioProfile.bio = input.bio
   if (input.links !== undefined) {
@@ -942,6 +977,7 @@ export function demoUpdatePortfolioProfile(input: {
       (l): PortfolioLink => ({ id: `pfl-${++portfolioLinkIdSeq}-${Date.now()}`, label: l.label, url: l.url }),
     )
   }
+  if (input.templateId !== undefined) demoPortfolioProfile.templateId = input.templateId
   return demoPortfolioProfile
 }
 
@@ -988,8 +1024,11 @@ export function isDemoHubLink(link: string): boolean {
 
 /** Tipo de mídia predominante (maioria simples) entre os itens de um álbum. */
 function dominantMediaType(videos: PortfolioItem[]): PortfolioItemMediaType {
-  const fotos = videos.filter((v) => v.mediaType === 'foto').length
-  return fotos > videos.length - fotos ? 'foto' : 'video'
+  const counts: Record<PortfolioItemMediaType, number> = { video: 0, foto: 0, design: 0 }
+  for (const v of videos) counts[v.mediaType]++
+  return (Object.keys(counts) as PortfolioItemMediaType[]).reduce((best, type) =>
+    counts[type] > counts[best] ? type : best,
+  )
 }
 
 /** Hub público de exemplo (rota /portfolio/:hubLink): agrupa os portfólios demo pelas categorias demo. */
@@ -1004,6 +1043,7 @@ export function demoPublicPortfolioHub(): PublicPortfolioHub {
     // branding null → sem logo próprio, a sidebar não mostra nenhuma marca
     // (nem o fallback "CHECK" — essa vitrine é do cliente, não da CHECK).
     branding: null,
+    templateId: demoPortfolioProfile.templateId,
     categories: sortedCategories
       .map((c) => ({
         id: c.id,

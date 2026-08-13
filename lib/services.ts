@@ -35,6 +35,7 @@ import {
   demoMetrics,
   demoNewVersion,
   demoNotifications,
+  demoNotifyCrew,
   demoPlanStatus,
   demoSetPlan,
   demoPortfolioCategories,
@@ -111,6 +112,7 @@ import type {
   PortfolioItemMediaType,
   PortfolioLink,
   PortfolioProfile,
+  PortfolioTemplateId,
   ProductionStage,
   Project,
   ProjectGallery,
@@ -594,7 +596,9 @@ function hideSupersededGalleryVideos(videos: GalleryVideoItem[]): GalleryVideoIt
 
 function normalizePortfolioMediaType(raw: unknown): PortfolioItemMediaType {
   const s = String(raw ?? '').toLowerCase()
-  return ['foto', 'photo', 'image', 'imagem'].includes(s) ? 'foto' : 'video'
+  if (['design', 'arte', 'peca', 'peça', 'grafico', 'gráfico'].includes(s)) return 'design'
+  if (['foto', 'photo', 'image', 'imagem'].includes(s)) return 'foto'
+  return 'video'
 }
 
 function mapPortfolioItem(raw: Raw): PortfolioItem {
@@ -652,6 +656,19 @@ function mapPortfolioLink(raw: Raw): PortfolioLink {
   }
 }
 
+const PORTFOLIO_TEMPLATE_IDS: PortfolioTemplateId[] = [
+  'minimalista',
+  'grade',
+  'revista',
+  'editorial-escuro',
+  'retrato',
+]
+
+function normalizePortfolioTemplateId(raw: unknown): PortfolioTemplateId | null {
+  const s = String(raw ?? '').toLowerCase()
+  return (PORTFOLIO_TEMPLATE_IDS as string[]).includes(s) ? (s as PortfolioTemplateId) : null
+}
+
 function mapPortfolioProfile(raw: Raw): PortfolioProfile {
   return {
     photoUrl: pick<string | null>(raw, ['fotoUrl', 'foto_url', 'photoUrl'], null),
@@ -659,6 +676,7 @@ function mapPortfolioProfile(raw: Raw): PortfolioProfile {
     bio: pick<string | null>(raw, ['bio', 'biografia'], null),
     links: asArray(pick(raw, ['links', 'linksContato', 'links_contato'], [])).map(mapPortfolioLink),
     hubLink: String(pick(raw, ['linkHub', 'link_hub', 'hubLink', 'link'], '')),
+    templateId: normalizePortfolioTemplateId(pick(raw, ['templateId', 'template_id', 'tema', 'theme'], null)),
   }
 }
 
@@ -1744,11 +1762,11 @@ export const portfolioService = {
           mediaType: input.mediaType,
           title: input.title || input.nomeArquivo,
           description: input.description ?? null,
-          // Foto: `urlStorage` já É a imagem a mostrar (thumbnail e tela cheia
-          // são a mesma URL, sem pipeline de otimização separado). Vídeo:
-          // fica em `videoUrl`, o poster só chega depois do processamento.
-          videoUrl: input.mediaType === 'foto' ? null : input.urlStorage,
-          posterUrl: input.mediaType === 'foto' ? input.urlStorage : null,
+          // Foto/design: `urlStorage` já É a imagem a mostrar (thumbnail e
+          // tela cheia são a mesma URL, sem pipeline de otimização separado).
+          // Vídeo: fica em `videoUrl`, o poster só chega depois do processamento.
+          videoUrl: input.mediaType === 'video' ? input.urlStorage : null,
+          posterUrl: input.mediaType === 'video' ? null : input.urlStorage,
         }),
         300,
       )
@@ -1845,12 +1863,17 @@ export const portfolioProfileService = {
     const res = await api.patch<Raw>('/portfolio-profile', { capaUrl: coverUrl })
     return mapPortfolioProfile(res)
   },
-  /** Bio + links de contato do hub — foto/capa têm fluxo de upload próprio, à parte. */
-  async update(input: { bio?: string | null; links?: { label: string; url: string }[] }): Promise<PortfolioProfile> {
+  /** Bio + links de contato + tema do hub — foto/capa têm fluxo de upload próprio, à parte. */
+  async update(input: {
+    bio?: string | null
+    links?: { label: string; url: string }[]
+    templateId?: PortfolioTemplateId | null
+  }): Promise<PortfolioProfile> {
     if (isDemo()) return delay(demoUpdatePortfolioProfile(input), 300)
     const res = await api.patch<Raw>('/portfolio-profile', {
       bio: input.bio,
       links: input.links?.map((l) => ({ rotulo: l.label, url: l.url })),
+      templateId: input.templateId,
     })
     return mapPortfolioProfile(res)
   },
@@ -2094,6 +2117,7 @@ export const publicService = {
       bio: pick<string | null>(res, ['bio', 'biografia'], null),
       links: asArray(pick(res, ['links', 'linksContato', 'links_contato'], [])).map(mapPortfolioLink),
       branding: mapBranding(agenciaRaw),
+      templateId: normalizePortfolioTemplateId(pick(res, ['templateId', 'template_id', 'tema', 'theme'], null)),
       categories: asArray(pick(res, ['categorias', 'categories'], [])).map((c: Raw) => ({
         id: String(pick(c, ['id', '_id'], '')),
         name: pick(c, ['nome', 'name'], ''),
@@ -2867,6 +2891,18 @@ export const calendarService = {
       return
     }
     await api.delete(`/recording-events/${id}`)
+  },
+
+  /**
+   * Notifica os integrantes da equipe vinculados a uma conta real
+   * (`CrewMember.userId`) sobre essa atividade — quem não tem conta no
+   * Aprova (freelancer, motorista) não recebe nada, não tem pra onde mandar.
+   * `notified` no retorno é quantos de fato tinham conta vinculada.
+   */
+  async notifyCrew(id: string, memberIds: string[]): Promise<{ notified: number }> {
+    if (isDemo()) return delay(demoNotifyCrew(id, memberIds), 300)
+    const res = await api.post<Raw>(`/recording-events/${id}/notify`, { equipeIds: memberIds })
+    return { notified: Number(pick(res, ['notificados', 'notified'], memberIds.length)) || 0 }
   },
 }
 

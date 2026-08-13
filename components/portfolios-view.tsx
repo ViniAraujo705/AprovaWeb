@@ -22,7 +22,8 @@ import {
   X,
 } from 'lucide-react'
 import { portfolioProfileService, portfolioService } from '@/lib/services'
-import type { Portfolio, PortfolioCategory, PortfolioLink, PortfolioProfile } from '@/lib/types'
+import type { Portfolio, PortfolioCategory, PortfolioLink, PortfolioProfile, PortfolioTemplateId } from '@/lib/types'
+import { PORTFOLIO_TEMPLATE_OPTIONS } from '@/lib/portfolio-templates'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
@@ -427,6 +428,7 @@ function PortfolioProfileEditModal({
   const [coverError, setCoverError] = useState<string | null>(null)
   const [bio, setBio] = useState(profile.bio ?? '')
   const [links, setLinks] = useState<PortfolioLink[]>(profile.links)
+  const [templateId, setTemplateId] = useState<PortfolioTemplateId | null>(profile.templateId)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -484,7 +486,11 @@ function PortfolioProfileEditModal({
       const cleanedLinks = links
         .map((l) => ({ label: l.label.trim(), url: l.url.trim() }))
         .filter((l) => l.label && l.url)
-      const updated = await portfolioProfileService.update({ bio: bio.trim() || null, links: cleanedLinks })
+      const updated = await portfolioProfileService.update({
+        bio: bio.trim() || null,
+        links: cleanedLinks,
+        templateId,
+      })
       onUpdated(updated)
       toast.success('Perfil atualizado')
       onClose()
@@ -604,6 +610,28 @@ function PortfolioProfileEditModal({
           >
             <Plus className="size-3.5" /> Adicionar link
           </button>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">Tema do hub público</span>
+          <div className="grid grid-cols-2 gap-2">
+            {PORTFOLIO_TEMPLATE_OPTIONS.map((opt) => (
+              <button
+                key={opt.id ?? 'livre'}
+                type="button"
+                onClick={() => setTemplateId(opt.id)}
+                className={cn(
+                  'flex flex-col gap-0.5 rounded-lg border p-2.5 text-left transition-colors',
+                  templateId === opt.id
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border bg-secondary hover:bg-secondary/70',
+                )}
+              >
+                <span className="text-xs font-medium text-foreground">{opt.name}</span>
+                <span className="text-[11px] leading-snug text-muted-foreground">{opt.description}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
