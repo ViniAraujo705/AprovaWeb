@@ -56,15 +56,16 @@ type NavItem = {
 type NavModule = {
   key: string
   label: string
-  /** Ícone do rail (camada 1) — os itens dentro (camada 2) têm o próprio ícone. */
+  /** Ícone usado no rail quando o menu está recolhido, se o módulo tiver só 1 item. */
   icon: typeof LayoutDashboard
   items: NavItem[]
 }
 
-// Navegação em duas camadas (rail + painel), estilo Salesforce/Linear. Um
-// módulo inteiro some do rail se todos os itens dele forem escondidos (ex:
-// editor não vê nenhum item de "Equipe e resultados" — o ícone do rail some
-// junto, não fica um módulo vazio clicável).
+// Navegação em lista única agrupada por módulo (visão geral, trabalho,
+// clientes, equipe e resultados, conta) — mesmo conteúdo expandido (com
+// rótulos) ou recolhido (só ícones). Um módulo inteiro some da lista se
+// todos os itens dele forem escondidos (ex: editor não vê nenhum item de
+// "Equipe e resultados").
 const navModules: NavModule[] = [
   {
     key: 'geral',
@@ -74,7 +75,7 @@ const navModules: NavModule[] = [
   },
   {
     key: 'trabalho',
-    label: 'Trabalho',
+    label: 'Fluxo de trabalho',
     icon: Briefcase,
     items: [
       { href: '/kanban', label: 'Kanban', icon: Kanban },
@@ -133,6 +134,8 @@ const navModules: NavModule[] = [
   },
 ]
 
+const SIDEBAR_COLLAPSED_KEY = 'aprova_sidebar_collapsed'
+
 function itemMatchesRoute(item: NavItem, pathname: string): boolean {
   return item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/')
 }
@@ -177,104 +180,8 @@ function Logo({ collapsed }: { collapsed?: boolean }) {
   )
 }
 
-/** Camada 1: rail estreito (56px), só ícones — um por módulo. */
-function NavRail({
-  modules,
-  activeModuleKey,
-  openModuleKey,
-  onSelect,
-}: {
-  modules: NavModule[]
-  activeModuleKey: string | null
-  openModuleKey: string | null
-  onSelect: (key: string) => void
-}) {
-  return (
-    <div className="flex flex-col items-center gap-1">
-      {modules.map((m) => {
-        const Icon = m.icon
-        // Preto = módulo da rota atual (sempre, independente do painel aberto).
-        // Cinza = módulo só "espiado" (painel aberto sem ter navegado pra ele).
-        const isActiveRoute = m.key === activeModuleKey
-        const isOpen = m.key === openModuleKey
-        return (
-          <button
-            key={m.key}
-            type="button"
-            onClick={() => onSelect(m.key)}
-            title={m.label}
-            aria-label={m.label}
-            aria-pressed={isOpen}
-            className={cn(
-              'grid size-10 shrink-0 place-items-center rounded-lg transition-colors',
-              isActiveRoute
-                ? 'bg-primary text-primary-foreground'
-                : isOpen
-                  ? 'bg-secondary text-foreground'
-                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
-            )}
-          >
-            <Icon className="size-5" />
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-/** Camada 2: painel do módulo aberto — título + itens (ícone + rótulo). */
-function NavPanel({
-  module,
-  onNavigate,
-  onClose,
-}: {
-  module: NavModule
-  onNavigate?: () => void
-  onClose: () => void
-}) {
-  const pathname = usePathname()
-  return (
-    <div className="flex h-full w-56 shrink-0 flex-col p-4">
-      <div className="flex items-center justify-between gap-2 px-1 pb-3">
-        <p className="text-xs font-medium text-muted-foreground/70">{module.label}</p>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Recolher painel"
-          title="Recolher painel"
-          className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
-        >
-          <ChevronLeft className="size-3.5" />
-        </button>
-      </div>
-      <nav className="flex flex-col gap-1">
-        {module.items.map((item) => {
-          const active = itemMatchesRoute(item, pathname)
-          const Icon = item.icon
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className={cn(
-                'flex min-h-10 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium transition-colors',
-                active
-                  ? 'bg-secondary text-foreground'
-                  : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground',
-              )}
-            >
-              <Icon className="size-4 shrink-0" />
-              <span className="truncate">{item.label}</span>
-            </Link>
-          )
-        })}
-      </nav>
-    </div>
-  )
-}
-
-/** Lista única (sem duas camadas) pro drawer mobile — rail+painel não cabe bem numa gaveta estreita. */
-function MobileNavLinks({ onNavigate }: { onNavigate?: () => void }) {
+/** Lista única com todos os grupos — usada no menu desktop expandido e na gaveta mobile. */
+function NavLinksList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const modules = useVisibleModules()
 
@@ -282,7 +189,7 @@ function MobileNavLinks({ onNavigate }: { onNavigate?: () => void }) {
     <nav className="flex flex-col">
       {modules.map((m, i) => (
         <div key={m.key} className={cn(i > 0 && 'mt-4 border-t border-sidebar-border pt-4')}>
-          <p className="px-3 pb-2 text-xs font-medium text-muted-foreground/70">{m.label}</p>
+          <p className="lowercase px-3 pb-2 text-xs font-medium text-muted-foreground/70">{m.label}</p>
           <div className="flex flex-col gap-1">
             {m.items.map((item) => {
               const active = itemMatchesRoute(item, pathname)
@@ -311,7 +218,39 @@ function MobileNavLinks({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-/** Rodapé compacto (avatar, notificações, tema, sair) — usado no rail (56px), sempre ícone-só. */
+/** Menu desktop recolhido: só ícones, um por item (agrupados com espaço entre módulos), sem rótulo. */
+function NavRailItems({ modules, pathname }: { modules: NavModule[]; pathname: string }) {
+  return (
+    <div className="flex flex-col items-center gap-3">
+      {modules.map((m) => (
+        <div key={m.key} className="flex flex-col items-center gap-1">
+          {m.items.map((item) => {
+            const active = itemMatchesRoute(item, pathname)
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={item.label}
+                aria-label={item.label}
+                className={cn(
+                  'grid size-10 shrink-0 place-items-center rounded-lg transition-colors',
+                  active
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                )}
+              >
+                <Icon className="size-5" />
+              </Link>
+            )
+          })}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Rodapé compacto (avatar, notificações, tema, sair) — usado no menu desktop recolhido, sempre ícone-só. */
 function RailUserFooter() {
   const { user, logout } = useAuth()
   return (
@@ -342,8 +281,8 @@ function RailUserFooter() {
   )
 }
 
-/** Rodapé completo (nome, e-mail, badge de papel) — usado na gaveta mobile, onde tem espaço sobrando. */
-function MobileUserFooter() {
+/** Rodapé completo (nome, e-mail, badge de papel) — usado no menu desktop expandido e na gaveta mobile, onde tem espaço sobrando. */
+function SidebarUserFooter() {
   const { user, logout } = useAuth()
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-sidebar-border bg-secondary/40 p-3">
@@ -405,28 +344,21 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
   const [overlayBlocking, setOverlayBlocking] = useState(false)
   const reduce = useReducedMotion()
 
-  // Módulo dono da rota atual — sempre existe (exceto rotas fora do shell,
-  // que nem chegam a montar este componente).
-  const activeModuleKey = useMemo(() => {
-    for (const m of modules) {
-      if (m.items.some((item) => itemMatchesRoute(item, pathname))) return m.key
-    }
-    return null
-  }, [modules, pathname])
-
-  // Painel aberto no rail — segue a rota atual por padrão. Clicar de novo no
-  // ícone já aberto recolhe (dá mais espaço pro conteúdo); clicar num módulo
-  // diferente troca o painel sem navegar (deixa "espiar" antes de escolher).
-  const [openModuleKey, setOpenModuleKey] = useState<string | null>(activeModuleKey)
+  // Menu desktop expandido (lista completa, com rótulos) ou recolhido (só
+  // ícones) — lembrado entre sessões via localStorage. `null` até ler do
+  // localStorage no mount, pra não animar a partir do valor padrão errado.
+  const [collapsed, setCollapsed] = useState<boolean | null>(null)
   useEffect(() => {
-    setOpenModuleKey(activeModuleKey)
-  }, [activeModuleKey])
-
-  function handleRailSelect(key: string) {
-    setOpenModuleKey((prev) => (prev === key ? null : key))
+    setCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1')
+  }, [])
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? '1' : '0')
+      return next
+    })
   }
-
-  const openModule = modules.find((m) => m.key === openModuleKey) ?? null
+  const isCollapsed = collapsed ?? false
 
   function openMenu() {
     setOverlayBlocking(true)
@@ -442,55 +374,53 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
       className="min-h-screen lg:grid lg:grid-cols-[auto_1fr]"
       style={brandAccentStyle(user?.branding?.accentColor)}
     >
-      {/* Desktop sidebar: rail (56px) + painel do módulo aberto (224px) */}
-      <aside className="sticky top-0 hidden h-screen border-r border-sidebar-border bg-sidebar lg:flex print:hidden">
-        <div className="flex h-full w-14 shrink-0 flex-col items-center gap-4 py-4">
-          <Logo collapsed />
-          <div className="min-h-0 flex-1 overflow-y-auto scrollbar-none">
-            <NavRail
-              modules={modules}
-              activeModuleKey={activeModuleKey}
-              openModuleKey={openModuleKey}
-              onSelect={handleRailSelect}
-            />
-          </div>
-          <RailUserFooter />
-        </div>
-        <AnimatePresence initial={false}>
-          {openModule ? (
-            <motion.div
-              key={openModule.key}
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 224, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-              className="h-full overflow-hidden border-l border-sidebar-border"
+      {/* Desktop sidebar: lista completa (expandida) ou rail de ícones (recolhida) */}
+      <motion.aside
+        initial={false}
+        animate={{ width: isCollapsed ? 56 : 288 }}
+        transition={reduce ? { duration: 0 } : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+        className="sticky top-0 hidden h-screen shrink-0 overflow-hidden border-r border-sidebar-border bg-sidebar lg:flex print:hidden"
+      >
+        {isCollapsed ? (
+          <div className="flex h-full w-14 shrink-0 flex-col items-center gap-4 py-4">
+            <Logo collapsed />
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              aria-label="Expandir menu"
+              title="Expandir menu"
+              className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
             >
-              <NavPanel module={openModule} onClose={() => setOpenModuleKey(null)} />
-            </motion.div>
-          ) : (
-            // Painel recolhido: aba fina grudada na borda pra "puxar de volta"
-            // o painel — sem isso, a única forma de reabrir é lembrar de
-            // clicar de novo no ícone já ativo no rail (nada indica isso).
-            activeModuleKey && (
-              <motion.button
-                key="collapsed-handle"
+              <ChevronRight className="size-4" />
+            </button>
+            <div className="min-h-0 flex-1 overflow-y-auto scrollbar-none">
+              <NavRailItems modules={modules} pathname={pathname} />
+            </div>
+            <RailUserFooter />
+          </div>
+        ) : (
+          <div className="flex h-full w-72 shrink-0 flex-col p-5">
+            <div className="flex items-center justify-between gap-2">
+              <Logo />
+              <button
                 type="button"
-                onClick={() => setOpenModuleKey(activeModuleKey)}
-                title="Expandir menu"
-                aria-label="Expandir menu"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="flex h-full w-3 shrink-0 items-center justify-center border-l border-sidebar-border bg-sidebar text-muted-foreground/60 transition-colors hover:bg-secondary hover:text-foreground"
+                onClick={toggleCollapsed}
+                aria-label="Recolher menu"
+                title="Recolher menu"
+                className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
               >
-                <ChevronRight className="size-3" />
-              </motion.button>
-            )
-          )}
-        </AnimatePresence>
-      </aside>
+                <ChevronLeft className="size-4" />
+              </button>
+            </div>
+            <div className="mt-8 min-h-0 flex-1 overflow-y-auto scrollbar-none">
+              <NavLinksList />
+            </div>
+            <div className="mt-4">
+              <SidebarUserFooter />
+            </div>
+          </div>
+        )}
+      </motion.aside>
 
       {/* Mobile header */}
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur lg:hidden print:hidden">
@@ -541,10 +471,10 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
               <div className="mt-8 min-h-0 flex-1 overflow-y-auto scrollbar-none">
-                <MobileNavLinks onNavigate={closeMenu} />
+                <NavLinksList onNavigate={closeMenu} />
               </div>
               <div className="mt-4">
-                <MobileUserFooter />
+                <SidebarUserFooter />
               </div>
             </motion.div>
           </div>
