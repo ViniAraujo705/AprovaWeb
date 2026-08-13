@@ -39,8 +39,18 @@ const CALENDAR_TYPE_META: Record<
   { icon: typeof Video; chipBg: string; chipText: string; dot: string }
 > = {
   gravacao: { icon: Video, chipBg: 'bg-primary/15 hover:bg-primary/25', chipText: 'text-primary', dot: 'bg-primary' },
-  captacao: { icon: Camera, chipBg: 'bg-sky-500/15 hover:bg-sky-500/25', chipText: 'text-sky-500', dot: 'bg-sky-500' },
-  ensaio: { icon: UsersIcon, chipBg: 'bg-violet-500/15 hover:bg-violet-500/25', chipText: 'text-violet-500', dot: 'bg-violet-500' },
+  captacao: {
+    icon: Camera,
+    chipBg: 'bg-sky-500/15 hover:bg-sky-500/25',
+    chipText: 'text-sky-600 dark:text-sky-400',
+    dot: 'bg-sky-500',
+  },
+  ensaio: {
+    icon: UsersIcon,
+    chipBg: 'bg-violet-500/15 hover:bg-violet-500/25',
+    chipText: 'text-violet-600 dark:text-violet-400',
+    dot: 'bg-violet-500',
+  },
   reuniao: {
     icon: MessagesSquare,
     chipBg: 'bg-amber-500/15 hover:bg-amber-500/25',
@@ -54,11 +64,16 @@ const CALENDAR_TYPE_META: Record<
     dot: 'bg-emerald-500',
   },
   prazo: { icon: Flag, chipBg: 'bg-destructive/15 hover:bg-destructive/25', chipText: 'text-destructive', dot: 'bg-destructive' },
-  evento: { icon: PartyPopper, chipBg: 'bg-pink-500/15 hover:bg-pink-500/25', chipText: 'text-pink-500', dot: 'bg-pink-500' },
+  evento: {
+    icon: PartyPopper,
+    chipBg: 'bg-pink-500/15 hover:bg-pink-500/25',
+    chipText: 'text-pink-600 dark:text-pink-400',
+    dot: 'bg-pink-500',
+  },
   demanda_interna: {
     icon: ClipboardList,
     chipBg: 'bg-indigo-500/15 hover:bg-indigo-500/25',
-    chipText: 'text-indigo-500',
+    chipText: 'text-indigo-600 dark:text-indigo-400',
     dot: 'bg-indigo-500',
   },
 }
@@ -326,14 +341,14 @@ export function CalendarView() {
                                   setModal({ date: new Date(ev.startAt), event: ev })
                                 }
                               }}
-                              className={cn('flex flex-col rounded-md px-1.5 py-0.5', CALENDAR_TYPE_META[ev.type].chipBg)}
+                              className={cn('flex flex-col rounded-md px-1.5 py-1', CALENDAR_TYPE_META[ev.type].chipBg)}
                               title={[ev.title, extra].filter(Boolean).join(' — ')}
                             >
-                              <span className={cn('break-words text-[10px] font-medium sm:text-xs', CALENDAR_TYPE_META[ev.type].chipText)}>
+                              <span className={cn('break-words text-[11px] font-semibold leading-tight sm:text-xs', CALENDAR_TYPE_META[ev.type].chipText)}>
                                 {timeLabel(ev.startAt)} {ev.title}
                               </span>
                               {extra && (
-                                <span className="break-words text-[9px] text-muted-foreground sm:text-[10px]">
+                                <span className="break-words text-[10px] leading-tight text-foreground/70 sm:text-[11px]">
                                   {extra}
                                 </span>
                               )}
