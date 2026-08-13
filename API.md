@@ -321,8 +321,15 @@ que continua mostrando a marca da agência.
 
 `PortfolioItem`: `{ id, tipoMidia: "video" | "foto", titulo, descricao,
 urlStorage (ou urlOtimizada, o que estiver pronto para tocar — sempre `null`
-quando `tipoMidia: "foto"`), posterUrl, statusProcessamento, ordem, criadoEm }`.
-Sem `status` de aprovação — não faz sentido fora do fluxo cliente↔projeto.
+quando `tipoMidia: "foto"`), posterUrl, statusProcessamento, ordem, destaque,
+criadoEm }`. Sem `status` de aprovação — não faz sentido fora do fluxo
+cliente↔projeto.
+
+**[ PENDENTE NO BACKEND ]** `destaque` (boolean, default `false`) é campo
+novo: o owner marca manualmente os melhores trabalhos do álbum (estrela na UI
+de gestão). É só um sinal visual — vira um badge "Destaque" na vitrine
+pública — **não** afeta `ordem` nem nenhuma outra regra. Editável via
+`PATCH /portfolios/:id/videos/:videoId` (abaixo).
 
 Quando `tipoMidia: "foto"`: `posterUrl` é a própria foto em alta resolução
 (usada tanto como thumbnail na grade pública quanto em tela cheia no
@@ -367,9 +374,9 @@ Quando `tipoMidia: "foto"`, o backend deve gravar `posterUrl = urlStorage`
 Resposta: o `Portfolio` completo atualizado.
 
 ### `PATCH /portfolios/:id/videos/:videoId`
-Edita título/descrição de um item (vídeo ou foto) já no portfólio.
+Edita título/descrição/destaque de um item (vídeo ou foto) já no portfólio.
 
-Body: `{ "titulo"?: "...", "descricao"?: "..." }`
+Body: `{ "titulo"?: "...", "descricao"?: "...", "destaque"?: true }`
 
 Resposta: o `Portfolio` completo atualizado.
 
@@ -409,15 +416,27 @@ continua acessível pelo link direto dele.
 | Método | Rota | Body | Retorno |
 |---|---|---|---|
 | `GET` | `/portfolio-profile` | — | `PortfolioProfile` (cria `linkHub` automaticamente na primeira chamada, se a conta ainda não tiver um) |
-| `PATCH` | `/portfolio-profile` | `{ fotoUrl }` | `PortfolioProfile` atualizado |
+| `PATCH` | `/portfolio-profile` | `{ fotoUrl?, capaUrl?, bio?, links? }` | `PortfolioProfile` atualizado |
 | `GET` | `/portfolio-categories` | — | `PortfolioCategory[]`, ordenadas por `ordem` |
 | `POST` | `/portfolio-categories` | `{ nome }` | `PortfolioCategory` criada |
 | `PATCH` | `/portfolio-categories/:id` | `{ nome }` | `PortfolioCategory` atualizada |
 | `DELETE` | `/portfolio-categories/:id` | — | `{ "deleted": true }` — os álbuns associados viram `categoriaId: null`, **não são apagados** |
 | `PATCH` | `/portfolio-categories/order` | `{ categoryIds: ["uuid1", "uuid2", "..."] }` | `PortfolioCategory[]` com `ordem` recalculada pela posição no array |
 
-`PortfolioProfile`: `{ fotoUrl, linkHub }` — `linkHub` nunca é `null` (mesmo
-espírito do `linkPublico` de projeto). `PortfolioCategory`: `{ id, nome, ordem }`.
+`PortfolioProfile`: `{ fotoUrl, capaUrl, bio, links: PortfolioLink[], linkHub }`
+— `linkHub` nunca é `null` (mesmo espírito do `linkPublico` de projeto).
+`PortfolioCategory`: `{ id, nome, ordem }`.
+
+**[ PENDENTE NO BACKEND ]** `capaUrl`, `bio` e `links` são campos novos
+(pedido original de portfólio: "capa, bio ... e informações de contato").
+`capaUrl` é o banner exibido no topo do hub público — setado via o novo
+upload abaixo, igual à foto de perfil. `bio` é texto livre (sem limite
+específico documentado, sugerimos algo como 500 chars). `links` é uma lista
+livre de contato/redes — sem plataformas fixas, o owner nomeia o rótulo como
+quiser ("Site", "WhatsApp", "Instagram"...): `PortfolioLink`:
+`{ id, rotulo, url }`. Em `PATCH`, o frontend manda `links` como a lista
+completa (substitui, não faz merge por id) — o backend gera o `id` de cada
+entrada nova.
 
 ### `POST /portfolio-profile/photo-upload-url`
 Presigned URL pra foto de perfil — só imagem, mesmo contrato 2-passos de
@@ -427,6 +446,16 @@ Presigned URL pra foto de perfil — só imagem, mesmo contrato 2-passos de
 "confirmação" (diferente do upload de vídeo).
 
 Body: `{ "nomeArquivo": "foto.jpg", "contentType": "image/jpeg" }`
+`contentType` aceita `image/png`, `image/jpeg`, `image/webp`.
+
+Resposta `200`: `{ "uploadUrl": "...", "key": "...", "publicUrl": "...", "expiresIn": 600 }`
+
+### `POST /portfolio-profile/cover-upload-url`
+**[ PENDENTE NO BACKEND ]** Presigned URL pra capa do hub — só imagem, mesmo
+contrato 2-passos acima (sem passo de "confirmação": a `publicUrl` retornada
+já é enviada direto em `PATCH /portfolio-profile { capaUrl }`).
+
+Body: `{ "nomeArquivo": "capa.jpg", "contentType": "image/jpeg" }`
 `contentType` aceita `image/png`, `image/jpeg`, `image/webp`.
 
 Resposta `200`: `{ "uploadUrl": "...", "key": "...", "publicUrl": "...", "expiresIn": 600 }`
@@ -732,8 +761,8 @@ Resposta:
   "agencia": { "nome": "Agencia Teste", "logoUrl": "https://...", "corDestaque": "#ff0000" },
   "cliente": { "branding": { "logoUrl": "https://...", "corDestaque": "#d6336c" } },
   "videos": [
-    { "id": "uuid", "tipoMidia": "video", "titulo": "Reel lançamento batom matte", "descricao": "... ou null", "urlStorage": "https://...", "posterUrl": "https://... ou null", "statusProcessamento": "pronto", "ordem": 0, "criadoEm": "..." },
-    { "id": "uuid", "tipoMidia": "foto", "titulo": "Still campanha", "descricao": null, "urlStorage": null, "posterUrl": "https://...", "statusProcessamento": "pronto", "ordem": 1, "criadoEm": "..." }
+    { "id": "uuid", "tipoMidia": "video", "titulo": "Reel lançamento batom matte", "descricao": "... ou null", "urlStorage": "https://...", "posterUrl": "https://... ou null", "statusProcessamento": "pronto", "ordem": 0, "destaque": true, "criadoEm": "..." },
+    { "id": "uuid", "tipoMidia": "foto", "titulo": "Still campanha", "descricao": null, "urlStorage": null, "posterUrl": "https://...", "statusProcessamento": "pronto", "ordem": 1, "destaque": false, "criadoEm": "..." }
   ]
 }
 ```
@@ -765,6 +794,9 @@ Resposta:
 ```json
 {
   "fotoUrl": "https://... ou null",
+  "capaUrl": "https://... ou null",
+  "bio": "Produzimos vídeos... ou null",
+  "links": [{ "id": "uuid", "rotulo": "Site", "url": "https://..." }],
   "agencia": { "nome": "Agencia Teste", "logoUrl": "https://...", "corDestaque": "#ff0000" },
   "categorias": [
     {
@@ -779,7 +811,10 @@ Resposta:
 ```
 Cada item de `portfolios[]` é só o resumo do álbum (sem `videos[]`) — o
 frontend usa `link` pra montar o card que leva pra `/p/:link` (a página do
-álbum já existente, sem nenhuma mudança de contrato ali).
+álbum já existente, sem nenhuma mudança de contrato ali). `capaUrl`, `bio` e
+`links` vêm direto de `PortfolioProfile` (ver [Portfólio: perfil e
+categorias](#portfólio-perfil-e-categorias-portfolio-profile-portfolio-categories))
+— `links` vazio (`[]`) quando o owner não cadastrou nenhum.
 
 ### `POST /public/videos/:linkPublico/comments`
 Rate limit: **20/min**.

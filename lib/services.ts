@@ -60,6 +60,8 @@ import {
   demoUpdateDemand,
   demoUpdateDemandStage,
   demoUpdatePortfolio,
+  demoUpdatePortfolioProfile,
+  demoUpdatePortfolioProfileCover,
   demoUpdatePortfolioProfilePhoto,
   demoUpdatePortfolioVideo,
   demoUser,
@@ -107,6 +109,7 @@ import type {
   PortfolioHubItem,
   PortfolioItem,
   PortfolioItemMediaType,
+  PortfolioLink,
   PortfolioProfile,
   ProductionStage,
   Project,
@@ -606,6 +609,7 @@ function mapPortfolioItem(raw: Raw): PortfolioItem {
       pick(raw, ['statusProcessamento', 'status_processamento'], 'pronto'),
     ),
     order: Number(pick(raw, ['ordem', 'order'], 0)) || 0,
+    highlighted: Boolean(pick(raw, ['destaque', 'highlighted'], false)),
     createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
   }
 }
@@ -640,9 +644,20 @@ function mapPortfolioCategory(raw: Raw): PortfolioCategory {
   }
 }
 
+function mapPortfolioLink(raw: Raw): PortfolioLink {
+  return {
+    id: String(pick(raw, ['id', '_id'], '')),
+    label: pick(raw, ['rotulo', 'label', 'titulo', 'title'], ''),
+    url: pick(raw, ['url', 'link'], ''),
+  }
+}
+
 function mapPortfolioProfile(raw: Raw): PortfolioProfile {
   return {
     photoUrl: pick<string | null>(raw, ['fotoUrl', 'foto_url', 'photoUrl'], null),
+    coverUrl: pick<string | null>(raw, ['capaUrl', 'capa_url', 'coverUrl'], null),
+    bio: pick<string | null>(raw, ['bio', 'biografia'], null),
+    links: asArray(pick(raw, ['links', 'linksContato', 'links_contato'], [])).map(mapPortfolioLink),
     hubLink: String(pick(raw, ['linkHub', 'link_hub', 'hubLink', 'link'], '')),
   }
 }
@@ -849,6 +864,15 @@ export const authService = {
       return
     }
     await api.post('/auth/reset-password', { token, novaSenha: password }, { auth: false })
+  },
+
+  /** Confirma o endereço de e-mail a partir do token recebido no link público. */
+  async confirmEmail(token: string): Promise<void> {
+    if (isDemo()) {
+      await delay(null, 400)
+      return
+    }
+    await api.post('/auth/confirm-email', { token }, { auth: false })
   },
 }
 
@@ -1732,12 +1756,13 @@ export const portfolioService = {
   async updateVideo(
     portfolioId: string,
     videoId: string,
-    input: { title?: string; description?: string | null },
+    input: { title?: string; description?: string | null; highlighted?: boolean },
   ): Promise<Portfolio> {
     if (isDemo()) return delay(demoUpdatePortfolioVideo(portfolioId, videoId, input), 300)
     const res = await api.patch<Raw>(`/portfolios/${portfolioId}/videos/${videoId}`, {
       titulo: input.title,
       descricao: input.description,
+      destaque: input.highlighted,
     })
     return mapPortfolio(res)
   },
@@ -1789,6 +1814,36 @@ export const portfolioProfileService = {
   async updatePhoto(photoUrl: string | null): Promise<PortfolioProfile> {
     if (isDemo()) return delay(demoUpdatePortfolioProfilePhoto(photoUrl), 300)
     const res = await api.patch<Raw>('/portfolio-profile', { fotoUrl: photoUrl })
+    return mapPortfolioProfile(res)
+  },
+  /** Passo 1/2 do upload da capa do hub (só imagem, mesmo padrão da foto de perfil). */
+  async getCoverUploadUrl(input: {
+    fileName: string
+    contentType: string
+  }): Promise<{ uploadUrl: string; key: string; publicUrl: string | null; headers?: Record<string, string> }> {
+    const res = await api.post<Raw>('/portfolio-profile/cover-upload-url', {
+      nomeArquivo: input.fileName,
+      contentType: input.contentType,
+    })
+    return {
+      uploadUrl: pick(res, ['uploadUrl'], ''),
+      key: pick(res, ['key'], ''),
+      publicUrl: pick<string | null>(res, ['publicUrl'], null),
+      headers: pick<Record<string, string> | undefined>(res, ['headers'], undefined),
+    }
+  },
+  async updateCover(coverUrl: string | null): Promise<PortfolioProfile> {
+    if (isDemo()) return delay(demoUpdatePortfolioProfileCover(coverUrl), 300)
+    const res = await api.patch<Raw>('/portfolio-profile', { capaUrl: coverUrl })
+    return mapPortfolioProfile(res)
+  },
+  /** Bio + links de contato do hub — foto/capa têm fluxo de upload próprio, à parte. */
+  async update(input: { bio?: string | null; links?: { label: string; url: string }[] }): Promise<PortfolioProfile> {
+    if (isDemo()) return delay(demoUpdatePortfolioProfile(input), 300)
+    const res = await api.patch<Raw>('/portfolio-profile', {
+      bio: input.bio,
+      links: input.links?.map((l) => ({ rotulo: l.label, url: l.url })),
+    })
     return mapPortfolioProfile(res)
   },
   async listCategories(signal?: AbortSignal): Promise<PortfolioCategory[]> {
@@ -2027,6 +2082,9 @@ export const publicService = {
     return {
       agencyName: pick<string | null>(agenciaRaw, ['nome', 'name'], null),
       photoUrl: pick<string | null>(res, ['fotoUrl', 'foto_url', 'photoUrl'], null),
+      coverUrl: pick<string | null>(res, ['capaUrl', 'capa_url', 'coverUrl'], null),
+      bio: pick<string | null>(res, ['bio', 'biografia'], null),
+      links: asArray(pick(res, ['links', 'linksContato', 'links_contato'], [])).map(mapPortfolioLink),
       branding: mapBranding(agenciaRaw),
       categories: asArray(pick(res, ['categorias', 'categories'], [])).map((c: Raw) => ({
         id: String(pick(c, ['id', '_id'], '')),

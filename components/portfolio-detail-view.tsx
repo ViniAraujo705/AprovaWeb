@@ -18,6 +18,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Star,
   Trash2,
   UploadCloud,
   X,
@@ -972,6 +973,21 @@ function PortfolioItemCard({
   const [error, setError] = useState<string | null>(null)
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [removing, setRemoving] = useState(false)
+  const [togglingHighlight, setTogglingHighlight] = useState(false)
+
+  async function toggleHighlight() {
+    setTogglingHighlight(true)
+    try {
+      const updated = await portfolioService.updateVideo(portfolioId, video.id, {
+        highlighted: !video.highlighted,
+      })
+      onUpdated(updated)
+    } catch (err) {
+      toast.error('Não foi possível atualizar o destaque', err instanceof ApiError ? err.message : undefined)
+    } finally {
+      setTogglingHighlight(false)
+    }
+  }
 
   async function saveEdits() {
     setBusy(true)
@@ -1014,18 +1030,43 @@ function PortfolioItemCard({
             <Loader2 className="size-6 animate-spin text-white" />
           </div>
         )}
-        <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white">
-          {video.mediaType === 'foto' ? (
-            <>
-              <ImageIcon className="size-3" /> Foto
-            </>
-          ) : (
-            <>
-              <Film className="size-3" /> Vídeo
-            </>
+        <div className="absolute left-2 top-2 flex items-center gap-1">
+          <span className="inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white">
+            {video.mediaType === 'foto' ? (
+              <>
+                <ImageIcon className="size-3" /> Foto
+              </>
+            ) : (
+              <>
+                <Film className="size-3" /> Vídeo
+              </>
+            )}
+          </span>
+          {video.highlighted && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-medium text-black">
+              <Star className="size-3 fill-current" /> Destaque
+            </span>
           )}
-        </span>
+        </div>
         <div className="absolute right-2 top-2 flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={toggleHighlight}
+            disabled={togglingHighlight}
+            aria-label={video.highlighted ? 'Remover destaque' : 'Marcar como destaque'}
+            aria-pressed={video.highlighted}
+            title={video.highlighted ? 'Remover destaque' : 'Marcar como destaque'}
+            className={cn(
+              'grid size-7 place-items-center rounded-lg ring-1 ring-border hover:bg-secondary disabled:opacity-40',
+              video.highlighted ? 'bg-amber-500 text-black hover:bg-amber-500/90' : 'bg-card/90 text-foreground',
+            )}
+          >
+            {togglingHighlight ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Star className={cn('size-4', video.highlighted && 'fill-current')} />
+            )}
+          </button>
           <button
             type="button"
             onClick={() => onMove(-1)}

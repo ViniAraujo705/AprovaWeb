@@ -415,6 +415,13 @@ export interface ProjectGallery {
 /** Um item de portfólio é um vídeo ou uma foto — `mediaType` distingue os dois. */
 export type PortfolioItemMediaType = 'video' | 'foto'
 
+/** Link de contato/externo livre (site, WhatsApp, Instagram, ...) no perfil do portfólio. */
+export interface PortfolioLink {
+  id: string
+  label: string
+  url: string
+}
+
 /**
  * Um item (vídeo ou foto) dentro de um portfólio (vitrine da agência,
  * distinta da galeria de projeto/aprovação). Sem `status` de aprovação: aqui
@@ -437,6 +444,8 @@ export interface PortfolioItem {
   posterUrl: string | null
   processingStatus: VideoProcessingStatus
   order: number
+  /** Marcado pelo owner como um dos trabalhos em destaque do portfólio (ex: badge "Destaque" na vitrine pública). */
+  highlighted: boolean
   createdAt: string | null
 }
 
@@ -479,9 +488,15 @@ export interface PortfolioCategory {
   order: number
 }
 
-/** Perfil da vitrine da agência: foto de perfil + o link público do hub que reúne todos os álbuns (/portfolio/:hubLink). */
+/** Perfil da vitrine da agência: identidade + o link público do hub que reúne todos os álbuns (/portfolio/:hubLink). */
 export interface PortfolioProfile {
   photoUrl: string | null
+  /** Capa exibida no topo do hub público (banner acima do perfil). */
+  coverUrl: string | null
+  /** Bio/apresentação livre exibida no hub público, abaixo do nome. */
+  bio: string | null
+  /** Links externos e formas de contato (site, WhatsApp, Instagram, ...), na ordem de exibição. */
+  links: PortfolioLink[]
   /** Nunca null — gerado automaticamente na primeira leitura, como o `publicLink` de projeto. */
   hubLink: string
 }
@@ -506,6 +521,9 @@ export interface PortfolioHubItem {
 export interface PublicPortfolioHub {
   agencyName: string | null
   photoUrl: string | null
+  coverUrl: string | null
+  bio: string | null
+  links: PortfolioLink[]
   branding: Branding | null
   categories: { id: string; name: string; portfolios: PortfolioHubItem[] }[]
 }

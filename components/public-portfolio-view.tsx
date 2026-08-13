@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Check, ChevronLeft, ChevronRight, Film, ImageIcon, Loader2, Play, Share2, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Film, ImageIcon, Loader2, Play, Share2, Star, X } from 'lucide-react'
 import type { PortfolioItem, PublicPortfolio } from '@/lib/types'
 import { AgencyLogo } from '@/components/agency-logo'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -141,6 +141,11 @@ export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPort
                       <div className="grid aspect-video w-full place-items-center text-muted-foreground/60">
                         <Film className="size-6" />
                       </div>
+                    )}
+                    {v.highlighted && (
+                      <span className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-medium text-black">
+                        <Star className="size-3 fill-current" /> Destaque
+                      </span>
                     )}
                     {v.processingStatus === 'processando' ? (
                       <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50">

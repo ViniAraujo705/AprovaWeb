@@ -32,6 +32,7 @@ import type {
   PortfolioCategory,
   PortfolioItem,
   PortfolioItemMediaType,
+  PortfolioLink,
   PortfolioProfile,
   ProductionStage,
   Project,
@@ -764,6 +765,13 @@ export const demoPortfolioCategories: PortfolioCategory[] = [
 
 export const demoPortfolioProfile: PortfolioProfile = {
   photoUrl: null,
+  coverUrl: '/videos/reel-fashion.png',
+  bio: 'Produzimos vídeos e fotos para marcas que querem se destacar nas redes — do roteiro à entrega, sem dor de cabeça.',
+  links: [
+    { id: 'pfl1', label: 'Site', url: 'https://exemplo.com' },
+    { id: 'pfl2', label: 'Instagram', url: 'https://instagram.com/exemplo' },
+    { id: 'pfl3', label: 'WhatsApp', url: 'https://wa.me/5511999999999' },
+  ],
   hubLink: 'demo-agencia',
 }
 
@@ -786,6 +794,7 @@ export const demoPortfolios: Portfolio[] = [
         posterUrl: '/videos/reel-cosmetics.png',
         processingStatus: 'pronto',
         order: 0,
+        highlighted: true,
         createdAt: iso(200),
       },
       {
@@ -797,6 +806,7 @@ export const demoPortfolios: Portfolio[] = [
         posterUrl: '/videos/reel-fashion.png',
         processingStatus: 'pronto',
         order: 1,
+        highlighted: false,
         createdAt: iso(150),
       },
       {
@@ -808,6 +818,7 @@ export const demoPortfolios: Portfolio[] = [
         posterUrl: '/videos/reel-cosmetics.png',
         processingStatus: 'pronto',
         order: 2,
+        highlighted: false,
         createdAt: iso(140),
       },
     ],
@@ -832,6 +843,7 @@ export const demoPortfolios: Portfolio[] = [
         posterUrl: '/videos/reel-food.png',
         processingStatus: 'pronto',
         order: 0,
+        highlighted: true,
         createdAt: iso(80),
       },
     ],
@@ -910,6 +922,26 @@ export function demoUpdatePortfolioProfilePhoto(photoUrl: string | null): Portfo
   return demoPortfolioProfile
 }
 
+export function demoUpdatePortfolioProfileCover(coverUrl: string | null): PortfolioProfile {
+  demoPortfolioProfile.coverUrl = coverUrl
+  return demoPortfolioProfile
+}
+
+let portfolioLinkIdSeq = 0
+
+export function demoUpdatePortfolioProfile(input: {
+  bio?: string | null
+  links?: { label: string; url: string }[]
+}): PortfolioProfile {
+  if (input.bio !== undefined) demoPortfolioProfile.bio = input.bio
+  if (input.links !== undefined) {
+    demoPortfolioProfile.links = input.links.map(
+      (l): PortfolioLink => ({ id: `pfl-${++portfolioLinkIdSeq}-${Date.now()}`, label: l.label, url: l.url }),
+    )
+  }
+  return demoPortfolioProfile
+}
+
 let portfolioCategoryIdSeq = 0
 
 export function demoCreateCategory(input: { name: string }): PortfolioCategory {
@@ -963,6 +995,9 @@ export function demoPublicPortfolioHub(): PublicPortfolioHub {
   return {
     agencyName: null,
     photoUrl: demoPortfolioProfile.photoUrl,
+    coverUrl: demoPortfolioProfile.coverUrl,
+    bio: demoPortfolioProfile.bio,
+    links: demoPortfolioProfile.links,
     // branding null → sem logo próprio, a sidebar não mostra nenhuma marca
     // (nem o fallback "CHECK" — essa vitrine é do cliente, não da CHECK).
     branding: null,
@@ -1009,6 +1044,7 @@ export function demoAddExistingPortfolioVideo(
     posterUrl: source?.posterUrl ?? null,
     processingStatus: 'pronto',
     order: portfolio.videos.length,
+    highlighted: false,
     createdAt: new Date().toISOString(),
   }
   portfolio.videos.push(item)
@@ -1037,6 +1073,7 @@ export function demoAddUploadedPortfolioVideo(
     posterUrl: input.posterUrl,
     processingStatus: 'pronto',
     order: portfolio.videos.length,
+    highlighted: false,
     createdAt: new Date().toISOString(),
   }
   portfolio.videos.push(item)
@@ -1047,7 +1084,7 @@ export function demoAddUploadedPortfolioVideo(
 export function demoUpdatePortfolioVideo(
   portfolioId: string,
   videoId: string,
-  input: { title?: string; description?: string | null },
+  input: { title?: string; description?: string | null; highlighted?: boolean },
 ): Portfolio {
   const portfolio = demoPortfolios.find((p) => p.id === portfolioId)
   if (!portfolio) throw new Error('Portfólio não encontrado.')
@@ -1055,6 +1092,7 @@ export function demoUpdatePortfolioVideo(
   if (item) {
     if (input.title !== undefined) item.title = input.title
     if (input.description !== undefined) item.description = input.description
+    if (input.highlighted !== undefined) item.highlighted = input.highlighted
   }
   portfolio.updatedAt = new Date().toISOString()
   return portfolio

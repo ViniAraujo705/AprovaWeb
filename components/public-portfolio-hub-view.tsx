@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, Film } from 'lucide-react'
+import { ChevronLeft, ExternalLink, Film } from 'lucide-react'
 import type { PortfolioHubItem, PublicPortfolioHub } from '@/lib/types'
 import { AgencyLogo } from '@/components/agency-logo'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -36,102 +36,129 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
 
   return (
     <div
-      className="flex min-h-screen bg-background"
+      className="flex min-h-screen flex-col bg-background"
       style={brandAccentStyle(hub.branding?.accentColor)}
     >
-      <aside className="hidden w-72 shrink-0 flex-col overflow-y-auto bg-sidebar px-10 py-12 text-center text-sidebar-foreground md:flex">
-        <button type="button" onClick={goHome} className="flex flex-col items-center gap-4">
-          {/*
-            Só mostra a marca da agência quando ela tem um logo próprio
-            configurado — sem isso, AgencyLogo cai no fallback "CHECK", que
-            não faz sentido aqui: essa vitrine é a marca do cliente pros
-            clientes dele, a foto+nome do perfil logo abaixo já cobre a
-            identidade quando não há logo.
-          */}
-          {hub.branding?.logoUrl && <AgencyLogo branding={hub.branding} size="lg" />}
+      {hub.coverUrl && (
+        <div className="relative h-36 w-full shrink-0 sm:h-52">
+          <Image src={hub.coverUrl} alt="" fill className="object-cover" sizes="100vw" unoptimized />
+        </div>
+      )}
+      <div className="flex min-w-0 flex-1">
+        <aside className="hidden w-72 shrink-0 flex-col overflow-y-auto bg-sidebar px-10 py-12 text-center text-sidebar-foreground md:flex">
+          <button type="button" onClick={goHome} className="flex flex-col items-center gap-4">
+            {/*
+              Só mostra a marca da agência quando ela tem um logo próprio
+              configurado — sem isso, AgencyLogo cai no fallback "CHECK", que
+              não faz sentido aqui: essa vitrine é a marca do cliente pros
+              clientes dele, a foto+nome do perfil logo abaixo já cobre a
+              identidade quando não há logo.
+            */}
+            {hub.branding?.logoUrl && <AgencyLogo branding={hub.branding} size="lg" />}
 
-          {/*
-            object-contain (não object-cover): a foto se adapta à proporção
-            real da imagem do cliente em vez de forçar um recorte quadrado —
-            mesmo tratamento do logo (AgencyLogo), sem moldura/crop.
-          */}
-          {hub.photoUrl && (
-            <div className="relative h-20 w-56 shrink-0">
-              <Image src={hub.photoUrl} alt="" fill className="object-contain" sizes="224px" unoptimized />
-            </div>
-          )}
+            {/*
+              object-contain (não object-cover): a foto se adapta à proporção
+              real da imagem do cliente em vez de forçar um recorte quadrado —
+              mesmo tratamento do logo (AgencyLogo), sem moldura/crop.
+            */}
+            {hub.photoUrl && (
+              <div className="relative h-20 w-56 shrink-0">
+                <Image src={hub.photoUrl} alt="" fill className="object-contain" sizes="224px" unoptimized />
+              </div>
+            )}
 
-          {hub.agencyName && (
-            <span className="font-display text-lg tracking-wide">{hub.agencyName}</span>
-          )}
-        </button>
-
-        {category ? (
-          // Categoria selecionada: o nome vira o cabeçalho e os álbuns dela
-          // aparecem listados pelo nome, direto navegáveis — sem grade, sem
-          // passo de escolher foto/vídeo.
-          <nav className="mt-14">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-              {category.name}
-            </h2>
-            <div className="mt-6 space-y-4">
-              {category.portfolios.map((p) => (
-                <Link
-                  key={p.id}
-                  href={`/p/${p.link}`}
-                  className="block text-base text-sidebar-foreground/70 transition-colors hover:text-sidebar-foreground"
-                >
-                  {p.name}
-                </Link>
-              ))}
-            </div>
-          </nav>
-        ) : (
-          categories.length > 0 && (
-            <nav className="mt-14 space-y-5">
-              {categories.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => selectCategory(c.id)}
-                  className="block w-full text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-sidebar-foreground"
-                >
-                  {c.name}
-                </button>
-              ))}
-            </nav>
-          )
-        )}
-
-        <ThemeToggle />
-      </aside>
-
-      <div className="min-w-0 flex-1">
-        <motion.header
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-          className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:hidden"
-        >
-          <button type="button" onClick={goHome}>
-            <AgencyLogo branding={hub.branding} />
+            {hub.agencyName && (
+              <span className="font-display text-lg tracking-wide">{hub.agencyName}</span>
+            )}
           </button>
-          <ThemeToggle />
-        </motion.header>
 
-        {categories.length === 0 ? (
-          <div className="flex min-h-[70vh] items-center justify-center px-4">
-            <EmptyState
-              icon={<Film className="size-7" />}
-              title="Nenhum portfólio em destaque"
-              description="Os portfólios da agência vão aparecer aqui assim que forem publicados."
-            />
-          </div>
-        ) : !category ? (
-          <CategoryGrid categories={categories} onSelect={selectCategory} />
-        ) : (
-          <AlbumGrid categoryName={category.name} albums={category.portfolios} onBack={goHome} />
-        )}
+          {hub.bio && (
+            <p className="mt-4 text-sm leading-relaxed text-sidebar-foreground/70">{hub.bio}</p>
+          )}
+
+          {hub.links.length > 0 && (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              {hub.links.map((l) => (
+                <a
+                  key={l.id}
+                  href={l.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm text-sidebar-foreground/70 transition-colors hover:text-sidebar-foreground"
+                >
+                  <ExternalLink className="size-3.5 shrink-0" /> {l.label}
+                </a>
+              ))}
+            </div>
+          )}
+
+          {category ? (
+            // Categoria selecionada: o nome vira o cabeçalho e os álbuns dela
+            // aparecem listados pelo nome, direto navegáveis — sem grade, sem
+            // passo de escolher foto/vídeo.
+            <nav className="mt-14">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                {category.name}
+              </h2>
+              <div className="mt-6 space-y-4">
+                {category.portfolios.map((p) => (
+                  <Link
+                    key={p.id}
+                    href={`/p/${p.link}`}
+                    className="block text-base text-sidebar-foreground/70 transition-colors hover:text-sidebar-foreground"
+                  >
+                    {p.name}
+                  </Link>
+                ))}
+              </div>
+            </nav>
+          ) : (
+            categories.length > 0 && (
+              <nav className="mt-14 space-y-5">
+                {categories.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => selectCategory(c.id)}
+                    className="block w-full text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-sidebar-foreground"
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </nav>
+            )
+          )}
+
+          <ThemeToggle />
+        </aside>
+
+        <div className="min-w-0 flex-1">
+          <motion.header
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:hidden"
+          >
+            <button type="button" onClick={goHome}>
+              <AgencyLogo branding={hub.branding} />
+            </button>
+            <ThemeToggle />
+          </motion.header>
+
+          {categories.length === 0 ? (
+            <div className="flex min-h-[70vh] items-center justify-center px-4">
+              <EmptyState
+                icon={<Film className="size-7" />}
+                title="Nenhum portfólio em destaque"
+                description="Os portfólios da agência vão aparecer aqui assim que forem publicados."
+              />
+            </div>
+          ) : !category ? (
+            <CategoryGrid categories={categories} onSelect={selectCategory} />
+          ) : (
+            <AlbumGrid categoryName={category.name} albums={category.portfolios} onBack={goHome} />
+          )}
+        </div>
       </div>
     </div>
   )

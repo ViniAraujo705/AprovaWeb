@@ -22,7 +22,7 @@ import {
   X,
 } from 'lucide-react'
 import { portfolioProfileService, portfolioService } from '@/lib/services'
-import type { Portfolio, PortfolioCategory, PortfolioProfile } from '@/lib/types'
+import type { Portfolio, PortfolioCategory, PortfolioLink, PortfolioProfile } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
@@ -269,6 +269,7 @@ function PortfolioProfileCard({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const hubPath = `/portfolio/${profile.hubLink}`
 
   async function handleFile(file: File | undefined | null) {
@@ -353,6 +354,13 @@ function PortfolioProfileCard({
           </p>
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setEditOpen(true)}
+            className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Pencil className="size-3.5" /> Editar perfil
+          </button>
           <a
             href={hubPath}
             target="_blank"
@@ -372,6 +380,254 @@ function PortfolioProfileCard({
         </div>
       </div>
       {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
+      {(profile.bio || profile.links.length > 0) && (
+        <div className="mt-2.5 border-t border-border pt-2.5">
+          {profile.bio && <p className="line-clamp-2 text-xs text-muted-foreground">{profile.bio}</p>}
+          {profile.links.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {profile.links.map((l) => (
+                <a
+                  key={l.id}
+                  href={l.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <Link2 className="size-3" /> {l.label}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      <AnimatePresence>
+        {editOpen && (
+          <PortfolioProfileEditModal
+            profile={profile}
+            onUpdated={onUpdated}
+            onClose={() => setEditOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function PortfolioProfileEditModal({
+  profile,
+  onUpdated,
+  onClose,
+}: {
+  profile: PortfolioProfile
+  onUpdated: (updater: PortfolioProfile | ((prev: PortfolioProfile | null) => PortfolioProfile)) => void
+  onClose: () => void
+}) {
+  const coverInputRef = useRef<HTMLInputElement>(null)
+  const [coverBusy, setCoverBusy] = useState(false)
+  const [coverError, setCoverError] = useState<string | null>(null)
+  const [bio, setBio] = useState(profile.bio ?? '')
+  const [links, setLinks] = useState<PortfolioLink[]>(profile.links)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleCoverFile(file: File | undefined | null) {
+    if (!file) return
+    const invalid = validatePhotoFile(file)
+    if (invalid) {
+      setCoverError(invalid)
+      return
+    }
+    setCoverError(null)
+    setCoverBusy(true)
+    try {
+      if (isDemo()) {
+        const dataUrl = await readAsDataUrl(file)
+        const updated = await portfolioProfileService.updateCover(dataUrl)
+        onUpdated(updated)
+        toast.success('Capa atualizada')
+        return
+      }
+      const presigned = await portfolioProfileService.getCoverUploadUrl({
+        fileName: file.name,
+        contentType: file.type || 'application/octet-stream',
+      })
+      if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
+      await uploadToPresignedUrl({ url: presigned.uploadUrl, file, headers: presigned.headers })
+      const updated = await portfolioProfileService.updateCover(presigned.publicUrl)
+      onUpdated(updated)
+      toast.success('Capa atualizada')
+    } catch (err) {
+      setCoverError(
+        err instanceof UploadError || err instanceof ApiError ? err.message : 'Falha ao enviar a capa.',
+      )
+    } finally {
+      setCoverBusy(false)
+    }
+  }
+
+  function addLinkRow() {
+    setLinks((prev) => [...prev, { id: `new-${prev.length}-${Date.now()}`, label: '', url: '' }])
+  }
+
+  function updateLinkRow(id: string, patch: Partial<PortfolioLink>) {
+    setLinks((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)))
+  }
+
+  function removeLinkRow(id: string) {
+    setLinks((prev) => prev.filter((l) => l.id !== id))
+  }
+
+  async function save() {
+    setBusy(true)
+    setError(null)
+    try {
+      const cleanedLinks = links
+        .map((l) => ({ label: l.label.trim(), url: l.url.trim() }))
+        .filter((l) => l.label && l.url)
+      const updated = await portfolioProfileService.update({ bio: bio.trim() || null, links: cleanedLinks })
+      onUpdated(updated)
+      toast.success('Perfil atualizado')
+      onClose()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Falha ao salvar. Tente novamente.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4" onClick={onClose}>
+      <motion.div
+        className="absolute inset-0 bg-black/70"
+        aria-hidden="true"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+      />
+      <motion.div
+        className="relative flex max-h-[85vh] w-full max-w-md flex-col overflow-y-auto rounded-xl border border-border bg-card p-5"
+        onClick={(e) => e.stopPropagation()}
+        initial={{ opacity: 0, y: 8, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-medium">Editar perfil do portfólio</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <label className="mt-4 flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">Capa do hub</span>
+          <button
+            type="button"
+            onClick={() => !coverBusy && coverInputRef.current?.click()}
+            disabled={coverBusy}
+            className="group relative aspect-[3/1] w-full overflow-hidden rounded-lg border border-border bg-secondary disabled:opacity-70"
+          >
+            {profile.coverUrl ? (
+              <Image src={profile.coverUrl} alt="" fill className="object-cover" sizes="400px" unoptimized />
+            ) : (
+              <span className="grid h-full w-full place-items-center text-muted-foreground">
+                <ImagePlus className="size-5" />
+              </span>
+            )}
+            <span className="absolute inset-0 hidden items-center justify-center bg-black/50 text-white group-hover:flex">
+              {coverBusy ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
+            </span>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={(e) => handleCoverFile(e.target.files?.[0])}
+            />
+          </button>
+          {coverError && <span className="text-xs text-destructive">{coverError}</span>}
+        </label>
+
+        <label className="mt-4 flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">
+            Bio <span className="font-normal text-muted-foreground">(opcional)</span>
+          </span>
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            rows={3}
+            placeholder="Uma apresentação curta exibida no topo do hub público."
+            className="resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+          />
+        </label>
+
+        <div className="mt-4 flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">
+            Links e contato <span className="font-normal text-muted-foreground">(opcional)</span>
+          </span>
+          <div className="flex flex-col gap-2">
+            {links.map((l) => (
+              <div key={l.id} className="flex items-center gap-1.5">
+                <input
+                  value={l.label}
+                  onChange={(e) => updateLinkRow(l.id, { label: e.target.value })}
+                  placeholder="Site, Instagram, WhatsApp..."
+                  className="min-h-9 w-28 shrink-0 rounded-lg border border-border bg-secondary px-2.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                />
+                <input
+                  value={l.url}
+                  onChange={(e) => updateLinkRow(l.id, { url: e.target.value })}
+                  placeholder="https://..."
+                  className="min-h-9 min-w-0 flex-1 rounded-lg border border-border bg-secondary px-2.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeLinkRow(l.id)}
+                  aria-label="Remover link"
+                  className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={addLinkRow}
+            className="mt-1 inline-flex min-h-8 w-fit items-center gap-1.5 rounded-lg bg-secondary px-2.5 text-xs font-medium text-foreground hover:bg-secondary/70"
+          >
+            <Plus className="size-3.5" /> Adicionar link
+          </button>
+        </div>
+
+        {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
+
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-secondary text-sm font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={busy}
+            className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {busy && <Loader2 className="size-3.5 animate-spin" />}
+            Salvar
+          </button>
+        </div>
+      </motion.div>
     </div>
   )
 }
