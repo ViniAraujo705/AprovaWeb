@@ -69,7 +69,7 @@ const navModules: NavModule[] = [
     key: 'geral',
     label: 'Visão geral',
     icon: LayoutDashboard,
-    items: [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }],
+    items: [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, teamRole: 'owner' }],
   },
   {
     key: 'trabalho',
@@ -87,7 +87,7 @@ const navModules: NavModule[] = [
     label: 'Clientes',
     icon: IdCard,
     items: [
-      { href: '/clientes', label: 'Clientes', icon: Contact, teamRole: 'owner' },
+      { href: '/clientes', label: 'Clientes', icon: Contact },
       {
         href: '/configuracoes/campos-cliente',
         label: 'Campos de cliente',
@@ -155,9 +155,12 @@ function useVisibleModules(): NavModule[] {
 }
 
 function Logo({ collapsed }: { collapsed?: boolean }) {
+  const { user } = useAuth()
+  // Dashboard é owner-only — editor volta pro Kanban ao clicar na marca.
+  const home = user?.teamRole === 'owner' ? '/dashboard' : '/kanban'
   return (
     <Link
-      href="/dashboard"
+      href={home}
       className={cn('flex items-center gap-2', collapsed && 'justify-center')}
     >
       <span className="relative size-8 shrink-0 overflow-hidden rounded-lg">

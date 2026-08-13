@@ -15,12 +15,17 @@ export function RequireAuth({
   children,
   role,
   teamRole,
+  redirectTo = '/dashboard',
 }: {
   children: React.ReactNode
   /** Papel de sistema exigido (admin). */
   role?: Role
   /** Papel na conta exigido (ex.: owner para gestão de equipe). */
   teamRole?: TeamRole
+  /** Para onde mandar quem não tem o papel exigido. Use uma rota que o papel
+   * negado realmente acessa — '/dashboard' é owner-only, então páginas que
+   * bloqueiam o editor não podem usar o default nele (looping). */
+  redirectTo?: string
 }) {
   const { user, loading, isAuthenticated } = useAuth()
   const router = useRouter()
@@ -37,9 +42,9 @@ export function RequireAuth({
       return
     }
     if (roleDenied || teamRoleDenied) {
-      router.replace('/dashboard')
+      router.replace(redirectTo)
     }
-  }, [loading, isAuthenticated, roleDenied, teamRoleDenied, router, pathname])
+  }, [loading, isAuthenticated, roleDenied, teamRoleDenied, router, pathname, redirectTo])
 
   if (loading || !isAuthenticated || roleDenied || teamRoleDenied) {
     return (

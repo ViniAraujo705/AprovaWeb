@@ -1,5 +1,4 @@
 import { ClientDetailView } from '@/components/client-detail-view'
-import { RequireAuth } from '@/components/require-auth'
 
 export default async function ClientePage({
   params,
@@ -7,9 +6,5 @@ export default async function ClientePage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  return (
-    <RequireAuth teamRole="owner">
-      <ClientDetailView id={id} />
-    </RequireAuth>
-  )
+  return <ClientDetailView id={id} />
 }

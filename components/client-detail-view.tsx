@@ -57,6 +57,7 @@ import { FadeIn, AnimatePresence, motion, StaggerList, staggerItem } from '@/com
 import { useRouter } from 'next/navigation'
 import { toast } from '@/lib/toast'
 import { usePlanLimit } from '@/components/plan-limit-provider'
+import { useAuth } from '@/components/auth-provider'
 
 /** Lê um arquivo como Data URL (usado só no preview/modo demo). */
 function readAsDataUrl(file: File): Promise<string> {
@@ -148,6 +149,8 @@ function ClientWorkspace({
   client: Client
   onUpdated: (updater: Client | ((prev: Client | null) => Client)) => void
 }) {
+  const { user } = useAuth()
+  const isOwner = user?.teamRole === 'owner'
   const [tab, setTab] = useState<ClientTab>('overview')
   const projects = useQuery<Project[]>((signal) => projectService.list(client.id, signal), [client.id])
   const videos = useQuery<Video[]>((signal) => videoService.list(undefined, signal), [])
@@ -189,7 +192,8 @@ function ClientWorkspace({
           <ClientMetrics projects={projects.data ?? []} videos={clientVideos} events={clientEvents} />
           <ClientForm client={client} onUpdated={onUpdated} />
           <ClientCustomFieldsForm client={client} onUpdated={onUpdated} />
-          <ClientBrandingForm client={client} onUpdated={onUpdated} />
+          {/* Branding por cliente é owner-only na API (PATCH /clients/:id/branding). */}
+          {isOwner && <ClientBrandingForm client={client} onUpdated={onUpdated} />}
         </div>
       )}
       {tab === 'projects' && <div className="mt-6"><ClientProjects clientId={client.id} /></div>}
