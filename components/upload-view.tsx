@@ -64,6 +64,9 @@ export function UploadView() {
   const assignableMembers = (members.data ?? []).filter((m) => m.status === 'active')
   // Editor responsável pelo lote inteiro — atribuído a cada vídeo após criado.
   const [editorId, setEditorId] = useState('')
+  // Prazo de entrega do lote inteiro (YYYY-MM-DD) — aplicado a cada vídeo
+  // após criado, igual ao editor. Opcional.
+  const [deadline, setDeadline] = useState('')
 
   const [dragging, setDragging] = useState(false)
   // true entre o clique que abre o seletor de arquivos e o `change` do
@@ -272,6 +275,11 @@ export function UploadView() {
           await videoService.assignEditor(created.id, editorId).catch(() => {})
         }
 
+        if (deadline) {
+          const isoDeadline = new Date(`${deadline}T00:00:00`).toISOString()
+          await videoService.updateDeadline(created.id, isoDeadline).catch(() => {})
+        }
+
         updateItem(item.id, { status: 'done', progress: 100 })
       } catch (err) {
         const message =
@@ -371,6 +379,7 @@ export function UploadView() {
       setProjectId('')
       setEditorId('')
     }
+    setDeadline('')
     setFieldErrors({})
     setPhase('idle')
     setSubmitError(null)
@@ -840,8 +849,25 @@ export function UploadView() {
               </>
             )}
 
+            <label className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-sm font-medium text-foreground">
+                Prazo de entrega <span className="font-normal text-muted-foreground">(opcional)</span>
+              </span>
+              <input
+                type="date"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                disabled={busy}
+                min={new Date().toISOString().slice(0, 10)}
+                className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-60"
+              />
+              <span className="text-xs text-muted-foreground">
+                Aplicado a todos os vídeos deste lote.
+              </span>
+            </label>
+
             {assignableMembers.length > 0 && (
-              <label className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
+              <label className="flex min-w-0 flex-col gap-1.5">
                 <span className="text-sm font-medium text-foreground">
                   Editor responsável <span className="font-normal text-muted-foreground">(opcional)</span>
                 </span>
