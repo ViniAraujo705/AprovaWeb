@@ -48,17 +48,19 @@ export function ClientAvatar({
   photoUrl,
   seed,
   size = 'md',
+  className = '',
 }: {
   name: string
   photoUrl?: string | null
   seed?: string
   size?: keyof typeof SIZE_CLASSES
+  className?: string
 }) {
   const sizeClasses = SIZE_CLASSES[size]
 
   if (photoUrl) {
     return (
-      <span className={`relative shrink-0 overflow-hidden rounded-full ${sizeClasses}`}>
+      <span className={`relative shrink-0 overflow-hidden rounded-full ${sizeClasses} ${className}`}>
         <Image src={photoUrl} alt="" fill className="object-cover" sizes="40px" unoptimized />
       </span>
     )
@@ -67,7 +69,7 @@ export function ClientAvatar({
   const colorClass = AVATAR_COLORS[hashToIndex(seed || name, AVATAR_COLORS.length)]
   return (
     <span
-      className={`grid shrink-0 place-items-center rounded-full font-bold text-white ${sizeClasses} ${colorClass}`}
+      className={`grid shrink-0 place-items-center rounded-full font-bold text-white ${sizeClasses} ${colorClass} ${className}`}
     >
       {initials(name)}
     </span>
