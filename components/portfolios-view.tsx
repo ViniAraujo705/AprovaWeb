@@ -322,7 +322,7 @@ function PortfolioProfileCard({
 
   return (
     <div className="mt-6 rounded-lg border border-border bg-card px-3 py-2.5">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={() => !busy && inputRef.current?.click()}
@@ -354,7 +354,7 @@ function PortfolioProfileCard({
             Foto exibida no topo do hub público.
           </p>
         </div>
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setEditOpen(true)}

@@ -301,7 +301,7 @@ function FieldRow({
               title={field.label}
             >
               <Pencil className="size-3 shrink-0 opacity-50" />
-              <span className="truncate">{field.label}</span>
+              <span className="min-w-0 truncate">{field.label}</span>
             </button>
           )}
         </div>

@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ChevronLeft,
   ChevronRight,
@@ -346,11 +347,12 @@ export function CalendarView() {
                               className={cn('flex flex-col rounded-md px-1.5 py-1', CALENDAR_TYPE_META[ev.type].chipBg)}
                               title={[ev.title, extra].filter(Boolean).join(' — ')}
                             >
-                              <span className={cn('break-words text-[11px] font-semibold leading-tight sm:text-xs', CALENDAR_TYPE_META[ev.type].chipText)}>
+                              <span className="flex items-start gap-1 break-words text-[11px] font-semibold leading-tight text-foreground sm:text-xs">
+                                <span className={cn('mt-1 size-1.5 shrink-0 rounded-full', CALENDAR_TYPE_META[ev.type].dot)} />
                                 {timeLabel(ev.startAt)} {ev.title}
                               </span>
                               {extra && (
-                                <span className="break-words text-[10px] leading-tight text-foreground/70 sm:text-[11px]">
+                                <span className="break-words pl-2.5 text-[10px] leading-tight text-muted-foreground sm:text-[11px]">
                                   {extra}
                                 </span>
                               )}
@@ -560,6 +562,214 @@ function ExportModal({
 function toDateTimeLocalValue(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const DATETIME_PANEL_WIDTH = 288
+const DATETIME_PANEL_GAP = 6
+
+/** Substitui o `<input type="datetime-local">` nativo (chrome do SO, foge do tema) por um popover no tema do app. */
+function DateTimeField({
+  value,
+  onChange,
+  clearable,
+}: {
+  value: string
+  onChange: (value: string) => void
+  clearable?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({})
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  const parsed = value ? new Date(value) : null
+  const [viewMonth, setViewMonth] = useState(() => {
+    const base = parsed ?? new Date()
+    return new Date(base.getFullYear(), base.getMonth(), 1)
+  })
+
+  useEffect(() => setMounted(true), [])
+
+  useEffect(() => {
+    if (!open) return
+    function onClickOutside(e: MouseEvent) {
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (panelRef.current?.contains(target)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    function updatePosition() {
+      const el = triggerRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - DATETIME_PANEL_WIDTH - 8))
+      setPanelStyle({ top: rect.bottom + DATETIME_PANEL_GAP, left })
+    }
+    const base = parsed ?? new Date()
+    setViewMonth(new Date(base.getFullYear(), base.getMonth(), 1))
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  function selectDay(d: Date) {
+    const next = new Date(d)
+    if (parsed) next.setHours(parsed.getHours(), parsed.getMinutes(), 0, 0)
+    else next.setHours(9, 0, 0, 0)
+    onChange(toDateTimeLocalValue(next))
+  }
+
+  function setTime(hours: number, minutes: number) {
+    const next = new Date(parsed ?? new Date())
+    next.setHours(hours, minutes, 0, 0)
+    onChange(toDateTimeLocalValue(next))
+  }
+
+  const grid = useMemo(() => buildMonthGrid(viewMonth), [viewMonth])
+  const displayLabel = parsed
+    ? parsed.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : 'Não definido'
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex min-h-11 w-full items-center gap-1.5 rounded-lg border border-border bg-secondary px-2 text-left text-sm outline-none focus:border-primary"
+      >
+        <span className={cn('flex-1 truncate', parsed ? 'text-foreground' : 'text-muted-foreground')}>{displayLabel}</span>
+      </button>
+
+      {mounted &&
+        createPortal(
+          <AnimatePresence>
+            {open && (
+              <motion.div
+                ref={panelRef}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.15 }}
+                style={{ ...panelStyle, width: DATETIME_PANEL_WIDTH }}
+                className="fixed z-50 rounded-xl border border-border bg-card p-3 shadow-2xl"
+              >
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+                    className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  >
+                    <ChevronLeft className="size-4" />
+                  </button>
+                  <span className="text-sm font-medium text-foreground">
+                    {viewMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
+                    className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  >
+                    <ChevronRight className="size-4" />
+                  </button>
+                </div>
+
+                <div className="mt-2 grid grid-cols-7 text-center text-[10px] font-medium text-muted-foreground">
+                  {WEEKDAYS.map((w) => (
+                    <span key={w}>{w[0]}</span>
+                  ))}
+                </div>
+                <div className="mt-1 grid grid-cols-7 gap-y-0.5">
+                  {grid.map((d) => {
+                    const inMonth = d.getMonth() === viewMonth.getMonth()
+                    const selected = parsed && dateKey(d) === dateKey(parsed)
+                    return (
+                      <button
+                        key={d.toISOString()}
+                        type="button"
+                        onClick={() => selectDay(d)}
+                        className={cn(
+                          'mx-auto grid size-8 place-items-center rounded-lg text-xs transition-colors',
+                          selected
+                            ? 'bg-primary font-semibold text-primary-foreground'
+                            : inMonth
+                              ? 'text-foreground hover:bg-secondary'
+                              : 'text-muted-foreground/40 hover:bg-secondary',
+                        )}
+                      >
+                        {d.getDate()}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
+                  <Clock className="size-3.5 shrink-0 text-muted-foreground" />
+                  <select
+                    value={(parsed ?? new Date()).getHours()}
+                    onChange={(e) => setTime(Number(e.target.value), (parsed ?? new Date()).getMinutes())}
+                    className="min-h-9 flex-1 rounded-lg border border-border bg-secondary px-1.5 text-sm text-foreground outline-none focus:border-primary"
+                  >
+                    {Array.from({ length: 24 }, (_, h) => (
+                      <option key={h} value={h}>
+                        {String(h).padStart(2, '0')}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-sm text-muted-foreground">:</span>
+                  <select
+                    value={(parsed ?? new Date()).getMinutes()}
+                    onChange={(e) => setTime((parsed ?? new Date()).getHours(), Number(e.target.value))}
+                    className="min-h-9 flex-1 rounded-lg border border-border bg-secondary px-1.5 text-sm text-foreground outline-none focus:border-primary"
+                  >
+                    {Array.from({ length: 60 }, (_, m) => (
+                      <option key={m} value={m}>
+                        {String(m).padStart(2, '0')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="mt-3 flex items-center gap-2">
+                  {clearable && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onChange('')
+                        setOpen(false)
+                      }}
+                      className="flex-1 rounded-lg border border-border py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      Limpar
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    className="flex-1 rounded-lg bg-primary py-1.5 text-xs font-semibold text-primary-foreground"
+                  >
+                    OK
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
+    </>
+  )
 }
 
 function EventModal({
@@ -856,21 +1066,11 @@ function EventModal({
             <span className="flex items-center gap-1 text-sm font-medium text-foreground">
               <Clock className="size-3.5" /> Início
             </span>
-            <input
-              type="datetime-local"
-              value={startAt}
-              onChange={(e) => setStartAt(e.target.value)}
-              className="min-h-11 rounded-lg border border-border bg-secondary px-2 text-sm text-foreground outline-none focus:border-primary"
-            />
+            <DateTimeField value={startAt} onChange={setStartAt} />
           </label>
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-medium text-foreground">Término</span>
-            <input
-              type="datetime-local"
-              value={endAt}
-              onChange={(e) => setEndAt(e.target.value)}
-              className="min-h-11 rounded-lg border border-border bg-secondary px-2 text-sm text-foreground outline-none focus:border-primary"
-            />
+            <DateTimeField value={endAt} onChange={setEndAt} clearable />
           </label>
         </div>
 

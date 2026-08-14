@@ -90,7 +90,7 @@ export function ClientDetailView({ id }: { id: string }) {
         <>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
-              <h1 className="truncate text-3xl font-bold tracking-tight sm:text-4xl" title={client.data.name}>
+              <h1 className="min-w-0 truncate text-3xl font-bold tracking-tight sm:text-4xl" title={client.data.name}>
                 {client.data.name}
               </h1>
               {client.data.isExample && (
