@@ -32,7 +32,7 @@ import { ApiError } from '@/lib/api'
 import { ErrorState, LoadingState } from '@/components/states'
 import { FadeIn, motion, AnimatePresence } from '@/components/motion'
 import { toast } from '@/lib/toast'
-import { cn } from '@/lib/utils'
+import { cn, shortName } from '@/lib/utils'
 import { downloadIcs } from '@/lib/ics'
 
 const CALENDAR_TYPE_META: Record<
@@ -325,7 +325,8 @@ export function CalendarView() {
                       </span>
                       <div className="flex flex-col gap-1">
                         {visible.map((ev) => {
-                          const crewLabel = ev.crew.map((c) => c.name).join(', ')
+                          const crewNames = ev.crew.map((c) => c.name)
+                          const crewLabel = crewNames.map((n) => shortName(n, crewNames)).join(', ')
                           const extra = [crewLabel || null, ev.notes || null].filter(Boolean).join(' · ')
                           return (
                             <div
@@ -905,13 +906,16 @@ function EventModal({
             )}
             {chipList.map((m) => {
               const selected = crew.some((c) => c.id === m.id)
+              const allNames = chipList.map((c) => c.name)
+              const label = shortName(m.name, allNames)
+              const title = m.userId ? `${m.name} · Conta vinculada da equipe` : m.name
               return (
                 <button
                   key={m.id}
                   type="button"
                   onClick={() => toggleCrew(m)}
                   aria-pressed={selected}
-                  title={m.userId ? 'Conta vinculada da equipe' : undefined}
+                  title={title}
                   className={cn(
                     'inline-flex min-h-8 items-center gap-1 rounded-full border px-3 text-xs font-medium transition-colors',
                     selected
@@ -920,7 +924,7 @@ function EventModal({
                   )}
                 >
                   {m.userId && <UserCheck className="size-3" />}
-                  {m.name}
+                  {label}
                 </button>
               )
             })}
