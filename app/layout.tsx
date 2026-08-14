@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   // Base para resolver URLs absolutas de Open Graph/Twitter (thumbnails do
   // preview no WhatsApp/Facebook). Configure NEXT_PUBLIC_SITE_URL em produção.
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
-  title: 'CHECK · Aprovação de vídeos para agências e clientes',
+  title: 'Check',
   description:
     'Suba reels, posts e campanhas, envie um link e receba aprovação, comentários e notas do cliente direto do navegador.',
   generator: 'v0.app',
