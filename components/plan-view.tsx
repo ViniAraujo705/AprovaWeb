@@ -74,6 +74,10 @@ function useCheckoutConfirmation(
     if (!isReturning) return
     const pending = readPendingCheckoutPlan()
     if (!pending) {
+      // A página pode ter sido atualizada depois do tempo de espera inicial.
+      // Ainda assim, uma visita explícita à URL de sucesso deve recuperar um
+      // pagamento já confirmado, sem exigir uma nova cobrança.
+      void billingService.sync().then(refetch).catch(() => undefined)
       router.replace('/configuracoes/plano')
       return
     }
