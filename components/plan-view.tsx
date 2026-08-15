@@ -79,6 +79,10 @@ function useCheckoutConfirmation(
     }
     target.current = pending
     setState('polling')
+    // Uma reconciliação pontual cobre webhook atrasado/perdido sem transformar
+    // a tela em polling da API da Asaas. Se não houver confirmação ainda, o
+    // fluxo abaixo continua aguardando o webhook normalmente.
+    void billingService.sync().then(refetch).catch(() => undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

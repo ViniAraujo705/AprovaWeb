@@ -2610,6 +2610,13 @@ export const billingService = {
     return { url: pick(res, ['url'], '') }
   },
 
+  /** Reconcilia uma única vez o retorno do checkout com a Asaas. */
+  async sync(): Promise<{ plan: PlanId }> {
+    if (isDemo()) return delay({ plan: demoPlanStatus().plan }, 200)
+    const res = await api.post<Raw>('/billing/sync')
+    return { plan: (pick(res, ['plan'], 'free') as PlanId) ?? 'free' }
+  },
+
   /** Cancela a assinatura na hora, sem período de graça. */
   async cancel(): Promise<{ plan: PlanId }> {
     if (isDemo()) {
