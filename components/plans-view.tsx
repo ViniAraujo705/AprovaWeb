@@ -6,7 +6,7 @@ import { AlertTriangle, Building2, Check, CreditCard, Loader2, Sparkles } from '
 import { cn } from '@/lib/utils'
 import { FadeIn, AnimatePresence, motion } from '@/components/motion'
 import { usePlanLimit } from '@/components/plan-limit-provider'
-import { billingService } from '@/lib/services'
+import { billingService, type CheckoutPayer } from '@/lib/services'
 import { ApiError } from '@/lib/api'
 import type { BillingCycle, PlanId } from '@/lib/types'
 import { PLAN_PRICING, formatBRL, planPricing } from '@/lib/plan-pricing'
@@ -53,11 +53,11 @@ export function PlansView() {
   const [checkingOut, setCheckingOut] = useState<PlanId | null>(null)
   const [pendingPlan, setPendingPlan] = useState<PlanId | null>(null)
 
-  async function confirmCheckout(plan: PlanId, cpfCnpj: string, phoneNumber: string) {
+  async function confirmCheckout(plan: PlanId, payer: CheckoutPayer) {
     setCheckingOut(plan)
     try {
       const cycle: BillingCycle = billing === 'annual' ? 'YEARLY' : 'MONTHLY'
-      const { url } = await billingService.checkout(plan, cycle, cpfCnpj, phoneNumber)
+      const { url } = await billingService.checkout(plan, cycle, payer)
       if (!url) throw new Error('URL de checkout vazia.')
       // A tela de retorno (Meu Plano) usa isso pra saber qual plano esperar
       // enquanto reconsulta /plans/me — não dá pra confiar só no `?status=
@@ -241,9 +241,7 @@ export function PlansView() {
           <CpfCnpjModal
             planName={pendingPlanPricing.name}
             onClose={() => setPendingPlan(null)}
-            onConfirm={(cpfCnpj, phoneNumber) =>
-              confirmCheckout(pendingPlanPricing.id, cpfCnpj, phoneNumber)
-            }
+            onConfirm={(payer) => confirmCheckout(pendingPlanPricing.id, payer)}
           />
         )}
       </AnimatePresence>
@@ -258,15 +256,27 @@ function CpfCnpjModal({
 }: {
   planName: string
   onClose: () => void
-  onConfirm: (cpfCnpj: string, phoneNumber: string) => Promise<void>
+  onConfirm: (payer: CheckoutPayer) => Promise<void>
 }) {
-  const [value, setValue] = useState('')
-  const [phoneNumber, setPhoneNumber] = useState('')
+  const [payer, setPayer] = useState({
+    cpfCnpj: '',
+    phoneNumber: '',
+    postalCode: '',
+    address: '',
+    addressNumber: '',
+    complement: '',
+    province: '',
+  })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const digits = value.replace(/\D/g, '')
-  const phoneDigits = phoneNumber.replace(/\D/g, '')
+  const digits = payer.cpfCnpj.replace(/\D/g, '')
+  const phoneDigits = payer.phoneNumber.replace(/\D/g, '')
+  const postalCodeDigits = payer.postalCode.replace(/\D/g, '')
+
+  function updatePayer(field: keyof typeof payer, value: string) {
+    setPayer((current) => ({ ...current, [field]: value }))
+  }
 
   async function handleConfirm() {
     if (!isValidCpfCnpjDigits(digits)) {
@@ -277,10 +287,26 @@ function CpfCnpjModal({
       setError('Informe um telefone com DDD válido.')
       return
     }
+    if (postalCodeDigits.length !== 8) {
+      setError('Informe um CEP válido com 8 dígitos.')
+      return
+    }
+    if (!payer.address.trim() || !payer.addressNumber.trim() || !payer.province.trim()) {
+      setError('Preencha rua, número e bairro para continuar.')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
-      await onConfirm(digits, phoneDigits)
+      await onConfirm({
+        cpfCnpj: digits,
+        phoneNumber: phoneDigits,
+        postalCode: postalCodeDigits,
+        address: payer.address.trim(),
+        addressNumber: payer.addressNumber.trim(),
+        complement: payer.complement.trim() || undefined,
+        province: payer.province.trim(),
+      })
       // Sucesso navega pra fora da página (checkout externo) — não há
       // estado de "sucesso" pra tratar aqui.
     } catch (err) {
@@ -301,56 +327,79 @@ function CpfCnpjModal({
         transition={{ duration: 0.2 }}
       />
       <motion.div
-        className="relative w-full max-w-md rounded-xl border border-border bg-card p-5"
+        className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
         initial={{ opacity: 0, y: 8, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 8, scale: 0.98 }}
         transition={{ duration: 0.2 }}
       >
-        <div className="flex items-center gap-2">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/15 text-primary">
-            <CreditCard className="size-5" />
-          </span>
-          <h3 className="text-lg font-bold tracking-tight">Assinar {planName}</h3>
-        </div>
-        <p className="mt-3 text-sm text-muted-foreground">
-          A Asaas exige o CPF ou CNPJ e o telefone do pagador para emitir a cobrança.
-        </p>
-        <label className="mt-4 block text-sm font-medium text-foreground" htmlFor="checkout-cpf-cnpj">
-          CPF ou CNPJ
-        </label>
-        <input
-          id="checkout-cpf-cnpj"
-          type="text"
-          inputMode="numeric"
-          autoFocus
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
-          placeholder="Somente números"
-          disabled={busy}
-          className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
-        />
-        <label className="mt-4 block text-sm font-medium text-foreground" htmlFor="checkout-phone-number">
-          Telefone com DDD
-        </label>
-        <input
-          id="checkout-phone-number"
-          type="tel"
-          inputMode="tel"
-          value={phoneNumber}
-          onChange={(e) => setPhoneNumber(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
-          placeholder="Somente números"
-          disabled={busy}
-          className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
-        />
-        {error && (
-          <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
-            <AlertTriangle className="size-4 shrink-0" /> {error}
+        <div className="border-b border-border px-5 py-5 sm:px-6">
+          <div className="flex items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/15 text-primary">
+              <CreditCard className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Checkout seguro</p>
+              <h3 className="text-xl font-bold tracking-tight">Assinar {planName}</h3>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Informe os dados de cobrança uma única vez. O cartão será inserido com segurança na Asaas.
           </p>
-        )}
-        <div className="mt-5 flex items-center justify-end gap-2">
+        </div>
+
+        <div className="max-h-[65vh] space-y-6 overflow-y-auto px-5 py-5 sm:px-6">
+          <section>
+            <h4 className="text-sm font-semibold text-foreground">Dados do titular</h4>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-foreground" htmlFor="checkout-cpf-cnpj">CPF ou CNPJ</label>
+                <input id="checkout-cpf-cnpj" type="text" inputMode="numeric" autoFocus value={payer.cpfCnpj} onChange={(e) => updatePayer('cpfCnpj', e.target.value)} placeholder="Somente números" disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground" htmlFor="checkout-phone-number">Telefone com DDD</label>
+                <input id="checkout-phone-number" type="tel" inputMode="tel" value={payer.phoneNumber} onChange={(e) => updatePayer('phoneNumber', e.target.value)} placeholder="Ex.: 85999999999" disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <div className="flex items-baseline justify-between gap-3">
+              <h4 className="text-sm font-semibold text-foreground">Endereço de cobrança</h4>
+              <span className="text-xs text-muted-foreground">A cidade é identificada pelo CEP</span>
+            </div>
+            <div className="mt-3 grid gap-4 sm:grid-cols-6">
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-foreground" htmlFor="checkout-postal-code">CEP</label>
+                <input id="checkout-postal-code" type="text" inputMode="numeric" value={payer.postalCode} onChange={(e) => updatePayer('postalCode', e.target.value)} placeholder="Somente números" disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+              </div>
+              <div className="sm:col-span-4">
+                <label className="block text-sm font-medium text-foreground" htmlFor="checkout-address">Rua, avenida ou logradouro</label>
+                <input id="checkout-address" type="text" value={payer.address} onChange={(e) => updatePayer('address', e.target.value)} disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-foreground" htmlFor="checkout-address-number">Número</label>
+                <input id="checkout-address-number" type="text" value={payer.addressNumber} onChange={(e) => updatePayer('addressNumber', e.target.value)} disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+              </div>
+              <div className="sm:col-span-4">
+                <label className="block text-sm font-medium text-foreground" htmlFor="checkout-province">Bairro</label>
+                <input id="checkout-province" type="text" value={payer.province} onChange={(e) => updatePayer('province', e.target.value)} disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+              </div>
+              <div className="sm:col-span-6">
+                <label className="block text-sm font-medium text-foreground" htmlFor="checkout-complement">Complemento <span className="font-normal text-muted-foreground">(opcional)</span></label>
+                <input id="checkout-complement" type="text" value={payer.complement} onChange={(e) => updatePayer('complement', e.target.value)} placeholder="Apartamento, bloco, sala..." disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+              </div>
+            </div>
+          </section>
+
+          {error && (
+            <p className="flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+              <AlertTriangle className="size-4 shrink-0" /> {error}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4 sm:px-6">
           <button
             type="button"
             onClick={onClose}

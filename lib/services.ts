@@ -2572,20 +2572,29 @@ export const planService = {
 
 /* -------------------------------- cobrança -------------------------------- */
 
+export interface CheckoutPayer {
+  cpfCnpj: string
+  phoneNumber: string
+  postalCode: string
+  address: string
+  addressNumber: string
+  complement?: string
+  province: string
+}
+
 export const billingService = {
   /**
    * Inicia o checkout recorrente na Asaas. A resposta é a URL da fatura
    * hospedada na Asaas — o front deve navegar o navegador inteiro pra lá
    * (`window.location.href`), não abrir como modal/iframe.
    *
-   * `cpfCnpj` e `phoneNumber` precisam ir só com dígitos. A API exige CPF/CNPJ
-   * e telefone com DDD para criar o Customer no checkout da Asaas.
+   * Dados do pagador são enviados para preencher o checkout hospedado. O CEP
+   * também permite ao backend resolver o código IBGE da cidade exigido pela Asaas.
    */
   async checkout(
     plan: PlanId,
     cycle: BillingCycle,
-    cpfCnpj: string,
-    phoneNumber: string,
+    payer: CheckoutPayer,
   ): Promise<{ url: string }> {
     if (isDemo()) {
       // Sem gateway de verdade no demo: simula sucesso imediato navegando
@@ -2596,8 +2605,7 @@ export const billingService = {
     const res = await api.post<Raw>('/billing/checkout', {
       plan,
       cycle,
-      cpfCnpj,
-      phoneNumber,
+      ...payer,
     })
     return { url: pick(res, ['url'], '') }
   },
