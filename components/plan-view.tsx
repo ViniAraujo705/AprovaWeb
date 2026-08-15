@@ -128,6 +128,14 @@ export function PlanView() {
   const isOwner = user?.teamRole === 'owner'
   const confirmState = useCheckoutConfirmation(planStatus, refetch)
 
+  // Uma visita explícita a “Meu plano” também pode recuperar uma confirmação
+  // recente que tenha ficado sem webhook. É uma única consulta por montagem,
+  // não polling da Asaas.
+  useEffect(() => {
+    if (!isOwner || planStatus?.plan !== 'free') return
+    void billingService.sync().then(refetch).catch(() => undefined)
+  }, [isOwner, planStatus?.plan, refetch])
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 lg:py-10">
       <h1 className="font-display text-4xl tracking-wide sm:text-5xl">MEU PLANO</h1>
