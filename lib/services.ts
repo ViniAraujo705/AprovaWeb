@@ -2578,17 +2578,27 @@ export const billingService = {
    * hospedada na Asaas — o front deve navegar o navegador inteiro pra lá
    * (`window.location.href`), não abrir como modal/iframe.
    *
-   * `cpfCnpj` precisa ir só com dígitos (11 pra CPF, 14 pra CNPJ) — a API
-   * rejeita com 400 se vier formatado ou com contagem errada.
+   * `cpfCnpj` e `phoneNumber` precisam ir só com dígitos. A API exige CPF/CNPJ
+   * e telefone com DDD para criar o Customer no checkout da Asaas.
    */
-  async checkout(plan: PlanId, cycle: BillingCycle, cpfCnpj: string): Promise<{ url: string }> {
+  async checkout(
+    plan: PlanId,
+    cycle: BillingCycle,
+    cpfCnpj: string,
+    phoneNumber: string,
+  ): Promise<{ url: string }> {
     if (isDemo()) {
       // Sem gateway de verdade no demo: simula sucesso imediato navegando
       // direto pra tela de retorno, e já troca o plano localmente.
       demoSetPlan(plan)
       return delay({ url: '/configuracoes/plano?status=sucesso' }, 400)
     }
-    const res = await api.post<Raw>('/billing/checkout', { plan, cycle, cpfCnpj })
+    const res = await api.post<Raw>('/billing/checkout', {
+      plan,
+      cycle,
+      cpfCnpj,
+      phoneNumber,
+    })
     return { url: pick(res, ['url'], '') }
   },
 

@@ -17,6 +17,11 @@ function isValidCpfCnpjDigits(digits: string): boolean {
   return digits.length === 11 || digits.length === 14
 }
 
+/** DDD + telefone brasileiro, sem pontuação. */
+function isValidPhoneNumberDigits(digits: string): boolean {
+  return digits.length === 10 || digits.length === 11
+}
+
 type Billing = 'monthly' | 'annual'
 
 // Desconto do anual sobre o mensal, calculado a partir do Pro (referência
@@ -48,11 +53,11 @@ export function PlansView() {
   const [checkingOut, setCheckingOut] = useState<PlanId | null>(null)
   const [pendingPlan, setPendingPlan] = useState<PlanId | null>(null)
 
-  async function confirmCheckout(plan: PlanId, cpfCnpj: string) {
+  async function confirmCheckout(plan: PlanId, cpfCnpj: string, phoneNumber: string) {
     setCheckingOut(plan)
     try {
       const cycle: BillingCycle = billing === 'annual' ? 'YEARLY' : 'MONTHLY'
-      const { url } = await billingService.checkout(plan, cycle, cpfCnpj)
+      const { url } = await billingService.checkout(plan, cycle, cpfCnpj, phoneNumber)
       if (!url) throw new Error('URL de checkout vazia.')
       // A tela de retorno (Meu Plano) usa isso pra saber qual plano esperar
       // enquanto reconsulta /plans/me — não dá pra confiar só no `?status=
@@ -236,7 +241,9 @@ export function PlansView() {
           <CpfCnpjModal
             planName={pendingPlanPricing.name}
             onClose={() => setPendingPlan(null)}
-            onConfirm={(cpfCnpj) => confirmCheckout(pendingPlanPricing.id, cpfCnpj)}
+            onConfirm={(cpfCnpj, phoneNumber) =>
+              confirmCheckout(pendingPlanPricing.id, cpfCnpj, phoneNumber)
+            }
           />
         )}
       </AnimatePresence>
@@ -251,23 +258,29 @@ function CpfCnpjModal({
 }: {
   planName: string
   onClose: () => void
-  onConfirm: (cpfCnpj: string) => Promise<void>
+  onConfirm: (cpfCnpj: string, phoneNumber: string) => Promise<void>
 }) {
   const [value, setValue] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const digits = value.replace(/\D/g, '')
+  const phoneDigits = phoneNumber.replace(/\D/g, '')
 
   async function handleConfirm() {
     if (!isValidCpfCnpjDigits(digits)) {
       setError('Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.')
       return
     }
+    if (!isValidPhoneNumberDigits(phoneDigits)) {
+      setError('Informe um telefone com DDD válido.')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
-      await onConfirm(digits)
+      await onConfirm(digits, phoneDigits)
       // Sucesso navega pra fora da página (checkout externo) — não há
       // estado de "sucesso" pra tratar aqui.
     } catch (err) {
@@ -301,7 +314,7 @@ function CpfCnpjModal({
           <h3 className="text-lg font-bold tracking-tight">Assinar {planName}</h3>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
-          A Asaas exige o CPF ou CNPJ do pagador para emitir a cobrança.
+          A Asaas exige o CPF ou CNPJ e o telefone do pagador para emitir a cobrança.
         </p>
         <label className="mt-4 block text-sm font-medium text-foreground" htmlFor="checkout-cpf-cnpj">
           CPF ou CNPJ
@@ -313,6 +326,20 @@ function CpfCnpjModal({
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
+          placeholder="Somente números"
+          disabled={busy}
+          className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
+        />
+        <label className="mt-4 block text-sm font-medium text-foreground" htmlFor="checkout-phone-number">
+          Telefone com DDD
+        </label>
+        <input
+          id="checkout-phone-number"
+          type="tel"
+          inputMode="tel"
+          value={phoneNumber}
+          onChange={(e) => setPhoneNumber(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
           placeholder="Somente números"
           disabled={busy}
