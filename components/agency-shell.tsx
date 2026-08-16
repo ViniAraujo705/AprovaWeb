@@ -37,6 +37,7 @@ import { useAuth } from '@/components/auth-provider'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { NotificationBell } from '@/components/notification-bell'
 import { AccountSwitcher } from '@/components/account-switcher'
+import { AgencyLogo } from '@/components/agency-logo'
 import { teamRoleLabel, type Role, type TeamRole } from '@/lib/types'
 import { AnimatePresence, motion, useReducedMotion } from '@/components/motion'
 import { brandAccentStyle } from '@/lib/theme'
@@ -164,18 +165,8 @@ function Logo({ collapsed }: { collapsed?: boolean }) {
   // Dashboard é owner-only — editor volta pro Kanban ao clicar na marca.
   const home = user?.teamRole === 'owner' ? '/dashboard' : '/kanban'
   return (
-    <Link
-      href={home}
-      className={cn('flex items-center gap-2', collapsed && 'justify-center')}
-    >
-      <span className="relative size-8 shrink-0 overflow-hidden rounded-lg">
-        <Image src="/logo-check.png" alt="Check" fill className="object-cover" sizes="32px" />
-      </span>
-      {!collapsed && (
-        <span className="font-display text-2xl leading-none tracking-wide">
-          CHECK
-        </span>
-      )}
+    <Link href={home} className={cn(collapsed && 'flex justify-center')}>
+      <AgencyLogo branding={user?.branding ?? null} size={collapsed ? 'icon' : 'sm'} />
     </Link>
   )
 }

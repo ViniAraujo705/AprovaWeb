@@ -13,11 +13,28 @@ export function AgencyLogo({
   size = 'sm',
 }: {
   branding: Branding | null
-  size?: 'sm' | 'lg'
+  size?: 'sm' | 'lg' | 'icon'
 }) {
   const lg = size === 'lg'
+  const icon = size === 'icon'
 
   if (branding?.logoUrl) {
+    // Só a marca, sem o nome ao lado — usada onde o espaço é um quadrado
+    // fixo (ex.: rail do menu recolhido).
+    if (icon) {
+      return (
+        <span className="relative size-8 shrink-0 overflow-hidden rounded-lg">
+          <Image
+            src={branding.logoUrl}
+            alt={branding.agencyName || 'Logo da agência'}
+            fill
+            className="object-contain"
+            sizes="32px"
+            unoptimized
+          />
+        </span>
+      )
+    }
     return (
       <div className="flex min-w-0 items-center gap-2">
         {/*
@@ -44,6 +61,13 @@ export function AgencyLogo({
   }
 
   // Fallback: logo padrão do sistema.
+  if (icon) {
+    return (
+      <span className="relative size-8 shrink-0 overflow-hidden rounded-lg">
+        <Image src="/logo-check.png" alt="Check" fill className="object-cover" sizes="32px" />
+      </span>
+    )
+  }
   return (
     <div className="flex min-w-0 items-center gap-2">
       <span className={cn('relative shrink-0 overflow-hidden rounded-md', lg ? 'size-11 rounded-lg' : 'size-7')}>
