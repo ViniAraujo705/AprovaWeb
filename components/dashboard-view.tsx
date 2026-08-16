@@ -526,7 +526,7 @@ function CompactVideoList({
     <div>
       <div
         className={cn(
-          'hidden items-center gap-4 px-4 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid',
+          'hidden items-center gap-4 px-4 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:grid',
           LIST_GRID_COLS,
         )}
       >
@@ -562,6 +562,63 @@ const compactStatusStyles: Record<VideoStatus, string> = {
   erro: 'bg-destructive/15 text-destructive',
 }
 
+function VideoThumb({
+  video: v,
+  selected,
+  onToggleSelect,
+  sizes,
+}: {
+  video: Video
+  selected: boolean
+  onToggleSelect: () => void
+  sizes: string
+}) {
+  return (
+    <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-lg bg-secondary">
+      {v.posterUrl ? (
+        <Image src={v.posterUrl} alt="" fill className="object-cover" sizes={sizes} unoptimized />
+      ) : (
+        <span className="grid h-full w-full place-items-center text-muted-foreground/60">
+          <Film className="size-5" />
+        </span>
+      )}
+      <input
+        type="checkbox"
+        aria-label={`Selecionar ${v.title}`}
+        checked={selected}
+        onChange={(e) => {
+          e.stopPropagation()
+          onToggleSelect()
+        }}
+        onClick={(e) => e.stopPropagation()}
+        className="absolute left-1.5 top-1.5 z-[2] size-4 cursor-pointer accent-primary"
+      />
+      <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <span className="grid size-6 place-items-center rounded-full bg-black/45 text-white">
+          <Play className="size-3 fill-white" />
+        </span>
+      </span>
+      <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1 py-0.5 text-[9px] font-medium text-white">
+        {formatDuration(v.duration)}
+      </span>
+    </div>
+  )
+}
+
+function VideoStatusBadge({ status }: { status: VideoStatus }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+        compactStatusStyles[status],
+      )}
+    >
+      <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden="true" />
+      {statusLabel[status]}
+    </span>
+  )
+}
+
 function CompactVideoRow({
   video: v,
   selected,
@@ -577,100 +634,75 @@ function CompactVideoRow({
   const isOwner = user?.teamRole === 'owner'
 
   return (
-    <div
-      className={cn(
-        'group relative grid items-center gap-4 rounded-2xl border border-border bg-card p-3 transition-colors hover:border-primary/50',
-        LIST_GRID_COLS,
-      )}
-    >
+    <div className="group relative rounded-2xl border border-border bg-card p-3 transition-colors hover:border-primary/50">
       <Link
         href={`/videos/${v.id}/revisao`}
         aria-label={`Abrir revisão interna de ${v.title}`}
         className="absolute inset-0 z-[1]"
       />
 
-      <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-lg bg-secondary">
-        {v.posterUrl ? (
-          <Image
-            src={v.posterUrl}
-            alt=""
-            fill
-            className="object-cover"
-            sizes="96px"
-            unoptimized
-          />
-        ) : (
-          <span className="grid h-full w-full place-items-center text-muted-foreground/60">
-            <Film className="size-5" />
-          </span>
-        )}
-        <input
-          type="checkbox"
-          aria-label={`Selecionar ${v.title}`}
-          checked={selected}
-          onChange={(e) => {
-            e.stopPropagation()
-            onToggleSelect()
-          }}
-          onClick={(e) => e.stopPropagation()}
-          className="absolute left-1.5 top-1.5 z-[2] size-4 cursor-pointer accent-primary"
-        />
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="grid size-6 place-items-center rounded-full bg-black/45 text-white">
-            <Play className="size-3 fill-white" />
-          </span>
-        </span>
-        <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1 py-0.5 text-[9px] font-medium text-white">
-          {formatDuration(v.duration)}
-        </span>
+      {/* Mobile: card compacto empilhado (< sm) */}
+      <div className="flex items-center gap-3 sm:hidden">
+        <div className="w-16 shrink-0">
+          <VideoThumb video={v} selected={selected} onToggleSelect={onToggleSelect} sizes="64px" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-sm font-semibold text-foreground" title={v.title}>
+            {v.title}
+          </h3>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground" title={v.clientName}>
+            {v.clientName}
+          </p>
+          <div className="mt-1.5">
+            <VideoStatusBadge status={v.status} />
+          </div>
+        </div>
+        <div className="relative z-[2] shrink-0">
+          <RowActionsMenu video={v} isOwner={isOwner} onDeleted={onDeleted} />
+        </div>
       </div>
 
-      <div className="min-w-0">
-        <h3 className="truncate text-sm font-semibold text-foreground" title={v.title}>
-          {v.title}
-        </h3>
-        <p
+      {/* Tablet/desktop: colunas alinhadas ao cabeçalho (>= sm) */}
+      <div className={cn('hidden items-center gap-4 sm:grid', LIST_GRID_COLS)}>
+        <VideoThumb video={v} selected={selected} onToggleSelect={onToggleSelect} sizes="96px" />
+
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-semibold text-foreground" title={v.title}>
+            {v.title}
+          </h3>
+          <p
+            className={cn(
+              'mt-0.5 truncate text-xs',
+              v.commentsCount > 0 ? 'font-medium text-foreground' : 'text-muted-foreground',
+            )}
+          >
+            {v.commentsCount} comentário{v.commentsCount === 1 ? '' : 's'}
+          </p>
+        </div>
+
+        <div className="min-w-0 truncate text-sm font-medium text-foreground" title={v.clientName}>
+          {v.clientName}
+        </div>
+
+        <div>
+          <VideoStatusBadge status={v.status} />
+        </div>
+
+        <div
           className={cn(
-            'mt-0.5 truncate text-xs',
+            'flex items-center justify-center gap-1 text-sm',
             v.commentsCount > 0 ? 'font-medium text-foreground' : 'text-muted-foreground',
           )}
         >
-          {v.commentsCount} comentário{v.commentsCount === 1 ? '' : 's'}
-        </p>
-      </div>
+          <MessageSquare className="size-3.5" fill={v.commentsCount > 0 ? 'currentColor' : 'none'} />
+          {v.commentsCount}
+        </div>
 
-      <div className="min-w-0 truncate text-sm font-medium text-foreground" title={v.clientName}>
-        {v.clientName}
-      </div>
+        <div className="truncate text-sm text-muted-foreground">{formatSentAtCompact(v.createdAt)}</div>
 
-      <div>
-        <span
-          className={cn(
-            'inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
-            compactStatusStyles[v.status],
-          )}
-        >
-          <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden="true" />
-          {statusLabel[v.status]}
-        </span>
-      </div>
-
-      <div
-        className={cn(
-          'hidden items-center justify-center gap-1 text-sm sm:flex',
-          v.commentsCount > 0 ? 'font-medium text-foreground' : 'text-muted-foreground',
-        )}
-      >
-        <MessageSquare className="size-3.5" fill={v.commentsCount > 0 ? 'currentColor' : 'none'} />
-        {v.commentsCount}
-      </div>
-
-      <div className="hidden truncate text-sm text-muted-foreground sm:block">
-        {formatSentAtCompact(v.createdAt)}
-      </div>
-
-      <div className="relative z-[2] flex justify-end">
-        <RowActionsMenu video={v} isOwner={isOwner} onDeleted={onDeleted} />
+        <div className="relative z-[2] flex justify-end">
+          <RowActionsMenu video={v} isOwner={isOwner} onDeleted={onDeleted} />
+        </div>
       </div>
     </div>
   )
