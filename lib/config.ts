@@ -23,6 +23,6 @@ export const DEMO_PLAN_KEY = 'aprova_demo_plan'
 export const PENDING_CHECKOUT_PLAN_KEY = 'aprova_pending_checkout_plan'
 
 // Limites de upload (espelham as regras do backend/R2).
-export const UPLOAD_MAX_BYTES = 500 * 1024 * 1024 // 500MB
+export const UPLOAD_MAX_BYTES = 2 * 1024 * 1024 * 1024 // 2GB
 export const UPLOAD_ACCEPTED_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
-export const UPLOAD_ACCEPTED_LABEL = 'MP4, MOV até 500MB'
+export const UPLOAD_ACCEPTED_LABEL = 'MP4, MOV até 2GB'

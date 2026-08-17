@@ -18,7 +18,7 @@ export function validateVideoFile(file: File): string | null {
   const typeOk =
     UPLOAD_ACCEPTED_TYPES.includes(file.type) || /\.(mp4|mov|webm)$/i.test(file.name)
   if (!typeOk) return 'Formato inválido. Envie um arquivo MP4, MOV ou WEBM.'
-  if (file.size > UPLOAD_MAX_BYTES) return 'Arquivo muito grande. O limite é 500MB.'
+  if (file.size > UPLOAD_MAX_BYTES) return 'Arquivo muito grande. O limite é 2GB.'
   if (file.size === 0) return 'O arquivo está vazio.'
   return null
 }
