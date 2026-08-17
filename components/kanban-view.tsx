@@ -40,6 +40,7 @@ import {
 } from '@/lib/types'
 import { ClientAvatar } from '@/components/client-avatar'
 import { DeadlineBadge, DeadlineField } from '@/components/deadline-badge'
+import { DateField } from '@/components/date-field'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
@@ -1313,12 +1314,7 @@ function DemandModal({
             </select>
           </Field>
           <Field label="Prazo">
-            <input
-              type="date"
-              value={deadlineInput}
-              onChange={(e) => setDeadlineInput(e.target.value)}
-              className={fieldInputClass}
-            />
+            <DateField value={deadlineInput} onChange={setDeadlineInput} clearable />
           </Field>
           <Field label="Etapa">
             <select

@@ -28,6 +28,7 @@ import {
 import { calendarService, clientService, crewService, demandService, teamService } from '@/lib/services'
 import type { CalendarActivity, CalendarActivityType, Client, CrewMember, Demand, TeamMember } from '@/lib/types'
 import { CALENDAR_ACTIVITY_TYPES, CALENDAR_ACTIVITY_TYPE_LABEL } from '@/lib/calendar-format'
+import { WEEKDAYS, dateKey, buildMonthGrid } from '@/lib/format'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { ErrorState, LoadingState } from '@/components/states'
@@ -78,24 +79,6 @@ const CALENDAR_TYPE_META: Record<
     chipText: 'text-indigo-600 dark:text-indigo-400',
     dot: 'bg-indigo-500',
   },
-}
-
-const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-
-function dateKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-/** Toda a grade de 6 semanas (42 dias) que cobre o mês, incluindo sobras do mês anterior/seguinte. */
-function buildMonthGrid(monthStart: Date): Date[] {
-  const firstWeekday = monthStart.getDay()
-  const gridStart = new Date(monthStart)
-  gridStart.setDate(gridStart.getDate() - firstWeekday)
-  return Array.from({ length: 42 }, (_, i) => {
-    const d = new Date(gridStart)
-    d.setDate(d.getDate() + i)
-    return d
-  })
 }
 
 function timeLabel(iso: string): string {

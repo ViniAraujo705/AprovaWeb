@@ -25,6 +25,7 @@ import { UPLOAD_ACCEPTED_LABEL } from '@/lib/config'
 import { DEMO_LINK, isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
 import { usePlanLimit } from '@/components/plan-limit-provider'
+import { DateField } from '@/components/date-field'
 
 type ItemStatus = 'pending' | 'uploading' | 'done' | 'error'
 
@@ -853,13 +854,12 @@ export function UploadView() {
               <span className="text-sm font-medium text-foreground">
                 Prazo de entrega <span className="font-normal text-muted-foreground">(opcional)</span>
               </span>
-              <input
-                type="date"
+              <DateField
                 value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
+                onChange={setDeadline}
                 disabled={busy}
                 min={new Date().toISOString().slice(0, 10)}
-                className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-60"
+                clearable
               />
               <span className="text-xs text-muted-foreground">
                 Aplicado a todos os vídeos deste lote.

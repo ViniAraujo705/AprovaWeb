@@ -78,3 +78,27 @@ export function getDeadlineUrgency(iso: string | null): DeadlineUrgency | null {
   if (diffMs <= 2 * day) return 'soon'
   return 'ok'
 }
+
+/* ------------------------ grade de calendário (mês) ------------------------ */
+// Usado pelos popovers de data no tema do app (ver components/date-field.tsx e
+// components/calendar-view.tsx) — substituem o <input type="date"> nativo, que
+// abre o calendário do SO/navegador e foge do dark theme.
+
+export const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+
+/** Chave estável de dia (fuso local, não UTC) pra comparar/indexar datas. */
+export function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Toda a grade de 6 semanas (42 dias) que cobre o mês, incluindo sobras do mês anterior/seguinte. */
+export function buildMonthGrid(monthStart: Date): Date[] {
+  const firstWeekday = monthStart.getDay()
+  const gridStart = new Date(monthStart)
+  gridStart.setDate(gridStart.getDate() - firstWeekday)
+  return Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(gridStart)
+    d.setDate(d.getDate() + i)
+    return d
+  })
+}
