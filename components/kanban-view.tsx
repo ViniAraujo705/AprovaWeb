@@ -881,6 +881,7 @@ function BoardCard({
   const people = item.responsibleName
     ? [{ name: item.responsibleName, seed: item.responsibleSeed ?? item.responsibleName }, ...extraPeople]
     : extraPeople
+  const KindIcon = KIND_META[item.kind].icon
 
   return (
     <button
@@ -896,9 +897,13 @@ function BoardCard({
       onClick={onOpen}
       className="group flex cursor-grab flex-col rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:border-primary/50 active:cursor-grabbing"
     >
-      <CardVisual kind={item.kind} posterUrl={item.posterUrl} duration={item.duration} className="aspect-video" />
+      <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+        <KindIcon className="size-3" />
+        {KIND_META[item.kind].label}
+        {item.kind === 'video' && item.duration > 0 && <span>· {formatDuration(item.duration)}</span>}
+      </div>
 
-      <div className="mt-2.5 flex items-start justify-between gap-2">
+      <div className="mt-2 flex items-start justify-between gap-2">
         <h4 className="min-w-0 truncate text-sm font-semibold text-foreground" title={item.title}>
           {item.title}
         </h4>
