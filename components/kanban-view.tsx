@@ -1004,9 +1004,9 @@ function VideoDetailModal({
       onClick={onClose}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.97, y: 8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.97, y: 8 }}
+        initial={{ scale: 0.97, y: 8 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.97, y: 8 }}
         transition={{ duration: 0.15 }}
         onClick={(e) => e.stopPropagation()}
         className="grid w-full max-w-3xl overflow-hidden rounded-2xl bg-card shadow-2xl md:grid-cols-2"
@@ -1250,9 +1250,9 @@ function DemandModal({
       onClick={onClose}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.97, y: 8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.97, y: 8 }}
+        initial={{ scale: 0.97, y: 8 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.97, y: 8 }}
         transition={{ duration: 0.15 }}
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md overflow-hidden rounded-2xl bg-card p-5 shadow-2xl"
@@ -1533,9 +1533,9 @@ function LabelManagerModal({
       onClick={onClose}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.97, y: 8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.97, y: 8 }}
+        initial={{ scale: 0.97, y: 8 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.97, y: 8 }}
         transition={{ duration: 0.15 }}
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-sm overflow-hidden rounded-2xl bg-card p-5 shadow-2xl"

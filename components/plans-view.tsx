@@ -328,9 +328,9 @@ function CpfCnpjModal({
       />
       <motion.div
         className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
-        initial={{ opacity: 0, y: 8, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+        initial={{ y: 8, scale: 0.98 }}
+        animate={{ y: 0, scale: 1 }}
+        exit={{ y: 8, scale: 0.98 }}
         transition={{ duration: 0.2 }}
       >
         <div className="border-b border-border px-5 py-5 sm:px-6">

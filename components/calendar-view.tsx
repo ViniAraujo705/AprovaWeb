@@ -456,9 +456,9 @@ function ExportModal({
       />
       <motion.div
         className="relative flex w-full max-w-md flex-col rounded-xl border border-border bg-card p-5"
-        initial={{ opacity: 0, y: 8, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+        initial={{ y: 8, scale: 0.98 }}
+        animate={{ y: 0, scale: 1 }}
+        exit={{ y: 8, scale: 0.98 }}
         transition={{ duration: 0.2 }}
       >
         <div className="flex items-center justify-between gap-2">
@@ -953,9 +953,9 @@ function EventModal({
       />
       <motion.div
         className="relative flex max-h-[85vh] w-full max-w-md flex-col overflow-y-auto rounded-xl border border-border bg-card p-5"
-        initial={{ opacity: 0, y: 8, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+        initial={{ y: 8, scale: 0.98 }}
+        animate={{ y: 0, scale: 1 }}
+        exit={{ y: 8, scale: 0.98 }}
         transition={{ duration: 0.2 }}
       >
         <div className="flex items-center justify-between gap-2">

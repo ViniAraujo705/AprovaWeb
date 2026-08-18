@@ -131,9 +131,9 @@ export function DateField({
             {open && (
               <motion.div
                 ref={panelRef}
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
+                initial={{ y: -4 }}
+                animate={{ y: 0 }}
+                exit={{ y: -4 }}
                 transition={{ duration: 0.15 }}
                 style={{ ...panelStyle, width: PANEL_WIDTH }}
                 className="fixed z-50 rounded-xl border border-border bg-card p-3 shadow-2xl"
