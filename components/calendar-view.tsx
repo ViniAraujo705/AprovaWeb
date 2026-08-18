@@ -478,21 +478,26 @@ function DayEventsModal({
               const crewNames = ev.crew.map((c) => c.name)
               const crewLabel = crewNames.map((n) => shortName(n, crewNames)).join(', ')
               const extra = [crewLabel || null, ev.notes || null].filter(Boolean).join(' · ')
+              const meta = CALENDAR_TYPE_META[ev.type]
               return (
                 <button
                   key={ev.id}
                   type="button"
                   onClick={() => onSelectEvent(ev)}
-                  className={cn('flex flex-col rounded-md px-2.5 py-2 text-left', CALENDAR_TYPE_META[ev.type].chipBg)}
+                  className={cn('flex flex-col rounded-md px-2.5 py-2 text-left', meta.chipBg)}
                 >
-                  <span className="flex items-start gap-1.5 text-xs font-semibold leading-tight text-foreground">
-                    <span className={cn('mt-1 size-1.5 shrink-0 rounded-full', CALENDAR_TYPE_META[ev.type].dot)} />
-                    <span className="min-w-0 break-words">
-                      {timeLabel(ev.startAt)} {ev.title}
+                  <span className="flex items-center gap-1.5">
+                    <meta.icon className={cn('size-3 shrink-0', meta.chipText)} />
+                    <span className={cn('text-[10px] font-semibold uppercase tracking-wide', meta.chipText)}>
+                      {CALENDAR_ACTIVITY_TYPE_LABEL[ev.type]}
                     </span>
+                    <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">{timeLabel(ev.startAt)}</span>
+                  </span>
+                  <span className="mt-1 min-w-0 break-words text-xs font-semibold leading-tight text-foreground">
+                    {ev.title}
                   </span>
                   {extra && (
-                    <span className="min-w-0 break-words pl-3 text-[11px] leading-tight text-muted-foreground">
+                    <span className="mt-0.5 min-w-0 break-words text-[11px] leading-tight text-muted-foreground">
                       {extra}
                     </span>
                   )}
