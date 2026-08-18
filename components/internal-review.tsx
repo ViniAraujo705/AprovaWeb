@@ -293,8 +293,8 @@ function InternalComposer({
       <AnimatePresence>
         {sent && (
           <motion.p
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ y: -4 }}
+            animate={{ y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             className="mt-2 flex items-center justify-center gap-1.5 text-sm font-medium text-emerald-400"

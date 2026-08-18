@@ -154,9 +154,9 @@ export function NotificationBell({
             {open && (
               <motion.div
                 ref={panelRef}
-                initial={{ opacity: 0, y: direction === 'up' ? 4 : -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: direction === 'up' ? 4 : -4 }}
+                initial={{ y: direction === 'up' ? 4 : -4 }}
+                animate={{ y: 0 }}
+                exit={{ y: direction === 'up' ? 4 : -4 }}
                 transition={{ duration: 0.15 }}
                 style={panelStyle}
                 className="fixed z-50 w-80 max-w-[90vw] overflow-hidden rounded-xl border border-border bg-card shadow-2xl"

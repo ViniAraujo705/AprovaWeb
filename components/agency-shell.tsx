@@ -445,9 +445,9 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
             />
             <motion.div
               className="absolute left-0 top-0 flex h-full w-72 flex-col bg-sidebar p-5"
-              initial={reduce ? { opacity: 0 } : { x: '-100%' }}
-              animate={reduce ? { opacity: 1 } : { x: 0 }}
-              exit={reduce ? { opacity: 0 } : { x: '-100%' }}
+              initial={reduce ? { y: -4 } : { x: '-100%' }}
+              animate={reduce ? { y: 0 } : { x: 0 }}
+              exit={reduce ? { y: -4 } : { x: '-100%' }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             >
               <div className="flex items-center justify-between">

@@ -268,8 +268,8 @@ function ProfileForm({ user }: { user: User }) {
         <AnimatePresence>
           {saved && (
             <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ y: -4 }}
+              animate={{ y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
               className="mt-4 flex items-center gap-1.5 text-sm font-medium text-emerald-400"
@@ -692,8 +692,8 @@ function BrandingForm({ user }: { user: User }) {
         <AnimatePresence>
           {saved && (
             <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ y: -4 }}
+              animate={{ y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
               className="mt-4 flex items-center gap-1.5 text-sm font-medium text-emerald-400"

@@ -764,9 +764,9 @@ function RowActionsMenu({
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
+            initial={{ y: -4 }}
+            animate={{ y: 0 }}
+            exit={{ y: -4 }}
             transition={{ duration: 0.15 }}
             className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-2xl"
           >
@@ -884,9 +884,9 @@ function BulkActionsBar({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4 }}
+      initial={{ y: -4 }}
+      animate={{ y: 0 }}
+      exit={{ y: -4 }}
       transition={{ duration: 0.15 }}
       className="inline-flex items-center gap-2 rounded-lg bg-secondary py-1.5 pl-3 pr-1.5"
     >
@@ -908,9 +908,9 @@ function BulkActionsBar({
         <AnimatePresence>
           {open && (
             <motion.div
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
+              initial={{ y: -4 }}
+              animate={{ y: 0 }}
+              exit={{ y: -4 }}
               transition={{ duration: 0.15 }}
               className="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-2xl"
             >
@@ -1010,8 +1010,8 @@ function OnboardingBanner({
   const [confirming, setConfirming] = useState(false)
   return (
     <motion.div
-      initial={{ opacity: 0, y: -6 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: -6 }}
+      animate={{ y: 0 }}
       exit={{ opacity: 0, height: 0, marginTop: 0 }}
       transition={{ duration: 0.3 }}
       className="mt-6 rounded-xl border border-primary/40 bg-primary/10 p-4"

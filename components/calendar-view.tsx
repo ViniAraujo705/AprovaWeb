@@ -118,6 +118,7 @@ export function CalendarView() {
   const demands = useQuery<Demand[]>((signal) => demandService.list(signal), [])
 
   const [modal, setModal] = useState<{ date: Date; event: CalendarActivity | null } | null>(null)
+  const [dayModal, setDayModal] = useState<Date | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [visibleTypes, setVisibleTypes] = useState<Set<CalendarActivityType>>(
     () => new Set(CALENDAR_ACTIVITY_TYPES),
@@ -330,9 +331,11 @@ export function CalendarView() {
                               className={cn('flex flex-col rounded-md px-1.5 py-1', CALENDAR_TYPE_META[ev.type].chipBg)}
                               title={[ev.title, extra].filter(Boolean).join(' — ')}
                             >
-                              <span className="flex items-start gap-1 break-words text-[11px] font-semibold leading-tight text-foreground sm:text-xs">
+                              <span className="flex items-start gap-1 text-[11px] font-semibold leading-tight text-foreground sm:text-xs">
                                 <span className={cn('mt-1 size-1.5 shrink-0 rounded-full', CALENDAR_TYPE_META[ev.type].dot)} />
-                                {timeLabel(ev.startAt)} {ev.title}
+                                <span className="min-w-0 break-words">
+                                  {timeLabel(ev.startAt)} {ev.title}
+                                </span>
                               </span>
                               {extra && (
                                 <span className="break-words pl-2.5 text-[10px] leading-tight text-muted-foreground sm:text-[11px]">
@@ -343,7 +346,21 @@ export function CalendarView() {
                           )
                         })}
                         {overflow > 0 && (
-                          <span className="px-1.5 text-[10px] text-muted-foreground">
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDayModal(d)
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.stopPropagation()
+                                setDayModal(d)
+                              }
+                            }}
+                            className="px-1.5 text-[10px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                          >
                             +{overflow} mais
                           </span>
                         )}
@@ -387,7 +404,112 @@ export function CalendarView() {
             onClose={() => setExportOpen(false)}
           />
         )}
+        {dayModal && (
+          <DayEventsModal
+            date={dayModal}
+            events={eventsByDay.get(dateKey(dayModal)) ?? []}
+            onClose={() => setDayModal(null)}
+            onSelectEvent={(ev) => {
+              setDayModal(null)
+              setModal({ date: new Date(ev.startAt), event: ev })
+            }}
+            onAddNew={() => {
+              const date = dayModal
+              setDayModal(null)
+              setModal({ date, event: null })
+            }}
+          />
+        )}
       </AnimatePresence>
+    </div>
+  )
+}
+
+function DayEventsModal({
+  date,
+  events,
+  onClose,
+  onSelectEvent,
+  onAddNew,
+}: {
+  date: Date
+  events: CalendarActivity[]
+  onClose: () => void
+  onSelectEvent: (event: CalendarActivity) => void
+  onAddNew: () => void
+}) {
+  const dateLabel = date
+    .toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
+    .replace(/^\w/, (c) => c.toUpperCase())
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+      <motion.div
+        className="absolute inset-0 bg-black/70"
+        onClick={onClose}
+        aria-hidden="true"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+      />
+      <motion.div
+        className="relative flex max-h-[85vh] w-full max-w-md flex-col rounded-xl border border-border bg-card p-5"
+        initial={{ y: 8, scale: 0.98 }}
+        animate={{ y: 0, scale: 1 }}
+        exit={{ y: 8, scale: 0.98 }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-medium text-foreground">{dateLabel}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="mt-3 flex-1 overflow-y-auto">
+          <div className="flex flex-col gap-1.5">
+            {events.map((ev) => {
+              const crewNames = ev.crew.map((c) => c.name)
+              const crewLabel = crewNames.map((n) => shortName(n, crewNames)).join(', ')
+              const extra = [crewLabel || null, ev.notes || null].filter(Boolean).join(' · ')
+              return (
+                <button
+                  key={ev.id}
+                  type="button"
+                  onClick={() => onSelectEvent(ev)}
+                  className={cn('flex flex-col rounded-md px-2.5 py-2 text-left', CALENDAR_TYPE_META[ev.type].chipBg)}
+                >
+                  <span className="flex items-start gap-1.5 text-xs font-semibold leading-tight text-foreground">
+                    <span className={cn('mt-1 size-1.5 shrink-0 rounded-full', CALENDAR_TYPE_META[ev.type].dot)} />
+                    <span className="min-w-0 break-words">
+                      {timeLabel(ev.startAt)} {ev.title}
+                    </span>
+                  </span>
+                  {extra && (
+                    <span className="min-w-0 break-words pl-3 text-[11px] leading-tight text-muted-foreground">
+                      {extra}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onAddNew}
+          className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-secondary text-sm font-medium text-foreground hover:bg-secondary/70"
+        >
+          <Plus className="size-4" /> Nova atividade nesse dia
+        </button>
+      </motion.div>
     </div>
   )
 }
@@ -642,9 +764,9 @@ function DateTimeField({
             {open && (
               <motion.div
                 ref={panelRef}
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
+                initial={{ y: -4 }}
+                animate={{ y: 0 }}
+                exit={{ y: -4 }}
                 transition={{ duration: 0.15 }}
                 style={{ ...panelStyle, width: DATETIME_PANEL_WIDTH }}
                 className="fixed z-50 rounded-xl border border-border bg-card p-3 shadow-2xl"
