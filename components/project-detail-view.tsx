@@ -542,11 +542,7 @@ export function ProjectDetailView({ id }: { id: string }) {
         ) : (
           <div className="grid gap-3">
             {currentVideos.map((v) => {
-              const publicHref = v.publicLink
-                ? project.data?.publicLink
-                  ? `/v/${v.publicLink}?g=${encodeURIComponent(project.data.publicLink)}`
-                  : `/v/${v.publicLink}`
-                : null
+              const internalHref = `/videos/${v.id}/revisao`
               return (
                 <div
                   key={v.id}
@@ -558,13 +554,11 @@ export function ProjectDetailView({ id }: { id: string }) {
                     ficar aninhado DENTRO do <a>, senão o clique no <select> aciona
                     a navegação do link em vez de abrir o dropdown.
                   */}
-                  {publicHref && (
-                    <Link
-                      href={publicHref}
-                      aria-label={`Abrir link do cliente de ${v.title}`}
-                      className="absolute inset-0 z-[1] rounded-xl"
-                    />
-                  )}
+                  <Link
+                    href={internalHref}
+                    aria-label={`Abrir revisão interna de ${v.title}`}
+                    className="absolute inset-0 z-[1] rounded-xl"
+                  />
 
                   <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-secondary sm:w-40">
                     {v.posterUrl ? (
