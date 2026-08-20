@@ -572,9 +572,10 @@ export interface AdminMetrics {
 
 /* --------------------------------- planos --------------------------------- */
 
-export type PlanId = 'free' | 'pro' | 'agencia'
+export type PlanId = 'portfolio' | 'free' | 'pro' | 'agencia'
 
 export const planLabel: Record<PlanId, string> = {
+  portfolio: 'Portfólio',
   free: 'Free',
   pro: 'Pro',
   agencia: 'Agência',

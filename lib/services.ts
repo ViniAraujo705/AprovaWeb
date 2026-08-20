@@ -2537,11 +2537,18 @@ export const adminService = {
 
 /* -------------------------------- planos ---------------------------------- */
 
+function normalizePlanId(raw: unknown): PlanId {
+  const plan = String(raw ?? '').toLowerCase()
+  return plan === 'portfolio' || plan === 'free' || plan === 'pro' || plan === 'agencia'
+    ? plan
+    : 'free'
+}
+
 function mapPlanStatus(raw: Raw): PlanStatus {
   const limitsRaw = pick<Raw>(raw, ['limits', 'limites'], {})
   const usageRaw = pick<Raw>(raw, ['usage', 'uso'], {})
   return {
-    plan: (pick(raw, ['plan', 'plano'], 'free') as PlanId) ?? 'free',
+    plan: normalizePlanId(pick(raw, ['plan', 'plano'], 'free')),
     limits: {
       maxClients: pick<number | null>(limitsRaw, ['maxClients'], null),
       maxVideosPerMonth: pick<number | null>(limitsRaw, ['maxVideosPerMonth'], null),
@@ -2614,7 +2621,7 @@ export const billingService = {
   async sync(): Promise<{ plan: PlanId }> {
     if (isDemo()) return delay({ plan: demoPlanStatus().plan }, 200)
     const res = await api.post<Raw>('/billing/sync')
-    return { plan: (pick(res, ['plan'], 'free') as PlanId) ?? 'free' }
+    return { plan: normalizePlanId(pick(res, ['plan'], 'free')) }
   },
 
   /** Cancela a assinatura na hora, sem período de graça. */
@@ -2624,7 +2631,7 @@ export const billingService = {
       return delay({ plan: 'free' }, 300)
     }
     const res = await api.post<Raw>('/billing/cancel')
-    return { plan: (pick(res, ['plan'], 'free') as PlanId) ?? 'free' }
+    return { plan: normalizePlanId(pick(res, ['plan'], 'free')) }
   },
 }
 

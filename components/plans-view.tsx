@@ -34,6 +34,7 @@ const annualSavingsPct = (() => {
 })()
 
 const PLAN_ICONS: Record<PlanId, typeof CreditCard> = {
+  portfolio: CreditCard,
   free: CreditCard,
   pro: Sparkles,
   agencia: Building2,
@@ -118,7 +119,7 @@ export function PlansView() {
         </button>
       </div>
 
-      <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {PLAN_PRICING.map((plan) => {
           const isCurrent = planStatus?.plan === plan.id
           const highlighted = plan.id === 'pro'

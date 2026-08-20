@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils'
 
 function readPendingCheckoutPlan(): PlanId | null {
   const raw = sessionStorage.getItem(PENDING_CHECKOUT_PLAN_KEY)
-  return raw === 'free' || raw === 'pro' || raw === 'agencia' ? raw : null
+  return raw === 'portfolio' || raw === 'free' || raw === 'pro' || raw === 'agencia' ? raw : null
 }
 
 type UsageAxis = {

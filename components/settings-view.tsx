@@ -346,6 +346,18 @@ function SessionsSection() {
     [],
   )
   const sessions = data ?? []
+  // Mantém a sessão atual no topo e, em seguida, as atividades mais recentes.
+  // A lista completa pode crescer a cada login; quatro entradas bastam para a
+  // visão rápida sem esconder a ação de encerrar todas as demais de uma vez.
+  const visibleSessions = [...sessions]
+    .sort((a, b) => {
+      if (a.current !== b.current) return a.current ? -1 : 1
+      const aTime = Date.parse(a.lastActiveAt ?? a.createdAt ?? '') || 0
+      const bTime = Date.parse(b.lastActiveAt ?? b.createdAt ?? '') || 0
+      return bTime - aTime
+    })
+    .slice(0, 4)
+  const hiddenCount = sessions.length - visibleSessions.length
   const otherCount = sessions.filter((s) => !s.current).length
 
   return (
@@ -381,18 +393,27 @@ function SessionsSection() {
           ) : error ? (
             <ErrorState message={error} onRetry={refetch} className="py-8" />
           ) : (
-            <div className="divide-y divide-border">
-              {sessions.map((s) => (
-                <SessionRow
-                  key={s.id}
-                  session={s}
-                  onRevoke={async (id) => {
-                    await sessionService.revoke(id)
-                    setData((prev) => (prev ?? []).filter((item) => item.id !== id))
-                  }}
-                />
-              ))}
-            </div>
+            <>
+              <div className="divide-y divide-border">
+                {visibleSessions.map((s) => (
+                  <SessionRow
+                    key={s.id}
+                    session={s}
+                    onRevoke={async (id) => {
+                      await sessionService.revoke(id)
+                      setData((prev) => (prev ?? []).filter((item) => item.id !== id))
+                    }}
+                  />
+                ))}
+              </div>
+              {hiddenCount > 0 && (
+                <p className="mt-3 text-center text-xs text-muted-foreground">
+                  Mostrando as 4 sessões mais recentes. Há mais {hiddenCount}{' '}
+                  {hiddenCount === 1 ? 'sessão ativa' : 'sessões ativas'} — use “Encerrar outras sessões”
+                  para removê-las de uma vez.
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>

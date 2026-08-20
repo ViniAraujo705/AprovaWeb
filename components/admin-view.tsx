@@ -208,7 +208,7 @@ function UserRow({
                 disabled={savingPlan}
                 className="min-h-8 rounded-lg border border-border bg-secondary px-2 text-xs text-foreground outline-none disabled:opacity-50"
               >
-                {(['free', 'pro', 'agencia'] satisfies PlanId[]).map((p) => (
+                {(['portfolio', 'free', 'pro', 'agencia'] satisfies PlanId[]).map((p) => (
                   <option key={p} value={p}>
                     {planLabel[p]}
                   </option>

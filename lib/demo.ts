@@ -1198,7 +1198,7 @@ function readDemoPlan(): PlanId | null {
   if (typeof window === 'undefined') return null
   try {
     const raw = window.localStorage.getItem(DEMO_PLAN_KEY)
-    return raw === 'free' || raw === 'pro' || raw === 'agencia' ? raw : null
+    return raw === 'portfolio' || raw === 'free' || raw === 'pro' || raw === 'agencia' ? raw : null
   } catch {
     return null
   }
@@ -1210,9 +1210,20 @@ export function demoSetPlan(plan: PlanId): void {
 }
 
 const DEMO_PLAN_LIMITS: Record<PlanId, PlanStatus['limits']> = {
+  portfolio: {
+    maxClients: 0,
+    maxVideosPerMonth: 0,
+    maxRatingQuestions: 0,
+    maxExtraEditors: 0,
+    whiteLabel: false,
+    pdfReports: false,
+    priorityQueue: false,
+    teamPerformance: false,
+    storageGb: 10,
+  },
   free: {
-    maxClients: 3,
-    maxVideosPerMonth: 8,
+    maxClients: 1,
+    maxVideosPerMonth: 10,
     maxRatingQuestions: 3,
     maxExtraEditors: 0,
     whiteLabel: false,
