@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   AlertTriangle,
@@ -397,12 +397,14 @@ function PortfolioDetailsForm({
             />
           </label>
           <label className="mt-4 flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-foreground">Descrição</span>
+            <span className="text-sm font-medium text-foreground">
+              Bio do álbum <span className="font-normal text-muted-foreground">(opcional)</span>
+            </span>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Uma frase sobre este portfólio (opcional)"
-              rows={2}
+              placeholder="Apresente este álbum para quem o visitar."
+              rows={3}
               className="resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary sm:max-w-md"
             />
           </label>
@@ -684,6 +686,8 @@ function SelectExistingVideoModal({
 interface PendingPortfolioFile {
   id: string
   file: File
+  /** Miniatura local da imagem antes de ela ser enviada ao armazenamento. */
+  previewUrl: string | null
   /** Título editável, pré-preenchido com o nome do arquivo sem extensão. */
   title: string
   mediaType: PortfolioItemMediaType
@@ -707,9 +711,18 @@ function UploadPortfolioMediaForm({
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const nextId = useRef(0)
+  const previewUrls = useRef(new Set<string>())
   const [items, setItems] = useState<PendingPortfolioFile[]>([])
   const [fileError, setFileError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    // As URLs de preview existem apenas durante este formulário. Liberá-las ao
+    // fechar evita manter arquivos grandes selecionados na memória do browser.
+    return () => {
+      previewUrls.current.forEach((url) => URL.revokeObjectURL(url))
+    }
+  }, [])
 
   function addFiles(fileList: FileList | null | undefined) {
     if (!fileList) return
@@ -722,22 +735,33 @@ function UploadPortfolioMediaForm({
       const detectedType: PortfolioItemMediaType = f.type.startsWith('image/') ? 'foto' : 'video'
       const invalid = detectedType === 'foto' ? validatePhotoFile(f) : validateVideoFile(f)
       if (invalid) rejected.push(`${f.name}: ${invalid}`)
-      else
+      else {
+        const previewUrl = detectedType === 'foto' ? URL.createObjectURL(f) : null
+        if (previewUrl) previewUrls.current.add(previewUrl)
         accepted.push({
           id: String(nextId.current++),
           file: f,
+          previewUrl,
           title: f.name.replace(/\.[^.]+$/, ''),
           mediaType: detectedType,
           status: 'pending',
           progress: 0,
         })
+      }
     }
     setFileError(rejected.length > 0 ? rejected.join('; ') : null)
     if (accepted.length > 0) setItems((prev) => [...prev, ...accepted])
   }
 
   function removeItem(id: string) {
-    setItems((prev) => prev.filter((i) => i.id !== id))
+    setItems((prev) => {
+      const item = prev.find((i) => i.id === id)
+      if (item?.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl)
+        previewUrls.current.delete(item.previewUrl)
+      }
+      return prev.filter((i) => i.id !== id)
+    })
   }
 
   function updateItem(id: string, patch: Partial<PendingPortfolioFile>) {
@@ -873,28 +897,42 @@ function UploadPortfolioMediaForm({
               key={item.id}
               className="flex items-center gap-3 rounded-lg border border-border bg-background p-2.5"
             >
-              <span
-                className={cn(
-                  'grid size-9 shrink-0 place-items-center rounded-lg',
-                  item.status === 'done'
-                    ? 'bg-emerald-500/15 text-emerald-400'
-                    : item.status === 'error'
-                      ? 'bg-destructive/15 text-destructive'
-                      : 'bg-primary/15 text-primary',
-                )}
-              >
-                {item.status === 'done' ? (
-                  <Check className="size-4" />
-                ) : item.status === 'error' ? (
-                  <AlertTriangle className="size-4" />
-                ) : item.mediaType === 'design' ? (
-                  <Palette className="size-4" />
-                ) : item.mediaType === 'foto' ? (
-                  <ImageIcon className="size-4" />
-                ) : (
-                  <Film className="size-4" />
-                )}
-              </span>
+              {item.previewUrl ? (
+                <span className="relative size-9 shrink-0 overflow-hidden rounded-lg bg-secondary">
+                  {/* `img` usa a URL blob local diretamente; a miniatura não
+                      passa pelo otimizador pois o arquivo ainda não está público. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={item.previewUrl} alt="" className="size-full object-cover" />
+                  {item.status === 'done' && (
+                    <span className="absolute inset-0 grid place-items-center bg-emerald-500/45 text-white">
+                      <Check className="size-4" />
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <span
+                  className={cn(
+                    'grid size-9 shrink-0 place-items-center rounded-lg',
+                    item.status === 'done'
+                      ? 'bg-emerald-500/15 text-emerald-400'
+                      : item.status === 'error'
+                        ? 'bg-destructive/15 text-destructive'
+                        : 'bg-primary/15 text-primary',
+                  )}
+                >
+                  {item.status === 'done' ? (
+                    <Check className="size-4" />
+                  ) : item.status === 'error' ? (
+                    <AlertTriangle className="size-4" />
+                  ) : item.mediaType === 'design' ? (
+                    <Palette className="size-4" />
+                  ) : item.mediaType === 'foto' ? (
+                    <ImageIcon className="size-4" />
+                  ) : (
+                    <Film className="size-4" />
+                  )}
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 {item.status === 'pending' ? (
                   <input

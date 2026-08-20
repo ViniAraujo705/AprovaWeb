@@ -333,6 +333,15 @@ export function ClientReview({
     }
   }
 
+  function approve() {
+    if (overallRating === 0) {
+      setDecisionError('Antes de aprovar, escolha uma nota geral para o vídeo.')
+      document.getElementById('nota-geral')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+    decide('aprovado')
+  }
+
   return (
     <div className="min-h-screen" style={brandAccentStyle(data.branding?.accentColor)}>
       {/* Top bar — logo da agência (branding) com fallback pro logo do sistema */}
@@ -425,6 +434,7 @@ export function ClientReview({
               markers={markers}
               onCurrentChange={setCurrent}
               className="mt-4"
+              playerMaxHeightClass="max-h-[58svh] lg:max-h-[62vh]"
               hasNext={!!nextInQueue}
               hasPrev={!!prevInQueue}
               onSwipeNext={() => nextInQueue && loadVideo(nextInQueue.link)}
@@ -564,7 +574,7 @@ export function ClientReview({
               )}
 
               {/* Nota geral: em destaque, alimenta o desempenho do editor */}
-              <div className="mt-6 rounded-xl border-2 border-primary/50 bg-primary/5 p-4 text-center">
+              <div id="nota-geral" className="mt-6 rounded-xl border-2 border-primary/50 bg-primary/5 p-4 text-center">
                 <p className="font-display text-xl tracking-wide">NOTA GERAL</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   Sua avaliação geral do vídeo (obrigatória para aprovar).
@@ -599,7 +609,7 @@ export function ClientReview({
         ) : (
           <div className="mx-auto max-w-6xl">
             {decisionError && (
-              <p className="mb-2 text-center text-sm text-destructive">{decisionError}</p>
+              <p role="alert" className="mb-2 text-center text-sm text-destructive">{decisionError}</p>
             )}
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -617,9 +627,9 @@ export function ClientReview({
               </button>
               <button
                 type="button"
-                onClick={() => decide('aprovado')}
-                disabled={decisionBusy !== null || overallRating === 0}
-                title={overallRating === 0 ? 'Dê uma nota geral antes de aprovar' : undefined}
+                onClick={approve}
+                disabled={decisionBusy !== null}
+                aria-describedby={overallRating === 0 ? 'aviso-nota-geral' : undefined}
                 className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl bg-primary font-display text-xl tracking-wide text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 {decisionBusy === 'aprovado' ? (
@@ -630,6 +640,11 @@ export function ClientReview({
                 APROVAR
               </button>
             </div>
+            {overallRating === 0 && (
+              <p id="aviso-nota-geral" className="mt-2 text-center text-xs text-muted-foreground">
+                Para aprovar, avalie o vídeo com as estrelas de nota geral.
+              </p>
+            )}
           </div>
         )}
       </div>

@@ -176,8 +176,9 @@ export function PortfoliosView() {
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Descrição (opcional)"
-            rows={2}
+            placeholder="Bio do álbum (opcional)"
+            rows={3}
+            aria-label="Bio do álbum"
             className="mt-2 w-full resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
           />
           {categoryLocked ? (

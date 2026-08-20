@@ -373,7 +373,7 @@ function AlbumGrid({
                   card (não cobre 100% — a foto continua visível através
                   dele), centraliza a logo do cliente — ou o nome, quando não
                   há logo. */}
-              <div className="pointer-events-none absolute inset-3 flex flex-col items-center justify-center gap-3 bg-black/0 text-center opacity-0 transition-all duration-500 md:group-hover:bg-black/45 md:group-hover:opacity-100">
+              <div className="pointer-events-none absolute inset-3 flex flex-col items-center justify-center gap-3 bg-black/0 p-4 text-center opacity-0 transition-all duration-500 md:group-hover:bg-black/45 md:group-hover:opacity-100">
                 {p.logoUrl ? (
                   // Chip branco por trás da logo: garante contraste em cima de
                   // qualquer foto, sem forçar a cor da marca do cliente pra
@@ -395,10 +395,18 @@ function AlbumGrid({
                     {p.name}
                   </h3>
                 )}
+                {p.description && (
+                  <p className="max-w-sm line-clamp-3 text-xs leading-relaxed text-white/85 sm:text-sm">
+                    {p.description}
+                  </p>
+                )}
               </div>
               {/* Mobile (sem hover): mantém o nome sempre legível na base. */}
               <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent p-3 pt-10 md:hidden">
                 <h3 className="truncate font-display text-sm tracking-wide text-white">{p.name}</h3>
+                {p.description && (
+                  <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-white/75">{p.description}</p>
+                )}
               </div>
             </Link>
           </motion.div>

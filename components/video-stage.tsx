@@ -55,6 +55,8 @@ interface VideoStageProps {
   onCurrentChange?: (t: number) => void
   /** Cor de destaque da borda do Reels/marcadores. Default: primary (rosa). */
   className?: string
+  /** Limite de altura do player. A tela pública usa um limite menor para comentários permanecerem acessíveis. */
+  playerMaxHeightClass?: string
   /**
    * Navegação por swipe na aba "Preview Reels" (estilo feed do Instagram):
    * arrastar para cima avança, para baixo volta. Só entre vídeos do mesmo
@@ -78,6 +80,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
     markers,
     onCurrentChange,
     className,
+    playerMaxHeightClass,
     onSwipeNext,
     onSwipePrev,
     hasNext,
@@ -451,7 +454,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                   // `object-contain` do <video> centraliza com faixas pretas,
                   // igual já acontecia com a caixa 16:9 fixa antes desta aba
                   // passar a usar a proporção real do arquivo.
-                  'w-full sm:rounded-xl lg:max-h-[75vh]'
+                  cn('w-full sm:rounded-xl', playerMaxHeightClass ?? 'lg:max-h-[75vh]')
                 : // Reels: no celular ocupa a largura cheia da tela (edge-to-edge, sem
                   // moldura). A partir do lg, volta a ser um mockup de celular
                   // (moldura) ao lado do painel de comentários.
