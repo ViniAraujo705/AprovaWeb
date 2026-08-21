@@ -367,6 +367,16 @@ function mapVideo(raw: Raw, extra?: { clientName?: string | null }): Video {
   const countRaw = pick<Raw | null>(raw, ['_count'], null)
   const videoPaiRaw = pick<Raw | null>(raw, ['videoPai', 'video_pai'], null)
   const originalUrl = pick<string | null>(raw, ['urlStorage', 'url_storage'], null)
+  // O backend novo devolve a lista `editorIds`; a interface atual ainda
+  // trabalha com um único responsável, então usa o primeiro para manter a UI
+  // compatível durante a migração para múltiplas pessoas responsáveis.
+  const firstEditor = asArray(pick(raw, ['editorIds', 'editor_ids'], []))[0]
+  const firstEditorId =
+    typeof firstEditor === 'string'
+      ? firstEditor
+      : firstEditor && typeof firstEditor === 'object'
+        ? String(pick(firstEditor as Raw, ['id', 'userId', 'memberId'], '')) || null
+        : null
   return {
     id: String(pick(raw, ['id', '_id', 'videoId'], '')),
     title: pick(raw, ['nomeArquivo', 'nome_arquivo', 'title', 'name'], 'Sem título'),
@@ -401,11 +411,9 @@ function mapVideo(raw: Raw, extra?: { clientName?: string | null }): Video {
     ),
     isExample: Boolean(pick(raw, ['isExemplo', 'is_exemplo', 'isExample'], false)),
     deadline: pick<string | null>(raw, ['deadline', 'prazo'], null),
-    editorId: pick<string | null>(
-      raw,
-      ['editorResponsavelId', 'editor_responsavel_id', 'editorId', 'editor_id'],
-      null,
-    ),
+    editorId:
+      pick<string | null>(raw, ['editorResponsavelId', 'editor_responsavel_id', 'editorId', 'editor_id'], null) ??
+      firstEditorId,
     version: Number(pick(raw, ['versao', 'version'], 1)) || 1,
     videoPaiId: pick<string | null>(raw, ['videoPaiId', 'video_pai_id'], videoPaiRaw?.id ?? null),
     // Preenchido depois pelo `resolveLatestVersions`, ao id do próprio vídeo
@@ -1115,13 +1123,15 @@ export const videoService = {
     return mapVideo(res)
   },
 
-  /** Define o editor responsável pelo vídeo (só o owner deve chamar). */
+  /** Define a lista de responsáveis pelo vídeo (só o owner deve chamar). A UI atual envia um único item. */
   async assignEditor(id: string, editorId: string | null): Promise<Video> {
     if (isDemo()) {
       const found = demoVideos.find((v) => v.id === id)
       return delay({ ...(found ?? demoVideos[0]), id, editorId }, 300)
     }
-    const res = await api.patch<Raw>(`/videos/${id}/editor-responsavel`, { editorId })
+    const res = await api.patch<Raw>(`/videos/${id}/editor-responsavel`, {
+      editorIds: editorId ? [editorId] : [],
+    })
     invalidateAllVideosCache()
     return mapVideo(res)
   },

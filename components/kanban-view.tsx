@@ -28,7 +28,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
-import { videoService, teamService, demandService, clientService } from '@/lib/services'
+import { teamService, demandService, clientService } from '@/lib/services'
 import {
   productionStageLabel,
   type Client,
@@ -215,16 +215,12 @@ export function KanbanView() {
   const { user } = useAuth()
   const isOwner = user?.teamRole === 'owner'
 
-  const { data, loading, error, refetch, setData } = useQuery<Video[]>(
-    (signal) => videoService.list(undefined, signal),
-    [],
-  )
   const team = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
   const clients = useQuery<Client[]>((signal) => clientService.list(signal), [])
   const demandsQuery = useQuery<Demand[]>((signal) => demandService.list(signal), [])
 
-  // Mesma regra do dashboard: só a versão mais recente de cada vídeo aparece no board.
-  const videos = (data ?? []).filter((v) => v.latestVersionId === v.id)
+  // Vídeos pertencem ao fluxo de aprovação, não ao quadro operacional. O
+  // Kanban é composto exclusivamente pelas demandas criadas pela equipe.
   const demands = demandsQuery.data ?? []
 
   const [search, setSearch] = useState('')
@@ -363,19 +359,17 @@ export function KanbanView() {
     id ? clients.data?.find((c) => c.id === id)?.name ?? '' : ''
 
   const items: BoardItem[] = useMemo(() => {
-    const videoItems = videos.map((v) => videoToItem(v, responsibleName(v.editorId)))
-    const demandItems = demands.map((d) =>
+    return demands.map((d) =>
       demandToItem(d, responsibleName(d.responsibleId), clientNameById(d.clientId)),
     )
-    return [...videoItems, ...demandItems]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videos, demands, team.data, clients.data])
+  }, [demands, team.data, clients.data])
 
   const clientNames = useMemo(() => {
     const set = new Set<string>()
-    items.forEach((i) => i.clientName && set.add(i.clientName))
+    ;(clients.data ?? []).forEach((c) => c.name && set.add(c.name))
     return [ALL_CLIENTS, ...Array.from(set).sort()]
-  }, [items])
+  }, [clients.data])
 
   const filtered = items.filter((i) => {
     const byClient = client === ALL_CLIENTS || i.clientName === client
@@ -390,23 +384,10 @@ export function KanbanView() {
     entregue: items.filter((i) => i.stage === 'entregue').length,
   }
 
-  const boardLoading = loading || demandsQuery.loading
-  const boardError = error || demandsQuery.error
+  const boardLoading = demandsQuery.loading
+  const boardError = demandsQuery.error
   const retryBoard = () => {
-    refetch()
     demandsQuery.refetch()
-  }
-
-  async function moveVideo(id: string, stage: ProductionStage) {
-    const previous = videos.find((v) => v.id === id)?.productionStage
-    if (!previous || previous === stage) return
-    setData((prev) => (prev ?? []).map((v) => (v.id === id ? { ...v, productionStage: stage } : v)))
-    try {
-      await videoService.updateStage(id, stage)
-    } catch (err) {
-      setData((prev) => (prev ?? []).map((v) => (v.id === id ? { ...v, productionStage: previous } : v)))
-      toast.error(err instanceof ApiError ? err.message : 'Não foi possível mover o vídeo.')
-    }
   }
 
   async function moveDemand(id: string, stage: ProductionStage) {
@@ -424,8 +405,7 @@ export function KanbanView() {
   }
 
   function moveItem(item: BoardItem, stage: ProductionStage) {
-    if (item.kind === 'video') moveVideo(item.id, stage)
-    else moveDemand(item.id, stage)
+    if (item.kind !== 'video') moveDemand(item.id, stage)
   }
 
   async function saveDemand(input: DemandInput) {
@@ -465,7 +445,6 @@ export function KanbanView() {
     }
   }
 
-  const activeVideo = activeItem?.kind === 'video' ? videos.find((v) => v.id === activeItem.id) ?? null : null
   const activeDemand = activeItem?.kind === 'demand' ? demands.find((d) => d.id === activeItem.id) ?? null : null
 
   return (
@@ -474,17 +453,10 @@ export function KanbanView() {
         <div>
           <h1 className="font-display text-4xl tracking-wide sm:text-5xl">KANBAN</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Do planejamento à entrega, tudo num lugar só. Arraste os cards entre as etapas.
+            Organize as demandas de cada cliente do planejamento à entrega.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/upload"
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:border-primary/50"
-          >
-            <Plus className="size-4" />
-            Enviar vídeo
-          </Link>
           <button
             type="button"
             onClick={() => setCreatingStage('planejado')}
@@ -532,20 +504,9 @@ export function KanbanView() {
             className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
           >
             <option value={ALL_KINDS}>{ALL_KINDS}</option>
-            {(Object.keys(KIND_META) as CardKind[]).map((k) => (
+            {DEMAND_KINDS.map((k) => (
               <option key={k} value={k}>
                 {KIND_META[k].label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={client}
-            onChange={(e) => setClient(e.target.value)}
-            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
-          >
-            {clientNames.map((c) => (
-              <option key={c} value={c}>
-                {c}
               </option>
             ))}
           </select>
@@ -559,6 +520,24 @@ export function KanbanView() {
           </button>
         </div>
       </div>
+
+      <nav aria-label="Clientes" className="mt-4 flex gap-2 overflow-x-auto pb-1">
+        {clientNames.map((name) => (
+          <button
+            key={name}
+            type="button"
+            onClick={() => setClient(name)}
+            className={cn(
+              'min-h-9 shrink-0 rounded-full px-3 text-xs font-semibold transition-colors',
+              client === name
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {name}
+          </button>
+        ))}
+      </nav>
 
       {boardLoading ? (
         <div className="mt-4 flex gap-4 overflow-x-auto pb-2">
@@ -578,8 +557,8 @@ export function KanbanView() {
         <div className="mt-4">
           <EmptyState
             icon={<Film className="size-7" />}
-            title="Nada no quadro ainda"
-            description="Envie um vídeo ou crie uma demanda pra ver o quadro em ação."
+            title="Nenhuma demanda ainda"
+            description="Crie uma demanda para acompanhar o trabalho da equipe neste cliente."
             action={
               <button
                 type="button"
@@ -725,25 +704,6 @@ export function KanbanView() {
       )}
 
       <AnimatePresence>
-        {activeVideo && (
-          <VideoDetailModal
-            video={activeVideo}
-            editorName={responsibleName(activeVideo.editorId)}
-            isOwner={isOwner}
-            labels={labels}
-            activeLabelIds={cardLabels[activeVideo.id] ?? []}
-            onToggleLabel={(labelId) => toggleCardLabel(activeVideo.id, labelId)}
-            onManageLabels={() => setManagingLabels(true)}
-            teamMembers={team.data ?? []}
-            collaboratorIds={(collaborators[activeVideo.id] ?? []).filter((id) => id !== activeVideo.editorId)}
-            onToggleCollaborator={(memberId) => toggleCollaborator(activeVideo.id, memberId)}
-            onClose={() => setActiveItem(null)}
-            onUpdateStage={(stage) => moveVideo(activeVideo.id, stage)}
-            onDeadlineUpdated={(deadline) =>
-              setData((prev) => (prev ?? []).map((v) => (v.id === activeVideo.id ? { ...v, deadline } : v)))
-            }
-          />
-        )}
         {activeDemand && (
           <DemandModal
             demand={activeDemand}
