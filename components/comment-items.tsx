@@ -83,7 +83,7 @@ export function ClientCommentItem({
 }
 
 /** Largura (px) do menu de ações revelado ao arrastar (Mover + Excluir). */
-const ACTIONS_WIDTH = 132
+const ACTIONS_WIDTH = 144
 
 /**
  * Comentário do cliente no canal do cliente (visão do owner), com um
@@ -118,7 +118,7 @@ export function DraggableClientCommentItem({
             setOpen(false)
             onMove()
           }}
-          className="flex w-16 flex-col items-center justify-center gap-1 bg-primary/20 text-[11px] font-medium text-primary hover:bg-primary/30"
+          className="flex w-[72px] flex-col items-center justify-center gap-1 bg-primary text-[11px] font-semibold text-primary-foreground hover:opacity-90"
         >
           <FolderInput className="size-4" />
           Mover
@@ -127,7 +127,7 @@ export function DraggableClientCommentItem({
           type="button"
           onClick={() => setConfirmingDelete(true)}
           disabled={deleting}
-          className="flex w-16 flex-col items-center justify-center gap-1 bg-destructive/20 text-[11px] font-medium text-destructive hover:bg-destructive/30 disabled:opacity-50"
+          className="flex w-[72px] flex-col items-center justify-center gap-1 bg-destructive text-[11px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
         >
           {deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
           Excluir

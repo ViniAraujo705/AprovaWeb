@@ -14,6 +14,9 @@ import { motion, AnimatePresence } from '@/components/motion'
 
 const PANEL_WIDTH = 264
 const PANEL_GAP = 6
+// Altura máxima aproximada da grade mensal. Usada antes de o popover montar
+// para decidir se ele deve abrir acima do campo e nunca ficar fora da viewport.
+const PANEL_HEIGHT = 320
 
 function parseDateInputValue(value: string): Date | null {
   if (!value) return null
@@ -84,7 +87,10 @@ export function DateField({
       if (!el) return
       const rect = el.getBoundingClientRect()
       const left = Math.max(8, Math.min(rect.left, window.innerWidth - PANEL_WIDTH - 8))
-      setPanelStyle({ top: rect.bottom + PANEL_GAP, left })
+      const bottomTop = rect.bottom + PANEL_GAP
+      const fitsBelow = bottomTop + PANEL_HEIGHT <= window.innerHeight - 8
+      const top = fitsBelow ? bottomTop : Math.max(8, rect.top - PANEL_HEIGHT - PANEL_GAP)
+      setPanelStyle({ top, left })
     }
     const base = parsed ?? new Date()
     setViewMonth(new Date(base.getFullYear(), base.getMonth(), 1))
@@ -136,7 +142,7 @@ export function DateField({
                 exit={{ y: -4 }}
                 transition={{ duration: 0.15 }}
                 style={{ ...panelStyle, width: PANEL_WIDTH }}
-                className="fixed z-50 rounded-xl border border-border bg-card p-3 shadow-2xl"
+                className="fixed z-[80] rounded-xl border border-border bg-card p-3 shadow-2xl"
               >
                 <div className="flex items-center justify-between">
                   <button

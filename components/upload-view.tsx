@@ -15,7 +15,7 @@ import {
   RotateCcw,
   Info,
 } from 'lucide-react'
-import { clientService, projectService, teamService, videoService } from '@/lib/services'
+import { clientService, demandService, projectService, teamService, videoService } from '@/lib/services'
 import type { Client, Project, TeamMember } from '@/lib/types'
 import { useQuery } from '@/lib/use-query'
 import { Skeleton } from '@/components/states'
@@ -138,6 +138,9 @@ export function UploadView() {
   // Guardado após o primeiro envio do lote, pra "tentar novamente" reaproveitar
   // o mesmo projeto em vez de criar um novo a cada tentativa.
   const [batchProjectId, setBatchProjectId] = useState<string | null>(null)
+  // Um lote inteiro é uma única demanda operacional no Kanban. Guardar o id
+  // evita duplicá-la quando o usuário tenta novamente arquivos que falharam.
+  const [batchDemandId, setBatchDemandId] = useState<string | null>(null)
   const [galleryLink, setGalleryLink] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -299,6 +302,18 @@ export function UploadView() {
     }
   }
 
+  async function createBatchDemand(projectName: string) {
+    if (batchDemandId) return
+    const created = await demandService.create({
+      title: `Entrega de vídeos — ${projectName}`,
+      kind: 'demanda',
+      clientId,
+      responsibleId: editorId || null,
+      deadline: deadline ? new Date(`${deadline}T00:00:00`).toISOString() : null,
+    })
+    setBatchDemandId(created.id)
+  }
+
   async function handleSubmit() {
     setSubmitError(null)
     if (!validate()) return
@@ -315,6 +330,7 @@ export function UploadView() {
         }
         updateItem(item.id, { status: 'done' })
       }
+      await createBatchDemand(title.trim() || 'Novo lote')
       await new Promise((r) => setTimeout(r, 300))
       setGalleryLink(`${window.location.origin}/v/${DEMO_LINK}`)
       setPhase('done')
@@ -326,14 +342,18 @@ export function UploadView() {
       // projeto novo com o nome informado, ou reaproveita um já existente do
       // cliente, uma única vez pro lote inteiro.
       let targetProjectId = batchProjectId
+      let projectName = title.trim()
       if (!targetProjectId) {
         if (projectMode === 'existente') {
           targetProjectId = projectId
-          const g = (projectsForClient.data ?? []).find((p) => p.id === projectId)?.publicLink
+          const project = (projectsForClient.data ?? []).find((p) => p.id === projectId)
+          projectName = project?.name ?? 'Projeto sem nome'
+          const g = project?.publicLink
           setGalleryLink(g ? `${window.location.origin}/g/${g}` : null)
         } else {
           const created = await projectService.create({ name: title.trim(), clientId })
           targetProjectId = created.id
+          projectName = created.name
           setGalleryLink(
             created.publicLink ? `${window.location.origin}/g/${created.publicLink}` : null,
           )
@@ -341,6 +361,9 @@ export function UploadView() {
         setBatchProjectId(targetProjectId)
       }
 
+      // A demanda representa a entrega, não cada arquivo: 10 vídeos enviados
+      // juntos continuam aparecendo como apenas um card no Kanban.
+      await createBatchDemand(projectName || 'Novo lote')
       await uploadPending(targetProjectId)
       setPhase('done')
     } catch (err) {
@@ -385,6 +408,7 @@ export function UploadView() {
     setPhase('idle')
     setSubmitError(null)
     setBatchProjectId(null)
+    setBatchDemandId(null)
     setGalleryLink(null)
   }
 
