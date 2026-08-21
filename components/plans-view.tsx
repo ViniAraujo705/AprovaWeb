@@ -114,7 +114,7 @@ export function PlansView() {
         </button>
       </div>
 
-      <div className="mt-16 grid items-stretch gap-7 sm:grid-cols-2 2xl:grid-cols-4">
+      <div className="mt-8 grid items-stretch gap-5 sm:grid-cols-2 md:grid-cols-4 lg:gap-7">
         {PLAN_PRICING.map((plan) => {
           const isCurrent = planStatus?.plan === plan.id
           const highlighted = plan.id === 'pro'
@@ -136,16 +136,16 @@ export function PlansView() {
 
                 <div
                   className={cn(
-                    'group relative flex min-h-[570px] h-full flex-col overflow-hidden rounded-3xl border p-7 transition-transform duration-300 ease-out hover:z-10 hover:-translate-y-1 sm:p-9',
+                    'group relative flex min-h-[480px] h-full flex-col overflow-hidden rounded-3xl border p-5 transition-transform duration-300 ease-out hover:z-10 hover:-translate-y-1 lg:p-6',
                     highlighted
                       ? 'border-plan-featured bg-plan-featured text-plan-featured-foreground shadow-2xl shadow-black/20'
                       : 'border-border bg-card hover:border-foreground/20 hover:shadow-xl',
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className={cn('flex items-center gap-3 text-xl font-bold tracking-tight', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
-                      <span className={cn('grid size-11 place-items-center rounded-xl', highlighted ? 'bg-white/10' : 'bg-secondary')}>
-                        <Icon className={cn('size-5', highlighted ? 'text-plan-featured-muted' : 'text-muted-foreground')} />
+                    <div className={cn('flex items-center gap-2.5 text-lg font-bold tracking-tight lg:text-xl', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
+                      <span className={cn('grid size-10 place-items-center rounded-xl', highlighted ? 'bg-white/10' : 'bg-secondary')}>
+                        <Icon className={cn('size-4.5', highlighted ? 'text-plan-featured-muted' : 'text-muted-foreground')} />
                       </span>
                       {plan.name}
                     </div>
@@ -156,18 +156,18 @@ export function PlansView() {
                     )}
                   </div>
 
-                  <p className={cn('mt-6 max-w-[18rem] text-base leading-6', highlighted ? 'text-plan-featured-muted' : 'text-muted-foreground')}>
+                  <p className={cn('mt-4 max-w-[18rem] text-sm leading-5 lg:text-base lg:leading-6', highlighted ? 'text-plan-featured-muted' : 'text-muted-foreground')}>
                     {plan.description}
                   </p>
 
-                  <div className="mt-16 flex items-baseline gap-1">
+                  <div className="mt-9 flex items-baseline gap-1 lg:mt-12">
                     {isFree ? (
-                      <span className={cn('text-5xl font-bold tracking-tight sm:text-6xl', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
+                      <span className={cn('text-4xl font-bold tracking-tight lg:text-5xl', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
                         grátis
                       </span>
                     ) : (
                       <>
-                        <span className={cn('text-5xl font-bold tracking-tight sm:text-6xl', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
+                        <span className={cn('text-4xl font-bold tracking-tight lg:text-5xl', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
                           {price}
                         </span>
                         <span className={cn('text-base font-medium', highlighted ? 'text-plan-featured-muted' : 'text-muted-foreground')}>/mês</span>
@@ -180,10 +180,10 @@ export function PlansView() {
                     </p>
                   )}
 
-                  <ul className={cn('mt-16 flex-1 space-y-5 border-t pt-7', highlighted ? 'border-white/10' : 'border-border')}>
+                  <ul className={cn('mt-9 flex-1 space-y-3 border-t pt-5 lg:mt-12 lg:space-y-4 lg:pt-6', highlighted ? 'border-white/10' : 'border-border')}>
                     {plan.features.map((feature) => (
-                      <li key={feature} className={cn('flex items-start gap-3 text-base leading-6', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
-                        <Check className="mt-0.5 size-5 shrink-0 text-emerald-500" />
+                      <li key={feature} className={cn('flex items-start gap-2 text-sm leading-5 lg:gap-3 lg:text-base lg:leading-6', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
+                        <Check className="mt-0.5 size-4 shrink-0 text-emerald-500 lg:size-5" />
                         {feature}
                       </li>
                     ))}
@@ -193,7 +193,7 @@ export function PlansView() {
                     <button
                       type="button"
                       disabled
-                      className="mt-8 inline-flex min-h-16 items-center justify-center rounded-2xl bg-white/10 px-4 text-base font-bold text-plan-featured-muted disabled:cursor-not-allowed"
+                      className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-white/10 px-4 text-sm font-bold text-plan-featured-muted disabled:cursor-not-allowed lg:mt-6"
                     >
                       plano atual
                     </button>
@@ -202,7 +202,7 @@ export function PlansView() {
                     // a assinatura atual, ação que mora em Meu Plano.
                     <Link
                       href="/configuracoes/plano"
-                      className="mt-8 inline-flex min-h-16 items-center justify-center rounded-2xl border border-border px-4 text-base font-bold text-foreground transition-colors hover:bg-secondary"
+                      className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-4 text-sm font-bold text-foreground transition-colors hover:bg-secondary lg:mt-6"
                     >
                       começar grátis
                     </Link>
@@ -213,7 +213,7 @@ export function PlansView() {
                         onClick={() => setPendingPlan(plan.id)}
                         disabled={checkingOut !== null}
                         className={cn(
-                          'mt-8 inline-flex min-h-16 items-center justify-center gap-2 rounded-2xl px-4 text-base font-bold transition-opacity hover:opacity-90 disabled:opacity-50',
+                          'mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold transition-opacity hover:opacity-90 disabled:opacity-50 lg:mt-6',
                           highlighted
                             ? 'bg-white/10 text-plan-featured-muted'
                             : 'border border-border bg-card text-foreground',
