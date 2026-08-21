@@ -27,6 +27,7 @@ import {
   UserCog,
   AlertTriangle,
   CalendarClock,
+  FolderOpen,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
 import {
@@ -35,6 +36,7 @@ import {
   dashboardService,
   demandService,
   publicService,
+  projectService,
   sampleDataService,
   teamService,
   videoService,
@@ -46,6 +48,7 @@ import {
   type DashboardInsights,
   type Demand,
   type ProductionStage,
+  type Project,
   type CalendarActivity,
   type TeamMember,
   type Video,
@@ -122,6 +125,10 @@ export function DashboardView() {
     (signal) => videoService.list(undefined, signal),
     [],
   )
+  // A listagem de vídeos traz o `projectId`, mas não o nome do projeto.
+  // Buscamos a referência separadamente para organizar a visão principal em
+  // Cliente → Projeto, sem propagar a estrutura crua da API aos cards.
+  const projects = useQuery<Project[]>((signal) => projectService.list(undefined, signal), [])
 
   const insights = useQuery<DashboardInsights>(
     (signal) => dashboardService.insights(signal),
@@ -202,6 +209,34 @@ export function DashboardView() {
       return byClient && byStatus && bySearch
     })
     .sort((a, b) => byMostRecentComment(a, b, commentActivity))
+
+  const videoGroups = useMemo(() => {
+    const projectById = new Map((projects.data ?? []).map((project) => [project.id, project]))
+    const clients = new Map<string, { name: string; projects: Map<string, VideoGroup> }>()
+
+    for (const video of filtered) {
+      const clientKey = video.clientName || 'sem-cliente'
+      if (!clients.has(clientKey)) {
+        clients.set(clientKey, { name: video.clientName || 'Sem cliente', projects: new Map() })
+      }
+      const clientGroup = clients.get(clientKey)!
+      const project = video.projectId ? projectById.get(video.projectId) : undefined
+      const projectKey = video.projectId ?? 'sem-projeto'
+      if (!clientGroup.projects.has(projectKey)) {
+        clientGroup.projects.set(projectKey, {
+          id: projectKey,
+          name: project?.name ?? 'Sem projeto',
+          videos: [],
+        })
+      }
+      clientGroup.projects.get(projectKey)!.videos.push(video)
+    }
+
+    return Array.from(clients.values()).map((clientGroup) => ({
+      name: clientGroup.name,
+      projects: Array.from(clientGroup.projects.values()),
+    }))
+  }, [filtered, projects.data])
 
   const pending = videos.filter((v) => v.status === 'pendente').length
   const approved = videos.filter((v) => v.status === 'aprovado').length
@@ -495,8 +530,9 @@ export function DashboardView() {
             />
           )
         ) : (
-          <CompactVideoList
-            videos={filtered}
+          <OrganizedVideoList
+            groups={videoGroups}
+            showClientHeadings={client === ALL_CLIENTS}
             selected={selected}
             onToggleSelect={toggleSelected}
             onDeleted={handleRowDeleted}
@@ -511,46 +547,83 @@ export function DashboardView() {
 const LIST_GRID_COLS =
   'grid-cols-[64px_minmax(0,1.4fr)_minmax(0,1fr)_auto_40px_auto_28px] sm:grid-cols-[96px_minmax(0,1.4fr)_minmax(0,1fr)_auto_40px_auto_28px]'
 
-function CompactVideoList({
-  videos,
+type VideoGroup = {
+  id: string
+  name: string
+  videos: Video[]
+}
+
+type ClientVideoGroup = {
+  name: string
+  projects: VideoGroup[]
+}
+
+function OrganizedVideoList({
+  groups,
+  showClientHeadings,
   selected,
   onToggleSelect,
   onDeleted,
 }: {
-  videos: Video[]
+  groups: ClientVideoGroup[]
+  showClientHeadings: boolean
   selected: Set<string>
   onToggleSelect: (id: string) => void
   onDeleted: (id: string) => void
 }) {
   return (
-    <div>
-      <div
-        className={cn(
-          'hidden items-center gap-4 px-4 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:grid',
-          LIST_GRID_COLS,
-        )}
-      >
-        <span>Vídeo</span>
-        <span>Arquivo</span>
-        <span>Cliente</span>
-        <span>Status</span>
-        <span className="flex justify-center">
-          <MessageSquare className="size-3.5" />
-        </span>
-        <span>Enviado</span>
-        <span />
-      </div>
-      <div className="flex flex-col gap-2.5">
-        {videos.map((v) => (
-          <CompactVideoRow
-            key={v.id}
-            video={v}
-            selected={selected.has(v.id)}
-            onToggleSelect={() => onToggleSelect(v.id)}
-            onDeleted={() => onDeleted(v.id)}
-          />
-        ))}
-      </div>
+    <div className="space-y-8">
+      {groups.map((clientGroup) => (
+        <section key={clientGroup.name}>
+          {showClientHeadings && (
+            <div className="mb-4 flex items-center gap-3">
+              <h2 className="text-lg font-bold tracking-tight text-foreground">{clientGroup.name}</h2>
+              <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                {clientGroup.projects.reduce((total, project) => total + project.videos.length, 0)} vídeos
+              </span>
+            </div>
+          )}
+
+          <div className="space-y-6">
+            {clientGroup.projects.map((project) => (
+              <section key={project.id} className="rounded-2xl border border-border bg-secondary/35 p-3 sm:p-4">
+                <div className="mb-3 flex items-center gap-2 px-1">
+                  <FolderOpen className="size-4 text-muted-foreground" />
+                  <h3 className="text-sm font-bold text-foreground">{project.name}</h3>
+                  <span className="text-xs text-muted-foreground">
+                    {project.videos.length} vídeo{project.videos.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <div
+                  className={cn(
+                    'hidden items-center gap-4 px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:grid',
+                    LIST_GRID_COLS,
+                  )}
+                >
+                  <span>Vídeo</span>
+                  <span>Arquivo</span>
+                  <span>Cliente</span>
+                  <span>Status</span>
+                  <span className="flex justify-center"><MessageSquare className="size-3.5" /></span>
+                  <span>Enviado</span>
+                  <span />
+                </div>
+                <div className="flex flex-col gap-2.5">
+                  {project.videos.map((video) => (
+                    <CompactVideoRow
+                      key={video.id}
+                      video={video}
+                      selected={selected.has(video.id)}
+                      onToggleSelect={() => onToggleSelect(video.id)}
+                      onDeleted={() => onDeleted(video.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   )
 }
