@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, Building2, Check, CreditCard, Loader2, Sparkles } from 'lucide-react'
+import { AlertTriangle, Building2, Check, CreditCard, Loader2, PanelTop, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FadeIn, AnimatePresence, motion } from '@/components/motion'
 import { usePlanLimit } from '@/components/plan-limit-provider'
@@ -34,7 +34,7 @@ const annualSavingsPct = (() => {
 })()
 
 const PLAN_ICONS: Record<PlanId, typeof CreditCard> = {
-  portfolio: CreditCard,
+  portfolio: PanelTop,
   free: CreditCard,
   pro: Sparkles,
   agencia: Building2,
@@ -74,18 +74,13 @@ export function PlansView() {
   const pendingPlanPricing = PLAN_PRICING.find((p) => p.id === pendingPlan) ?? null
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:py-10">
-      <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">planos</h1>
-      <p className="mt-2 text-base text-muted-foreground">
-        compare os planos, assinar leva você direto para o checkout seguro.
-      </p>
-
-      <div className="mt-6 inline-flex rounded-full bg-secondary p-1 text-sm">
+    <div className="mx-auto w-full max-w-[1900px] px-5 py-5 sm:px-8 sm:py-8 xl:px-10 xl:py-10">
+      <div className="inline-flex rounded-full bg-secondary p-1 text-sm sm:text-base">
         <button
           type="button"
           onClick={() => setBilling('monthly')}
           className={cn(
-            'rounded-full px-4 py-2 font-medium transition-colors',
+            'rounded-full px-5 py-2.5 font-semibold transition-colors',
             billing === 'monthly'
               ? 'bg-primary text-primary-foreground'
               : 'text-muted-foreground hover:text-foreground',
@@ -97,7 +92,7 @@ export function PlansView() {
           type="button"
           onClick={() => setBilling('annual')}
           className={cn(
-            'flex items-center gap-1.5 rounded-full px-4 py-2 font-medium transition-colors',
+            'flex items-center gap-1.5 rounded-full px-5 py-2.5 font-semibold transition-colors',
             billing === 'annual'
               ? 'bg-primary text-primary-foreground'
               : 'text-muted-foreground hover:text-foreground',
@@ -119,7 +114,7 @@ export function PlansView() {
         </button>
       </div>
 
-      <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-16 grid items-stretch gap-7 sm:grid-cols-2 2xl:grid-cols-4">
         {PLAN_PRICING.map((plan) => {
           const isCurrent = planStatus?.plan === plan.id
           const highlighted = plan.id === 'pro'
@@ -134,57 +129,61 @@ export function PlansView() {
             <FadeIn key={plan.id} y={6}>
               <div className="relative h-full">
                 {highlighted && (
-                  <span className="absolute -top-3.5 left-1/2 z-10 -translate-x-1/2 rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground shadow-md">
+                  <span className="absolute -top-4 left-1/2 z-10 -translate-x-1/2 rounded-full bg-emerald-600 px-5 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-sm">
                     mais popular
                   </span>
                 )}
 
                 <div
                   className={cn(
-                    'group relative flex h-full flex-col overflow-hidden rounded-3xl bg-card p-6 transition-all duration-300 ease-out hover:z-10 hover:-translate-y-1 hover:scale-[1.03] hover:shadow-2xl sm:p-7',
+                    'group relative flex min-h-[570px] h-full flex-col overflow-hidden rounded-3xl border p-7 transition-transform duration-300 ease-out hover:z-10 hover:-translate-y-1 sm:p-9',
                     highlighted
-                      ? 'border-2 border-foreground shadow-lg shadow-black/5'
-                      : 'border border-border hover:border-foreground/20',
+                      ? 'border-plan-featured bg-plan-featured text-plan-featured-foreground shadow-2xl shadow-black/20'
+                      : 'border-border bg-card hover:border-foreground/20 hover:shadow-xl',
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-base font-medium lowercase text-foreground">
-                      <Icon className="size-4.5 text-muted-foreground" />
+                    <div className={cn('flex items-center gap-3 text-xl font-bold tracking-tight', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
+                      <span className={cn('grid size-11 place-items-center rounded-xl', highlighted ? 'bg-white/10' : 'bg-secondary')}>
+                        <Icon className={cn('size-5', highlighted ? 'text-plan-featured-muted' : 'text-muted-foreground')} />
+                      </span>
                       {plan.name}
                     </div>
                     {isCurrent && (
-                      <span className="shrink-0 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                      <span className={cn('shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold', highlighted ? 'bg-white/10 text-plan-featured-muted' : 'bg-secondary text-muted-foreground')}>
                         plano atual
                       </span>
                     )}
                   </div>
 
-                  <p className="mt-2 text-sm text-muted-foreground">{plan.description}</p>
+                  <p className={cn('mt-6 max-w-[18rem] text-base leading-6', highlighted ? 'text-plan-featured-muted' : 'text-muted-foreground')}>
+                    {plan.description}
+                  </p>
 
-                  <div className="mt-6 flex items-baseline gap-1">
+                  <div className="mt-16 flex items-baseline gap-1">
                     {isFree ? (
-                      <span className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+                      <span className={cn('text-5xl font-bold tracking-tight sm:text-6xl', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
                         grátis
                       </span>
                     ) : (
                       <>
-                        <span className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+                        <span className={cn('text-5xl font-bold tracking-tight sm:text-6xl', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
                           {price}
                         </span>
-                        <span className="text-base text-muted-foreground">/mês</span>
+                        <span className={cn('text-base font-medium', highlighted ? 'text-plan-featured-muted' : 'text-muted-foreground')}>/mês</span>
                       </>
                     )}
                   </div>
                   {billing === 'annual' && plan.annualTotal !== null && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className={cn('mt-1 text-xs', highlighted ? 'text-plan-featured-muted' : 'text-muted-foreground')}>
                       {formatBRL(plan.annualTotal)}/ano cobrados de uma vez
                     </p>
                   )}
 
-                  <ul className="mt-6 flex-1 space-y-3">
+                  <ul className={cn('mt-16 flex-1 space-y-5 border-t pt-7', highlighted ? 'border-white/10' : 'border-border')}>
                     {plan.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-2 text-sm text-foreground">
-                        <Check className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+                      <li key={feature} className={cn('flex items-start gap-3 text-base leading-6', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
+                        <Check className="mt-0.5 size-5 shrink-0 text-emerald-500" />
                         {feature}
                       </li>
                     ))}
@@ -194,7 +193,7 @@ export function PlansView() {
                     <button
                       type="button"
                       disabled
-                      className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-secondary px-4 text-sm font-medium text-muted-foreground disabled:cursor-not-allowed"
+                      className="mt-8 inline-flex min-h-16 items-center justify-center rounded-2xl bg-white/10 px-4 text-base font-bold text-plan-featured-muted disabled:cursor-not-allowed"
                     >
                       plano atual
                     </button>
@@ -203,7 +202,7 @@ export function PlansView() {
                     // a assinatura atual, ação que mora em Meu Plano.
                     <Link
                       href="/configuracoes/plano"
-                      className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+                      className="mt-8 inline-flex min-h-16 items-center justify-center rounded-2xl border border-border px-4 text-base font-bold text-foreground transition-colors hover:bg-secondary"
                     >
                       começar grátis
                     </Link>
@@ -214,10 +213,10 @@ export function PlansView() {
                         onClick={() => setPendingPlan(plan.id)}
                         disabled={checkingOut !== null}
                         className={cn(
-                          'mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50',
+                          'mt-8 inline-flex min-h-16 items-center justify-center gap-2 rounded-2xl px-4 text-base font-bold transition-opacity hover:opacity-90 disabled:opacity-50',
                           highlighted
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-secondary text-foreground',
+                            ? 'bg-white/10 text-plan-featured-muted'
+                            : 'border border-border bg-card text-foreground',
                         )}
                       >
                         {checkingOut === plan.id && <Loader2 className="size-4 animate-spin" />}
