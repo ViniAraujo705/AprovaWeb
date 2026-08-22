@@ -145,12 +145,17 @@ const clientTabs: { id: ClientTab; label: string; icon: typeof LayoutDashboard }
 function ClientTabBar({ tab, setTab }: { tab: ClientTab; setTab: (t: ClientTab) => void }) {
   return (
     // Rolagem lateral nativa (com inércia), igual às outras faixas do app.
-    // O que impedia de chegar no fim no Safari do iOS não era esta faixa e sim
-    // o `overflow-x: hidden` em html/body (ver `globals.css`), que virava um
-    // container de rolagem e engolia o gesto — lá agora é `overflow-x: clip`.
-    // `touch-pan-x` deixa explícito pro navegador qual eixo é desta faixa.
-    <div className="-mx-4 touch-pan-x overflow-x-auto overscroll-x-contain border-y border-border px-4 sm:mx-0 sm:rounded-xl sm:border sm:px-2">
-      <div className="flex min-w-max gap-1 py-2" role="tablist" aria-label="Central do cliente">
+    //
+    // O padding horizontal fica no TRILHO de dentro, nunca no container que
+    // rola: o `padding-right` de um container de rolagem é descartado quando o
+    // filho é um bloco `min-width: max-content` (comportamento padrão dos
+    // navegadores, não bug de um específico). Com o padding aqui fora, o
+    // scrollWidth ficava = padding-left + conteúdo, e no fim do arrasto a
+    // última aba encostava na borda da tela sem respiro — dava a impressão de
+    // que a faixa não tinha rolado até o fim. Dentro do trilho o padding entra
+    // no conteúdo rolável e sobra a folga certa nas duas pontas.
+    <div className="-mx-4 touch-pan-x overflow-x-auto overscroll-x-contain border-y border-border sm:mx-0 sm:rounded-xl sm:border">
+      <div className="flex min-w-max gap-1 px-4 py-2 sm:px-2" role="tablist" aria-label="Central do cliente">
         {clientTabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
