@@ -501,8 +501,12 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
               PAI (não do max-width já aplicado), dando uma altura enorme e errada
               no desktop. No Player a altura já vem do `aspect-ratio` da moldura
               (acima), então este spacer fica sem padding (0) nessa aba.
+
+              216.67% = 19.5:9, a proporção real da tela de um iPhone Pro Max —
+              e não 9:16 (177.78%), que deixava a moldura baixa e atarracada
+              perto de um aparelho de verdade.
             */}
-            <div style={{ paddingTop: tab === 'player' ? undefined : '177.7778%' }} />
+            <div style={{ paddingTop: tab === 'player' ? undefined : '216.6667%' }} />
 
             <div className="absolute inset-0">
               <AnimatePresence initial={false} custom={direction} mode="popLayout">

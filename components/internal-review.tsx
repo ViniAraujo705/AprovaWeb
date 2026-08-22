@@ -178,7 +178,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <DownloadOriginalButton videoId={videoId} />
-            {!isSuperseded && <NewVersionButton videoId={videoId} />}
+            {!isSuperseded && <NewVersionButton videoId={videoId} title={video.title} />}
             {video.publicLink && (
               <Link
                 href={`/videos/${videoId}/canal-cliente`}
@@ -508,8 +508,11 @@ function DownloadOriginalButton({ videoId }: { videoId: string }) {
  * cliente). O backend gera um `publicLink` novo e independente pra essa
  * versão — não existe redirect automático do link antigo — por isso, ao
  * concluir, mostramos o link novo pronto pra copiar e reenviar ao cliente.
+ *
+ * `title` é o título do vídeo atual: nova versão troca só o ARQUIVO, o nome
+ * do vídeo é pra continuar o mesmo (ver `restoreTitle` abaixo).
  */
-function NewVersionButton({ videoId }: { videoId: string }) {
+function NewVersionButton({ videoId, title }: { videoId: string; title: string }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [phase, setPhase] = useState<'idle' | 'uploading' | 'done'>('idle')
   const [progress, setProgress] = useState(0)
@@ -558,7 +561,21 @@ function NewVersionButton({ videoId }: { videoId: string }) {
         urlStorage,
         nomeArquivo: file.name,
       })
-      setNewVideo(created)
+      // O backend batiza a nova versão com o nome do ARQUIVO enviado (mesma
+      // regra do upload inicial), mas aqui só o arquivo mudou — o vídeo
+      // continua sendo o mesmo, então o nome tem que continuar o mesmo.
+      // Restauramos o título original quando o backend o trocou. Se essa
+      // chamada falhar, não vale derrubar o upload (que já deu certo): a
+      // versão fica no ar com o nome do arquivo e dá pra renomear na mão.
+      let final = created
+      if (created.title !== title) {
+        try {
+          final = await videoService.updateTitle(created.id, title)
+        } catch {
+          // segue com o título que o backend deu
+        }
+      }
+      setNewVideo(final)
       setPhase('done')
       toast.success('Nova versão enviada')
     } catch (err) {
