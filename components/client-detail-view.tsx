@@ -167,7 +167,17 @@ function ClientWorkspace({
 
   return (
     <div className="mt-8">
-      <div className="-mx-4 overflow-x-auto border-y border-border px-4 sm:mx-0 sm:rounded-xl sm:border sm:px-2">
+      {/*
+        `touch-pan-x` é o que faz o arrasto lateral funcionar no celular: essa
+        faixa fica dentro do conteúdo que rola verticalmente (AgencyShell), e
+        sem isso o navegador, ao ver o toque inicial com qualquer componente
+        vertical (quase inevitável no dedo), entrega o gesto pro scroll
+        vertical da página em vez de rolar esta faixa — mesmo com
+        overflow-x-auto correto, o arrasto lateral nunca "ganha" a disputa.
+        `overscroll-x-contain` evita que, ao chegar na ponta, o resto do
+        arrasto vaze pro scroll da página.
+      */}
+      <div className="-mx-4 touch-pan-x overflow-x-auto overscroll-x-contain border-y border-border px-4 sm:mx-0 sm:rounded-xl sm:border sm:px-2">
         <div className="flex min-w-max gap-1 py-2" role="tablist" aria-label="Central do cliente">
           {clientTabs.map(({ id, label, icon: Icon }) => (
             <button
