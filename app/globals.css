@@ -139,8 +139,17 @@
      * cujo tamanho intrínseco/rotação a engine do celular interpreta
      * diferente do esperado) expandia a página inteira, forçando scroll
      * lateral em vez de ficar contido no player.
+     *
+     * `clip` e NÃO `hidden`: `overflow-x: hidden` transforma html/body num
+     * container de rolagem, e no Safari do iOS isso quebra toda faixa
+     * `overflow-x-auto` aninhada — dá pra arrastar, mas ela volta sozinha e
+     * nunca chega no fim (era o caso das abas do cliente, do Kanban e das
+     * faixas do dashboard). `clip` recorta igual sem criar container de
+     * rolagem, então as faixas de dentro voltam a rolar normalmente.
+     * `hidden` fica como fallback pra navegador sem suporte a `clip`.
      */
-    @apply overflow-x-hidden;
+    overflow-x: hidden;
+    overflow-x: clip;
   }
   body {
     @apply bg-background text-foreground;
