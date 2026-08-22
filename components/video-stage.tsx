@@ -257,11 +257,14 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
    * Toque na aba Reels: no celular, o primeiro toque abre a tela cheia e os
    * seguintes pausam/retomam. No computador não faz sentido cobrir a tela
    * inteira (o mockup de celular já mostra o vídeo por completo) — só
-   * pausa/retoma.
+   * pausa/retoma. A tela cheia também só faz sentido quando há outro vídeo
+   * na fila pra deslizar — com um único vídeo ela só prendia o cliente numa
+   * caixa preta sem conseguir rolar a página até "Aprovar"/"Pedir ajuste",
+   * então nesse caso o toque também só pausa/retoma, igual ao desktop.
    */
   function handleReelsTap() {
     if (processing) return
-    if (isDesktop) {
+    if (isDesktop || !(hasNext || hasPrev)) {
       togglePlay()
       return
     }
@@ -426,41 +429,70 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
       <div className="mt-3">
         <div className={cn('flex justify-center', tab === 'reels' ? 'px-0' : 'px-4 lg:px-0')}>
           <div
-            ref={playerFrameRef}
-            // Moldura: define a largura final da caixa (incl. max-w no desktop),
-            // cor de fundo, borda e cantos arredondados. Não é animada com Framer
-            // Motion `layout` — o morph entre Player e Reels deixava um
-            // transform: scale(...) grudado sem nunca terminar de resolver (tanto
-            // em teste automatizado quanto no Safari do iPhone), espremendo o
-            // Reels de volta na proporção do Player. A troca de formato agora é
-            // instantânea; o <video> continua sendo o mesmo elemento, então a
-            // reprodução não reinicia mesmo sem a animação.
-            //
-            // Player: a altura vem da propriedade CSS `aspect-ratio` aplicada
-            // aqui mesmo, direto em cima da largura JÁ DEFINIDA pela moldura —
-            // sem o risco de arredondamento de um `padding-top` percentual (que
-            // podia sobrar uma fração de pixel cortada pelo `overflow-hidden`
-            // nas laterais em telas de celular). Reels continua usando o spacer
-            // de padding-top abaixo, sem mudanças.
-            style={tab === 'player' ? { aspectRatio: aspectRatio || 16 / 9 } : undefined}
+            // `w-full` sempre: sem isso, a caixa interna (que também é `w-full`,
+            // agora relativa a ESTE div em vez de ser ela mesma o item flex
+            // direto) perde a referência de largura e a aba Player colapsa pra
+            // 0×0 — o max-w-[300px] do chassi abaixo (só na Reels) é quem limita
+            // a largura final, não este wrapper.
             className={cn(
-              'relative overflow-hidden bg-black select-none',
-              tab === 'player'
-                ? // `max-h` evita que vídeos verticais, ao usar a proporção real
-                  // (ver aspectRatio acima), estourem a altura da página no
-                  // desktop — a coluna do Player é `1fr` num grid largo
-                  // (InternalReview etc.), então largura total + proporção
-                  // vertical vira uma caixa gigantesca. Acima do cap, o
-                  // `object-contain` do <video> centraliza com faixas pretas,
-                  // igual já acontecia com a caixa 16:9 fixa antes desta aba
-                  // passar a usar a proporção real do arquivo.
-                  cn('w-full sm:rounded-xl', playerMaxHeightClass ?? 'lg:max-h-[75vh]')
-                : // Reels: no celular ocupa a largura cheia da tela (edge-to-edge, sem
-                  // moldura). A partir do lg, volta a ser um mockup de celular
-                  // (moldura) ao lado do painel de comentários.
-                  'w-full rounded-none border-0 shadow-none lg:max-w-[300px] lg:rounded-[2rem] lg:border-4 lg:border-primary/70 lg:shadow-2xl',
+              'w-full',
+              tab === 'reels' &&
+                // Chassi estilo iPhone Pro Max ao redor da tela — só no mockup
+                // de desktop (a partir do lg; no celular o Reels já é o
+                // dispositivo real, edge-to-edge, sem moldura nenhuma). Gradiente
+                // "titânio roxo" + os botões laterais abaixo (decorativos).
+                'lg:relative lg:max-w-[300px] lg:rounded-[2.75rem] lg:bg-gradient-to-br lg:from-[#8b7aa8] lg:via-[#1c1a22] lg:to-[#0a0a0c] lg:p-[12px] lg:shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)]',
             )}
           >
+            {tab === 'reels' && (
+              <>
+                {/* Botão de Ação */}
+                <span className="hidden lg:absolute lg:-left-[2px] lg:top-[92px] lg:block lg:h-7 lg:w-[3px] lg:rounded-l-sm lg:bg-[#2a2730]" />
+                {/* Volume + / − */}
+                <span className="hidden lg:absolute lg:-left-[2px] lg:top-[132px] lg:block lg:h-12 lg:w-[3px] lg:rounded-l-sm lg:bg-[#2a2730]" />
+                <span className="hidden lg:absolute lg:-left-[2px] lg:top-[184px] lg:block lg:h-12 lg:w-[3px] lg:rounded-l-sm lg:bg-[#2a2730]" />
+                {/* Botão lateral (power) */}
+                <span className="hidden lg:absolute lg:-right-[2px] lg:top-[150px] lg:block lg:h-24 lg:w-[3px] lg:rounded-r-sm lg:bg-[#2a2730]" />
+              </>
+            )}
+            <div
+              ref={playerFrameRef}
+              // Moldura: define a largura final da caixa (incl. max-w no desktop),
+              // cor de fundo, borda e cantos arredondados. Não é animada com Framer
+              // Motion `layout` — o morph entre Player e Reels deixava um
+              // transform: scale(...) grudado sem nunca terminar de resolver (tanto
+              // em teste automatizado quanto no Safari do iPhone), espremendo o
+              // Reels de volta na proporção do Player. A troca de formato agora é
+              // instantânea; o <video> continua sendo o mesmo elemento, então a
+              // reprodução não reinicia mesmo sem a animação.
+              //
+              // Player: a altura vem da propriedade CSS `aspect-ratio` aplicada
+              // aqui mesmo, direto em cima da largura JÁ DEFINIDA pela moldura —
+              // sem o risco de arredondamento de um `padding-top` percentual (que
+              // podia sobrar uma fração de pixel cortada pelo `overflow-hidden`
+              // nas laterais em telas de celular). Reels continua usando o spacer
+              // de padding-top abaixo, sem mudanças.
+              style={tab === 'player' ? { aspectRatio: aspectRatio || 16 / 9 } : undefined}
+              className={cn(
+                'relative overflow-hidden bg-black select-none',
+                tab === 'player'
+                  ? // `max-h` evita que vídeos verticais, ao usar a proporção real
+                    // (ver aspectRatio acima), estourem a altura da página no
+                    // desktop — a coluna do Player é `1fr` num grid largo
+                    // (InternalReview etc.), então largura total + proporção
+                    // vertical vira uma caixa gigantesca. Acima do cap, o
+                    // `object-contain` do <video> centraliza com faixas pretas,
+                    // igual já acontecia com a caixa 16:9 fixa antes desta aba
+                    // passar a usar a proporção real do arquivo.
+                    cn('w-full sm:rounded-xl', playerMaxHeightClass ?? 'lg:max-h-[75vh]')
+                  : // Reels: no celular ocupa a largura cheia da tela (edge-to-edge, sem
+                    // moldura). A partir do lg, a "tela" fica dentro do chassi de
+                    // iPhone acima (que já define o max-w-[300px]) — raio = raio
+                    // do chassi menos a espessura do bezel (12px), pra aninhar
+                    // certinho como o vidro por dentro do corpo do aparelho.
+                    'w-full rounded-none border-0 shadow-none lg:rounded-[2rem]',
+              )}
+            >
             {/*
               Spacer do Reels: padding-top percentual cria a altura a partir da
               largura já definida pela moldura acima — por isso fica num elemento
@@ -621,6 +653,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                 </button>
               )}
             </div>
+          </div>
           </div>
         </div>
 
@@ -826,8 +859,13 @@ function ReelsChrome({
       transition={{ duration: 0.25 }}
       className="pointer-events-none absolute inset-0"
     >
-      {/* Notch */}
-      <div className="absolute left-1/2 top-3 z-20 h-1.5 w-16 -translate-x-1/2 rounded-full bg-white/30" />
+      {/* Notch — vira a Ilha Dinâmica de verdade (pill preta + pontinho de
+          câmera) no mockup de desktop; no celular real (ou na tela cheia,
+          que só abre abaixo do lg) fica só uma pílula discreta, já que o
+          aparelho de verdade tem sua própria ilha. */}
+      <div className="absolute left-1/2 top-3 z-20 flex h-1.5 w-16 -translate-x-1/2 items-center justify-end rounded-full bg-white/30 lg:top-4 lg:h-7 lg:w-28 lg:bg-black lg:pr-2 lg:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+        <span className="hidden size-1.5 rounded-full bg-[#2c3d66] lg:block" />
+      </div>
       {/* Gradientes */}
       <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/60 to-transparent" />
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/80 to-transparent" />
