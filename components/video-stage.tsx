@@ -437,22 +437,23 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
             className={cn(
               'w-full',
               tab === 'reels' &&
-                // Chassi estilo iPhone Pro Max ao redor da tela — só no mockup
-                // de desktop (a partir do lg; no celular o Reels já é o
-                // dispositivo real, edge-to-edge, sem moldura nenhuma). Gradiente
-                // "titânio roxo" + os botões laterais abaixo (decorativos).
-                'lg:relative lg:max-w-[300px] lg:rounded-[2.75rem] lg:bg-gradient-to-br lg:from-[#8b7aa8] lg:via-[#1c1a22] lg:to-[#0a0a0c] lg:p-[12px] lg:shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)]',
+                // Chassi estilo iPhone Pro Max ao redor da tela, no celular e no
+                // desktop. Gradiente "titânio roxo" + os botões laterais abaixo
+                // (decorativos). No celular ganha uma margem lateral pra moldura
+                // não colar na borda da tela; no desktop vira o mockup estreito
+                // ao lado do painel de comentários.
+                'relative mx-3 rounded-[2.75rem] bg-gradient-to-br from-[#8b7aa8] via-[#1c1a22] to-[#0a0a0c] p-[10px] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)] sm:mx-auto sm:max-w-[360px] lg:max-w-[300px] lg:p-[12px]',
             )}
           >
             {tab === 'reels' && (
               <>
                 {/* Botão de Ação */}
-                <span className="hidden lg:absolute lg:-left-[2px] lg:top-[92px] lg:block lg:h-7 lg:w-[3px] lg:rounded-l-sm lg:bg-[#2a2730]" />
+                <span className="absolute -left-[2px] top-[92px] h-7 w-[3px] rounded-l-sm bg-[#2a2730]" />
                 {/* Volume + / − */}
-                <span className="hidden lg:absolute lg:-left-[2px] lg:top-[132px] lg:block lg:h-12 lg:w-[3px] lg:rounded-l-sm lg:bg-[#2a2730]" />
-                <span className="hidden lg:absolute lg:-left-[2px] lg:top-[184px] lg:block lg:h-12 lg:w-[3px] lg:rounded-l-sm lg:bg-[#2a2730]" />
+                <span className="absolute -left-[2px] top-[132px] h-12 w-[3px] rounded-l-sm bg-[#2a2730]" />
+                <span className="absolute -left-[2px] top-[184px] h-12 w-[3px] rounded-l-sm bg-[#2a2730]" />
                 {/* Botão lateral (power) */}
-                <span className="hidden lg:absolute lg:-right-[2px] lg:top-[150px] lg:block lg:h-24 lg:w-[3px] lg:rounded-r-sm lg:bg-[#2a2730]" />
+                <span className="absolute -right-[2px] top-[150px] h-24 w-[3px] rounded-r-sm bg-[#2a2730]" />
               </>
             )}
             <div
@@ -485,12 +486,11 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                     // igual já acontecia com a caixa 16:9 fixa antes desta aba
                     // passar a usar a proporção real do arquivo.
                     cn('w-full sm:rounded-xl', playerMaxHeightClass ?? 'lg:max-h-[75vh]')
-                  : // Reels: no celular ocupa a largura cheia da tela (edge-to-edge, sem
-                    // moldura). A partir do lg, a "tela" fica dentro do chassi de
-                    // iPhone acima (que já define o max-w-[300px]) — raio = raio
-                    // do chassi menos a espessura do bezel (12px), pra aninhar
-                    // certinho como o vidro por dentro do corpo do aparelho.
-                    'w-full rounded-none border-0 shadow-none lg:rounded-[2rem]',
+                  : // Reels: a "tela" fica sempre dentro do chassi de iPhone acima
+                    // (que já define a largura máxima) — raio = raio do chassi
+                    // menos a espessura do bezel, pra aninhar certinho como o
+                    // vidro por dentro do corpo do aparelho.
+                    'w-full border-0 shadow-none rounded-[2.15rem] lg:rounded-[2rem]',
               )}
             >
             {/*
@@ -566,6 +566,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                     client={video.clientName}
                     photoUrl={clientPhotoUrl}
                     description={clientDescription}
+                    framed
                   />
                 )}
               </AnimatePresence>
@@ -845,10 +846,13 @@ function ReelsChrome({
   client,
   photoUrl,
   description,
+  framed = false,
 }: {
   client: string
   photoUrl?: string | null
   description?: string | null
+  /** Dentro da moldura de iPhone: desenha a Ilha Dinâmica. Na tela cheia real fica só uma pílula discreta, já que o aparelho tem a sua própria. */
+  framed?: boolean
 }) {
   const handle = (client || 'cliente').toLowerCase().replace(/\s+/g, '')
   return (
@@ -859,13 +863,16 @@ function ReelsChrome({
       transition={{ duration: 0.25 }}
       className="pointer-events-none absolute inset-0"
     >
-      {/* Notch — vira a Ilha Dinâmica de verdade (pill preta + pontinho de
-          câmera) no mockup de desktop; no celular real (ou na tela cheia,
-          que só abre abaixo do lg) fica só uma pílula discreta, já que o
-          aparelho de verdade tem sua própria ilha. */}
-      <div className="absolute left-1/2 top-3 z-20 flex h-1.5 w-16 -translate-x-1/2 items-center justify-end rounded-full bg-white/30 lg:top-4 lg:h-7 lg:w-28 lg:bg-black lg:pr-2 lg:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
-        <span className="hidden size-1.5 rounded-full bg-[#2c3d66] lg:block" />
-      </div>
+      {/* Notch — dentro da moldura vira a Ilha Dinâmica (pill preta + pontinho
+          de câmera); na tela cheia real fica só uma pílula discreta, já que o
+          aparelho de verdade tem a sua própria. */}
+      {framed ? (
+        <div className="absolute left-1/2 top-3 z-20 flex h-6 w-24 -translate-x-1/2 items-center justify-end rounded-full bg-black pr-2 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] lg:top-4 lg:h-7 lg:w-28">
+          <span className="size-1.5 rounded-full bg-[#2c3d66]" />
+        </div>
+      ) : (
+        <div className="absolute left-1/2 top-3 z-20 h-1.5 w-16 -translate-x-1/2 rounded-full bg-white/30" />
+      )}
       {/* Gradientes */}
       <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/60 to-transparent" />
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/80 to-transparent" />

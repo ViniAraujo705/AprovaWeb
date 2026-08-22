@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ImagePlus,
   Loader2,
@@ -142,6 +142,72 @@ const clientTabs: { id: ClientTab; label: string; icon: typeof LayoutDashboard }
   { id: 'history', label: 'Histórico', icon: History },
 ]
 
+function ClientTabBar({ tab, setTab }: { tab: ClientTab; setTab: (t: ClientTab) => void }) {
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const [dragRange, setDragRange] = useState(0)
+
+  // Mede quanto a faixa de abas excede a largura visível, pra limitar o
+  // arrasto (dragConstraints) — recalcula no resize porque em telas largas
+  // as 7 abas cabem inteiras e não sobra nada pra arrastar.
+  useEffect(() => {
+    function measure() {
+      const viewport = viewportRef.current
+      const track = trackRef.current
+      if (!viewport || !track) return
+      setDragRange(Math.max(0, track.scrollWidth - viewport.clientWidth))
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [])
+
+  return (
+    <div
+      ref={viewportRef}
+      className="-mx-4 overflow-hidden border-y border-border px-4 sm:mx-0 sm:rounded-xl sm:border sm:px-2"
+    >
+      <motion.div
+        ref={trackRef}
+        // Arrasto lateral via Framer Motion em vez de `overflow-x-auto`
+        // nativo: essa faixa vive dentro do conteúdo que já rola
+        // verticalmente (AgencyShell), e no Safari mobile o navegador
+        // entregava o gesto pro scroll vertical da página assim que via
+        // qualquer componente vertical no toque (quase inevitável no dedo)
+        // — mesmo com `touch-action: pan-x`, o arrasto lateral nunca
+        // "vencia" e voltava pro início ao soltar. Um arrasto controlado
+        // pelo Framer não depende dessa disputa nativa de eixo (ele lê o
+        // gesto por Pointer Events e move a faixa via transform), então
+        // funciona igual em qualquer navegador — mesma técnica já usada no
+        // swipe dos Reels (`video-stage.tsx`).
+        drag={dragRange > 0 ? 'x' : false}
+        dragConstraints={{ left: -dragRange, right: 0 }}
+        dragElastic={0.12}
+        dragMomentum={false}
+        className="flex w-max cursor-grab select-none gap-1 py-2 active:cursor-grabbing"
+        role="tablist"
+        aria-label="Central do cliente"
+      >
+        {clientTabs.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={cn(
+              'inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors',
+              tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+            )}
+          >
+            <Icon className="size-3.5" /> {label}
+          </button>
+        ))}
+      </motion.div>
+    </div>
+  )
+}
+
 function ClientWorkspace({
   client,
   onUpdated,
@@ -167,35 +233,7 @@ function ClientWorkspace({
 
   return (
     <div className="mt-8">
-      {/*
-        `touch-pan-x` é o que faz o arrasto lateral funcionar no celular: essa
-        faixa fica dentro do conteúdo que rola verticalmente (AgencyShell), e
-        sem isso o navegador, ao ver o toque inicial com qualquer componente
-        vertical (quase inevitável no dedo), entrega o gesto pro scroll
-        vertical da página em vez de rolar esta faixa — mesmo com
-        overflow-x-auto correto, o arrasto lateral nunca "ganha" a disputa.
-        `overscroll-x-contain` evita que, ao chegar na ponta, o resto do
-        arrasto vaze pro scroll da página.
-      */}
-      <div className="-mx-4 touch-pan-x overflow-x-auto overscroll-x-contain border-y border-border px-4 sm:mx-0 sm:rounded-xl sm:border sm:px-2">
-        <div className="flex min-w-max gap-1 py-2" role="tablist" aria-label="Central do cliente">
-          {clientTabs.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              onClick={() => setTab(id)}
-              className={cn(
-                'inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors',
-                tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
-              )}
-            >
-              <Icon className="size-3.5" /> {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <ClientTabBar tab={tab} setTab={setTab} />
 
       {tab === 'overview' && (
         <div className="mt-6 space-y-8">
