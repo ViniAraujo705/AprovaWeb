@@ -105,9 +105,12 @@ export function CalendarView() {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
+  // Calendário é compartilhado pela equipe: quem deixa a tela aberta precisa
+  // ver o que os outros marcaram, sem depender de recarregar a página na mão.
   const { data: events, loading, error, refetch, setData } = useQuery<CalendarActivity[]>(
     () => calendarService.list(),
     [],
+    { refetchOnFocus: true },
   )
   const clients = useQuery<Client[]>((signal) => clientService.list(signal), [])
   const { data: crewRoster, setData: setCrewRoster } = useQuery<CrewMember[]>(
