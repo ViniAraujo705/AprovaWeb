@@ -165,6 +165,12 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   // entra deslizam no mesmo sentido do swipe.
   const [direction, setDirection] = useState<1 | -1>(1)
   const reduceMotion = useReducedMotion()
+  // O arrasto do Framer é a via principal, mas alguns Safari móveis deixam o
+  // gesto vertical ir para a página quando o Reels está dentro da moldura. O
+  // fallback abaixo lê o deslocamento bruto do toque para a troca continuar
+  // funcionando nesses casos.
+  const touchStartYRef = useRef<number | null>(null)
+  const lastSwipeRef = useRef(0)
 
   // Velocidade de reprodução — só a aba Player (Reels imita um feed, sem
   // controle de velocidade). Precisa ser reaplicada a cada troca de vídeo
@@ -307,8 +313,31 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
    * mesmo jeito que Reels/TikTok respondem a toques rápidos.
    */
   function handleSwipeEnd(info: { offset: { y: number }; velocity: { y: number } }) {
-    if ((info.offset.y < -70 || info.velocity.y < -500) && hasNext) goNext()
-    else if ((info.offset.y > 70 || info.velocity.y > 500) && hasPrev) goPrev()
+    commitSwipe(info.offset.y, info.velocity.y)
+  }
+
+  function commitSwipe(offsetY: number, velocityY = 0) {
+    // Um mesmo gesto pode chegar pelo fallback de touch e pelo `onDragEnd`.
+    // Ignorar a segunda notificação evita pular dois vídeos de uma vez.
+    if (Date.now() - lastSwipeRef.current < 450) return
+    if ((offsetY < -70 || velocityY < -500) && hasNext) {
+      lastSwipeRef.current = Date.now()
+      goNext()
+    } else if ((offsetY > 70 || velocityY > 500) && hasPrev) {
+      lastSwipeRef.current = Date.now()
+      goPrev()
+    }
+  }
+
+  function handleTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    touchStartYRef.current = e.touches[0]?.clientY ?? null
+  }
+
+  function handleTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
+    const startY = touchStartYRef.current
+    touchStartYRef.current = null
+    const endY = e.changedTouches[0]?.clientY
+    if (startY !== null && endY !== undefined) commitSwipe(endY - startY)
   }
 
   function goNext() {
@@ -603,6 +632,8 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                   dragConstraints={{ top: 0, bottom: 0 }}
                   dragElastic={0.55}
                   onDragEnd={(_, info) => handleSwipeEnd(info)}
+                  onTouchStart={handleTouchStart}
+                  onTouchEnd={handleTouchEnd}
                   onTap={handleReelsTap}
                   className="absolute inset-0 z-10 cursor-grab touch-none select-none overscroll-none active:cursor-grabbing"
                 />
@@ -610,9 +641,14 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
 
               {/* Dica sutil de swipe — só quando há próximo vídeo na fila do cliente */}
               {tab === 'reels' && !fullscreen && !processing && hasNext && (
-                <div className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2 animate-bounce text-white/80">
+                <button
+                  type="button"
+                  onClick={goNext}
+                  aria-label="Próximo vídeo"
+                  className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 animate-bounce rounded-full p-1 text-white/80 transition-colors hover:bg-black/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                >
                   <ChevronUp className="size-6" />
-                </div>
+                </button>
               )}
 
               {/* Indicador de pausado — Reels sempre tenta tocar sozinho, mas se
@@ -804,14 +840,21 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
               dragConstraints={{ top: 0, bottom: 0 }}
               dragElastic={0.55}
               onDragEnd={(_, info) => handleSwipeEnd(info)}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
               onTap={handleReelsTap}
               className="absolute inset-0 z-10 cursor-grab touch-none select-none active:cursor-grabbing"
             />
 
             {hasNext && (
-              <div className="pointer-events-none absolute bottom-6 left-1/2 z-10 -translate-x-1/2 animate-bounce text-white/80">
+              <button
+                type="button"
+                onClick={goNext}
+                aria-label="Próximo vídeo"
+                className="absolute bottom-6 left-1/2 z-20 -translate-x-1/2 animate-bounce rounded-full p-1 text-white/80 transition-colors hover:bg-black/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              >
                 <ChevronUp className="size-6" />
-              </div>
+              </button>
             )}
 
             {/* Indicador de pausado — mesma lógica da aba Reels inline. */}
