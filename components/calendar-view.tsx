@@ -247,7 +247,7 @@ export function CalendarView() {
               className={cn(
                 'inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors',
                 active
-                  ? 'border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-700'
+                  ? cn('border-transparent', meta.chipBg, meta.chipText)
                   : 'border-border bg-secondary text-muted-foreground hover:text-foreground',
               )}
             >
@@ -319,14 +319,28 @@ export function CalendarView() {
                               key={ev.id}
                               type="button"
                               onClick={() => setModal({ date: new Date(ev.startAt), event: ev })}
-                              className="flex flex-col rounded-sm border border-zinc-300 bg-white px-1.5 py-1 text-left text-zinc-950 transition-colors hover:bg-zinc-100"
+                              className={cn(
+                                'flex flex-col rounded-sm px-1.5 py-1 text-left transition-colors',
+                                CALENDAR_TYPE_META[ev.type].chipBg,
+                              )}
                               title={[ev.title, extra].filter(Boolean).join(' — ')}
                             >
-                              <span className="min-w-0 break-words text-[10px] font-bold leading-[1.2] sm:text-[11px]">
-                                {timeLabel(ev.startAt)} {ev.title}
+                              <span
+                                className={cn(
+                                  'flex min-w-0 items-start gap-1 break-words text-[10px] font-bold leading-[1.2] sm:text-[11px]',
+                                  CALENDAR_TYPE_META[ev.type].chipText,
+                                )}
+                              >
+                                <span
+                                  className={cn(
+                                    'mt-0.5 size-1.5 shrink-0 rounded-full',
+                                    CALENDAR_TYPE_META[ev.type].dot,
+                                  )}
+                                />
+                                <span>{timeLabel(ev.startAt)} {ev.title}</span>
                               </span>
                               {extra && (
-                                <span className="mt-0.5 break-words text-[9px] leading-[1.2] text-zinc-600 sm:text-[10px]">
+                                <span className="mt-0.5 break-words pl-2.5 text-[9px] leading-[1.2] text-zinc-600 sm:text-[10px]">
                                   {extra}
                                 </span>
                               )}
