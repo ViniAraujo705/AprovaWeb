@@ -545,7 +545,19 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
               e não 9:16 (177.78%), que deixava a moldura baixa e atarracada
               perto de um aparelho de verdade.
             */}
-            <div style={{ paddingTop: tab === 'player' ? undefined : reelsLandscape ? '46.1539%' : '216.6667%' }} />
+            <div
+              className={cn(
+                // No celular, um Reels em proporção de aparelho ocupava quase
+                // duas telas inteiras dentro da página. O limite em 58svh deixa
+                // parte da página acessível para o usuário continuar rolando;
+                // no desktop o mockup mantém a altura real do iPhone.
+                tab === 'player'
+                  ? undefined
+                  : reelsLandscape
+                    ? 'pt-[46.1539%]'
+                    : 'pt-[min(177.7778%,58svh)] lg:pt-[216.6667%]',
+              )}
+            />
 
             <div className="absolute inset-0">
               <AnimatePresence initial={false} custom={direction} mode="popLayout">
