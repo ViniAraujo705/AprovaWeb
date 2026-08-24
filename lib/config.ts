@@ -17,6 +17,8 @@ export const DEMO_FLAG_KEY = 'aprova_demo'
 export const ARCHIVED_PROJECTS_KEY = 'aprova_archived_projects'
 // Plano "comprado" no modo demo (ver lib/demo.ts demoSetPlan/demoPlanStatus).
 export const DEMO_PLAN_KEY = 'aprova_demo_plan'
+// Conexão "ativa" no modo demo (ver lib/demo.ts demoSetGoogleDriveConnected).
+export const DEMO_GOOGLE_DRIVE_KEY = 'aprova_demo_google_drive'
 // Plano que o checkout está tentando ativar, guardado antes do redirect pra
 // Asaas — a tela de retorno usa isso pra saber quando parar de pollar
 // GET /plans/me (ver components/plan-view.tsx).
