@@ -319,28 +319,20 @@ export function CalendarView() {
                               key={ev.id}
                               type="button"
                               onClick={() => setModal({ date: new Date(ev.startAt), event: ev })}
-                              className={cn(
-                                'flex flex-col rounded-sm px-1.5 py-1 text-left transition-colors',
-                                CALENDAR_TYPE_META[ev.type].chipBg,
-                              )}
+                              className="flex flex-col rounded-sm border border-zinc-200 bg-white px-1.5 py-1 text-left text-zinc-950 transition-colors hover:bg-zinc-100"
                               title={[ev.title, extra].filter(Boolean).join(' — ')}
                             >
-                              <span
-                                className={cn(
-                                  'flex min-w-0 items-start gap-1 break-words text-[10px] font-bold leading-[1.2] sm:text-[11px]',
-                                  CALENDAR_TYPE_META[ev.type].chipText,
-                                )}
-                              >
+                              <span className="flex min-w-0 items-start gap-1 text-[10px] font-bold leading-[1.2] sm:text-[11px]">
                                 <span
                                   className={cn(
                                     'mt-0.5 size-1.5 shrink-0 rounded-full',
                                     CALENDAR_TYPE_META[ev.type].dot,
                                   )}
                                 />
-                                <span>{timeLabel(ev.startAt)} {ev.title}</span>
+                                <span className="min-w-0 break-all">{timeLabel(ev.startAt)} {ev.title}</span>
                               </span>
                               {extra && (
-                                <span className="mt-0.5 break-words pl-2.5 text-[9px] leading-[1.2] text-zinc-600 sm:text-[10px]">
+                                <span className="mt-0.5 break-all pl-2.5 text-[9px] leading-[1.2] text-zinc-600 sm:text-[10px]">
                                   {extra}
                                 </span>
                               )}
