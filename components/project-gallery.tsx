@@ -136,23 +136,39 @@ export function ProjectGalleryView({
     if (items.length === 0) return
     setBulkDownloading(true)
     setBulkError(null)
-    let failed = 0
+    const unavailable: string[] = []
+    const failed: string[] = []
     try {
       for (const v of items) {
         try {
           const resolved = (await publicService.getByLink(v.link)).video
           const url = resolved.originalUrl ?? resolved.url
           if (!url) {
-            failed++
+            unavailable.push(v.title || 'Vídeo sem título')
             continue
           }
           triggerDownload(url, `${v.title || 'video'}.mp4`)
           await new Promise((resolve) => setTimeout(resolve, 400))
         } catch {
-          failed++
+          failed.push(v.title || 'Vídeo sem título')
         }
       }
-      if (failed > 0) setBulkError(`${failed} vídeo(s) não puderam ser baixados.`)
+      if (unavailable.length || failed.length) {
+        const messages: string[] = []
+        if (unavailable.length) {
+          messages.push(
+            `${unavailable.length} vídeo${unavailable.length === 1 ? '' : 's'} ainda ${unavailable.length === 1 ? 'não tem' : 'não têm'} arquivo disponível para download — provavelmente está${unavailable.length === 1 ? '' : 'o'} em processamento.`,
+          )
+        }
+        if (failed.length) {
+          messages.push(
+            failed.length === 1
+              ? '1 vídeo não pôde ser preparado para download. Verifique a conexão e tente novamente.'
+              : `${failed.length} vídeos não puderam ser preparados para download. Verifique a conexão e tente novamente.`,
+          )
+        }
+        setBulkError(messages.join(' '))
+      }
     } finally {
       setBulkDownloading(false)
     }
