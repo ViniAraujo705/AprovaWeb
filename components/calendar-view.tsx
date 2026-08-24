@@ -121,7 +121,6 @@ export function CalendarView() {
   const demands = useQuery<Demand[]>((signal) => demandService.list(signal), [])
 
   const [modal, setModal] = useState<{ date: Date; event: CalendarActivity | null } | null>(null)
-  const [dayModal, setDayModal] = useState<Date | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [visibleTypes, setVisibleTypes] = useState<Set<CalendarActivityType>>(
     () => new Set(CALENDAR_ACTIVITY_TYPES),
@@ -248,7 +247,7 @@ export function CalendarView() {
               className={cn(
                 'inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors',
                 active
-                  ? cn('border-transparent', meta.chipBg, meta.chipText)
+                  ? 'border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-700'
                   : 'border-border bg-secondary text-muted-foreground hover:text-foreground',
               )}
             >
@@ -268,100 +267,74 @@ export function CalendarView() {
           <ErrorState message={error} onRetry={refetch} />
         </div>
       ) : (
-        <FadeIn className="mt-4 overflow-hidden rounded-2xl border border-border bg-card">
+        <FadeIn className="mt-4 overflow-hidden rounded-xl border border-zinc-300 bg-white text-zinc-950 shadow-sm">
           <div className="overflow-x-auto">
-            <div className="min-w-[700px]">
-              <div className="grid grid-cols-[repeat(7,minmax(100px,1fr))] border-b border-border bg-secondary/50">
+            <div className="min-w-[760px]">
+              <div className="grid grid-cols-[repeat(7,minmax(108px,1fr))] border-b border-zinc-300 bg-zinc-200">
                 {WEEKDAYS.map((w) => (
                   <div
                     key={w}
-                    className="px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                    className="px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide text-zinc-700"
                   >
                     {w}
                   </div>
                 ))}
               </div>
-              <div className="grid grid-cols-[repeat(7,minmax(100px,1fr))]">
+              <div className="grid grid-cols-[repeat(7,minmax(108px,1fr))]">
                 {grid.map((d) => {
                   const key = dateKey(d)
                   const inMonth = d.getMonth() === monthStart.getMonth()
                   const isToday = key === today
                   const dayEvents = eventsByDay.get(key) ?? []
-                  const visible = dayEvents.slice(0, 3)
-                  const overflow = dayEvents.length - visible.length
                   return (
-                    <button
+                    <div
                       key={key}
-                      type="button"
-                      onClick={() => setModal({ date: d, event: null })}
                       className={cn(
-                        'flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-border p-1.5 text-left transition-colors last:border-r-0 hover:bg-secondary/40 sm:min-h-[120px] sm:p-2',
-                        !inMonth && 'bg-secondary/20',
+                        'flex min-h-[92px] flex-col items-stretch gap-1 border-b border-r border-zinc-200 p-1.5 text-left last:border-r-0 sm:min-h-[110px] sm:p-2',
+                        !inMonth && 'bg-zinc-100 text-zinc-400',
                       )}
                     >
-                      <span
+                      <button
+                        type="button"
+                        onClick={() => setModal({ date: d, event: null })}
+                        aria-label={`Adicionar atividade em ${d.toLocaleDateString('pt-BR')}`}
                         className={cn(
-                          'inline-flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium',
+                          'inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-[11px] font-bold transition-colors hover:bg-zinc-200',
                           isToday
-                            ? 'bg-primary text-primary-foreground'
+                            ? 'bg-zinc-950 text-white hover:bg-zinc-800'
                             : inMonth
-                              ? 'text-foreground'
-                              : 'text-muted-foreground/50',
+                              ? 'text-zinc-950'
+                              : 'text-zinc-400',
                         )}
                       >
                         {d.getDate()}
-                      </span>
+                      </button>
                       <div className="flex flex-col gap-1">
-                        {visible.map((ev) => {
+                        {dayEvents.map((ev) => {
                           const crewNames = ev.crew.map((c) => c.name)
                           const crewLabel = crewNames.map((n) => shortName(n, crewNames)).join(', ')
                           const extra = [crewLabel || null, ev.notes || null].filter(Boolean).join(' · ')
                           return (
-                            <div
+                            <button
                               key={ev.id}
-                              role="button"
-                              tabIndex={0}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setModal({ date: new Date(ev.startAt), event: ev })
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.stopPropagation()
-                                  setModal({ date: new Date(ev.startAt), event: ev })
-                                }
-                              }}
-                              className={cn('flex flex-col rounded-md px-1.5 py-1', CALENDAR_TYPE_META[ev.type].chipBg)}
+                              type="button"
+                              onClick={() => setModal({ date: new Date(ev.startAt), event: ev })}
+                              className="flex flex-col rounded-sm border border-zinc-300 bg-white px-1.5 py-1 text-left text-zinc-950 transition-colors hover:bg-zinc-100"
                               title={[ev.title, extra].filter(Boolean).join(' — ')}
                             >
-                              <span className="flex items-start gap-1 text-[11px] font-semibold leading-tight text-foreground sm:text-xs">
-                                <span className={cn('mt-1 size-1.5 shrink-0 rounded-full', CALENDAR_TYPE_META[ev.type].dot)} />
-                                <span className="min-w-0 break-words">
-                                  {timeLabel(ev.startAt)} {ev.title}
-                                </span>
+                              <span className="min-w-0 break-words text-[10px] font-bold leading-[1.2] sm:text-[11px]">
+                                {timeLabel(ev.startAt)} {ev.title}
                               </span>
                               {extra && (
-                                <span className="break-words pl-2.5 text-[10px] leading-tight text-muted-foreground sm:text-[11px]">
+                                <span className="mt-0.5 break-words text-[9px] leading-[1.2] text-zinc-600 sm:text-[10px]">
                                   {extra}
                                 </span>
                               )}
-                            </div>
+                            </button>
                           )
                         })}
-                        {overflow > 0 && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setDayModal(d)
-                            }}
-                            className="px-1.5 text-left text-[10px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                          >
-                            Ver todos os {dayEvents.length} compromissos
-                          </button>
-                        )}
                       </div>
-                    </button>
+                    </div>
                   )
                 })}
               </div>
@@ -398,22 +371,6 @@ export function CalendarView() {
             monthStart={monthStart}
             monthLabel={monthLabel}
             onClose={() => setExportOpen(false)}
-          />
-        )}
-        {dayModal && (
-          <DayEventsModal
-            date={dayModal}
-            events={eventsByDay.get(dateKey(dayModal)) ?? []}
-            onClose={() => setDayModal(null)}
-            onSelectEvent={(ev) => {
-              setDayModal(null)
-              setModal({ date: new Date(ev.startAt), event: ev })
-            }}
-            onAddNew={() => {
-              const date = dayModal
-              setDayModal(null)
-              setModal({ date, event: null })
-            }}
           />
         )}
       </AnimatePresence>
