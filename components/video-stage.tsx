@@ -30,6 +30,8 @@ import {
   Maximize,
   Minimize,
   Film,
+  Volume2,
+  VolumeX,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Video } from '@/lib/types'
@@ -133,6 +135,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
   const [playing, setPlaying] = useState(false)
+  const [reelsMuted, setReelsMuted] = useState(false)
   const [current, setCurrent] = useState(0)
   const [duration, setDuration] = useState(video.duration || 0)
   // Proporção real (largura/altura) do arquivo de vídeo, lida do próprio
@@ -292,19 +295,31 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
    * Início automático de reprodução em Reels/tela cheia — inclusive ao trocar
    * de vídeo por swipe, que dispara `play()` bem depois do gesto original
    * (só depois do fetch em `loadVideo` resolver). Sem gesto "fresco" o
-   * bastante, navegadores mais rígidos (Safari/iOS) recusam silenciosamente
-   * o autoplay com áudio e o vídeo fica pausado sem nenhum aviso. Autoplay
-   * MUDO nunca é bloqueado, então tocamos mudo e desmutamos assim que a
-   * reprodução realmente começa — não exige um novo gesto do usuário.
+   * bastante, navegadores mais rígidos (Safari/iOS) podem recusar o autoplay
+   * com áudio. Tentamos primeiro com som (a expectativa de um Reels); apenas
+   * se for bloqueado caímos no autoplay mudo, com controle para ativá-lo.
    */
   function autoplay(el: HTMLVideoElement | null) {
     if (!el) return
-    el.muted = true
+    el.muted = false
     el.play()
       .then(() => {
-        el.muted = false
+        setReelsMuted(false)
       })
-      .catch(() => {})
+      .catch(() => {
+        el.muted = true
+        setReelsMuted(true)
+        el.play().catch(() => {})
+      })
+  }
+
+  function toggleReelsMute() {
+    const el = videoRef.current
+    if (!el) return
+    const nextMuted = !el.muted
+    el.muted = nextMuted
+    setReelsMuted(nextMuted)
+    if (!nextMuted) el.play().catch(() => {})
   }
 
   /**
@@ -630,6 +645,16 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                   Prévia horizontal
                 </span>
               )}
+              {tab === 'reels' && !processing && playbackUrl && (
+                <button
+                  type="button"
+                  onClick={toggleReelsMute}
+                  aria-label={reelsMuted ? 'Ativar som' : 'Silenciar'}
+                  className="absolute left-3 top-3 z-20 grid size-9 place-items-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                >
+                  {reelsMuted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+                </button>
+              )}
 
               {/*
                 Navegação por swipe da aba Reels (estilo feed do Instagram): uma
@@ -838,6 +863,15 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
               photoUrl={clientPhotoUrl}
               description={clientDescription}
             />
+
+            <button
+              type="button"
+              onClick={toggleReelsMute}
+              aria-label={reelsMuted ? 'Ativar som' : 'Silenciar'}
+              className="absolute right-3 top-3 z-30 grid size-10 place-items-center rounded-full bg-black/50 text-white backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              {reelsMuted ? <VolumeX className="size-5" /> : <Volume2 className="size-5" />}
+            </button>
 
             {reelsLandscape && (
               <span className="pointer-events-none absolute left-16 top-4 z-20 rounded-full bg-black/55 px-2 py-1 text-[10px] font-medium text-white/85 backdrop-blur-sm">
