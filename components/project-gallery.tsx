@@ -6,13 +6,13 @@ import { useRef, useState } from 'react'
 import { Loader2, Film, Download, AlertTriangle, Share2, Check, X, Info } from 'lucide-react'
 import type { ProjectGallery } from '@/lib/types'
 import { publicService } from '@/lib/services'
-import { triggerDownload } from '@/lib/download'
 import { AgencyLogo } from '@/components/agency-logo'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { StatusBadge } from '@/components/status-badge'
 import { EmptyState } from '@/components/states'
 import { FadeIn, StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
 import { brandAccentStyle } from '@/lib/theme'
+import { toast } from '@/lib/toast'
 
 const GALLERY_ONBOARDING_SEEN_KEY = 'aprova_gallery_onboarding_seen'
 
@@ -130,45 +130,34 @@ export function ProjectGalleryView({
     }
   }
 
-  /** Baixa os vídeos selecionados um a um, na maior qualidade disponível (arquivo original). */
+  /** Gera um ZIP no backend e navega até ele — uma única ação funciona no Safari/iPhone. */
   async function downloadSelected() {
     const items = gallery.videos.filter((v) => selected.has(v.link))
     if (items.length === 0) return
+    if (items.length > 50) {
+      setBulkError('Selecione no máximo 50 vídeos por download.')
+      return
+    }
     setBulkDownloading(true)
     setBulkError(null)
-    const unavailable: string[] = []
-    const failed: string[] = []
     try {
-      for (const v of items) {
-        try {
-          const resolved = (await publicService.getByLink(v.link)).video
-          const url = resolved.originalUrl ?? resolved.url
-          if (!url) {
-            unavailable.push(v.title || 'Vídeo sem título')
-            continue
-          }
-          triggerDownload(url, `${v.title || 'video'}.mp4`)
-          await new Promise((resolve) => setTimeout(resolve, 400))
-        } catch {
-          failed.push(v.title || 'Vídeo sem título')
-        }
+      const download = await publicService.downloadProjectGallery(link, items.map((video) => video.link))
+      if (!download.url) {
+        setBulkError('Nenhum vídeo selecionado está disponível para download no momento.')
+        return
       }
-      if (unavailable.length || failed.length) {
-        const messages: string[] = []
-        if (unavailable.length) {
-          messages.push(
-            `${unavailable.length} vídeo${unavailable.length === 1 ? '' : 's'} ainda ${unavailable.length === 1 ? 'não tem' : 'não têm'} arquivo disponível para download — provavelmente está${unavailable.length === 1 ? '' : 'o'} em processamento.`,
-          )
-        }
-        if (failed.length) {
-          messages.push(
-            failed.length === 1
-              ? '1 vídeo não pôde ser preparado para download. Verifique a conexão e tente novamente.'
-              : `${failed.length} vídeos não puderam ser preparados para download. Verifique a conexão e tente novamente.`,
-          )
-        }
-        setBulkError(messages.join(' '))
+      if (download.skipped.length) {
+        const processing = download.skipped.filter((item) => item.reason === 'processing').length
+        const unavailable = download.skipped.length - processing
+        const messages = [
+          processing ? `${processing} ainda está sendo processado${processing === 1 ? '' : 's'}` : null,
+          unavailable ? `${unavailable} arquivo${unavailable === 1 ? ' está' : 's estão'} indisponível${unavailable === 1 ? '' : 'is'}` : null,
+        ].filter(Boolean)
+        toast.info('O ZIP será baixado com os arquivos disponíveis.', messages.join(' e ') + '.')
       }
+      window.location.href = download.url
+    } catch {
+      setBulkError('Não foi possível preparar o arquivo ZIP. Verifique a conexão e tente novamente.')
     } finally {
       setBulkDownloading(false)
     }

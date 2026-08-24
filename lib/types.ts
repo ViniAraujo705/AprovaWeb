@@ -412,6 +412,19 @@ export interface ProjectGallery {
   videos: GalleryVideoItem[]
 }
 
+/** Resultado do ZIP temporário gerado para baixar uma seleção da galeria pública. */
+export interface PublicProjectDownload {
+  url: string | null
+  filename: string | null
+  totalVideos: number
+  totalBytes: number
+  expiresIn: number
+  skipped: Array<{
+    link: string
+    reason: 'processing' | 'unavailable' | 'not_found'
+  }>
+}
+
 /** Um item de portfólio é um vídeo, uma foto ou uma peça de design — `mediaType` distingue os três. */
 export type PortfolioItemMediaType = 'video' | 'foto' | 'design'
 
@@ -755,4 +768,21 @@ export interface CalendarActivity {
   /** Demanda do Kanban vinculada, quando `type === 'demanda_interna'`. */
   demandId: string | null
   notes: string | null
+}
+
+/** Status da conexão OAuth do Google Drive da agência (`/configuracoes/integracoes`). */
+export interface GoogleDriveStatus {
+  connected: boolean
+  /** Conta Google conectada, quando disponível. */
+  email: string | null
+}
+
+/** Arquivo ou pasta do Google Drive da conta conectada. */
+export interface GoogleDriveItem {
+  id: string
+  name: string
+  mimeType: string
+  isFolder: boolean
+  iconLink: string | null
+  webViewLink: string | null
 }

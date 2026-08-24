@@ -116,6 +116,7 @@ import type {
   ProductionStage,
   Project,
   ProjectGallery,
+  PublicProjectDownload,
   ProjectMember,
   PublicPortfolio,
   PublicPortfolioHub,
@@ -2082,6 +2083,45 @@ export const publicService = {
         // Backend não garante ordem; sem isso o vídeo recém-enviado podia
         // aparecer depois de vídeos antigos do mesmo projeto na galeria.
         .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
+    }
+  },
+
+  /** Gera um ZIP temporário dos vídeos selecionados da galeria pública. */
+  async downloadProjectGallery(link: string, videoLinks: string[]): Promise<PublicProjectDownload> {
+    if (isDemoProjectLink(link)) {
+      const available = new Set(demoProjectGallery(link).videos.map((video) => video.link))
+      const selected = videoLinks.filter((videoLink) => available.has(videoLink))
+      return delay({
+        // ZIP vazio válido, apenas para manter o fluxo demonstrável sem backend/R2.
+        url: selected.length ? 'data:application/zip;base64,UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==' : null,
+        filename: selected.length ? 'entrega-demo.zip' : null,
+        totalVideos: selected.length,
+        totalBytes: 0,
+        expiresIn: 900,
+        skipped: videoLinks
+          .filter((videoLink) => !available.has(videoLink))
+          .map((videoLink) => ({ link: videoLink, reason: 'not_found' as const })),
+      })
+    }
+    const res = await api.post<Raw>(
+      `/public/projects/${encodeURIComponent(link)}/download`,
+      { videoLinks },
+      { auth: false },
+    )
+    return {
+      url: pick<string | null>(res, ['url'], null),
+      filename: pick<string | null>(res, ['filename', 'nomeArquivo'], null),
+      totalVideos: pick<number>(res, ['totalVideos', 'total_videos'], 0),
+      totalBytes: pick<number>(res, ['totalBytes', 'total_bytes'], 0),
+      expiresIn: pick<number>(res, ['expiresIn', 'expires_in'], 0),
+      skipped: asArray(pick(res, ['skipped'], [])).map((item) => ({
+        link: pick<string>(item, ['link'], ''),
+        reason: pick<'processing' | 'unavailable' | 'not_found'>(
+          item,
+          ['reason'],
+          'unavailable',
+        ),
+      })),
     }
   },
 
