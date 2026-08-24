@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRef, useState } from 'react'
-import { Loader2, Film, Download, AlertTriangle, Share2, Check, X, Info } from 'lucide-react'
+import { Loader2, Film, Download, AlertTriangle, Share2, Check, X, Info, Package } from 'lucide-react'
 import type { ProjectGallery } from '@/lib/types'
 import { publicService } from '@/lib/services'
 import { AgencyLogo } from '@/components/agency-logo'
@@ -48,6 +48,7 @@ export function ProjectGalleryView({
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkDownloading, setBulkDownloading] = useState(false)
   const [bulkError, setBulkError] = useState<string | null>(null)
+  const [downloadConfirmOpen, setDownloadConfirmOpen] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [shareCopied, setShareCopied] = useState(false)
   // Compartilhar a galeria inteira (link feio de UUID) — feito uma vez aqui em
@@ -343,7 +344,7 @@ export function ProjectGalleryView({
                   </button>
                   <button
                     type="button"
-                    onClick={downloadSelected}
+                    onClick={() => setDownloadConfirmOpen(true)}
                     disabled={bulkDownloading}
                     className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
@@ -460,6 +461,68 @@ export function ProjectGalleryView({
           )}
         </div>
       </FadeIn>
+
+      <AnimatePresence>
+        {downloadConfirmOpen && (
+          <div className="fixed inset-0 z-50 grid place-items-center p-4">
+            <motion.div
+              className="absolute inset-0 bg-black/70"
+              onClick={() => setDownloadConfirmOpen(false)}
+              aria-hidden="true"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            />
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="download-zip-title"
+              className="relative w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl"
+              initial={{ y: 8, scale: 0.98 }}
+              animate={{ y: 0, scale: 1 }}
+              exit={{ y: 8, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="flex items-start gap-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
+                  <Package className="size-5" />
+                </span>
+                <div>
+                  <h2 id="download-zip-title" className="text-lg font-semibold text-foreground">
+                    Baixar {selected.size} vídeo{selected.size === 1 ? '' : 's'}
+                  </h2>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    Os vídeos serão reunidos em um único arquivo ZIP. É o formato usado para baixar vários arquivos de uma vez, inclusive no iPhone.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 rounded-xl bg-secondary p-3 text-sm leading-relaxed text-muted-foreground">
+                <span className="font-medium text-foreground">No iPhone:</span> após concluir, toque no ZIP em Downloads. O aparelho cria uma pasta com os vídeos para assistir ou salvar na galeria.
+              </div>
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDownloadConfirmOpen(false)}
+                  className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-secondary text-sm font-medium text-foreground hover:bg-secondary/70"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDownloadConfirmOpen(false)
+                    downloadSelected()
+                  }}
+                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:opacity-90"
+                >
+                  <Download className="size-4" /> Baixar ZIP
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
