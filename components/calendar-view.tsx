@@ -349,23 +349,16 @@ export function CalendarView() {
                           )
                         })}
                         {overflow > 0 && (
-                          <span
-                            role="button"
-                            tabIndex={0}
+                          <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation()
                               setDayModal(d)
                             }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.stopPropagation()
-                                setDayModal(d)
-                              }
-                            }}
-                            className="px-1.5 text-[10px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                            className="px-1.5 text-left text-[10px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                           >
-                            +{overflow} mais
-                          </span>
+                            Ver todos os {dayEvents.length} compromissos
+                          </button>
                         )}
                       </div>
                     </button>

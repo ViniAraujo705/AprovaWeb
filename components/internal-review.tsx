@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Comment, CommentThread, Video } from '@/lib/types'
-import { internalCommentService, videoService } from '@/lib/services'
+import { clientChannelService, internalCommentService, videoService } from '@/lib/services'
 import { useQuery } from '@/lib/use-query'
 import { useAuth } from '@/components/auth-provider'
 import { ApiError } from '@/lib/api'
@@ -36,6 +36,7 @@ import { toast } from '@/lib/toast'
 interface InternalData {
   video: Video
   comments: Comment[]
+  clientComments: Comment[]
 }
 
 /** Agrupa comentários em threads: raízes (parentId null) + suas respostas. */
@@ -69,13 +70,22 @@ export function InternalReview({ videoId }: { videoId: string }) {
 
   const { data, loading, error, refetch, setData } = useQuery<InternalData>(
     async (signal) => {
-      const [video, comments] = await Promise.all([
+      const [video, comments, clientChannel] = await Promise.all([
         videoService.get(videoId, signal),
         internalCommentService.list(videoId, signal),
+        clientChannelService.get(videoId, signal),
       ])
-      return { video, comments }
+      return {
+        video,
+        comments,
+        // Comentários e áudios do cliente são espelhados aqui automaticamente.
+        // Respostas da agência continuam no canal público e notas internas nunca
+        // voltam para o cliente.
+        clientComments: clientChannel.comments.filter((comment) => comment.authorRole === 'client'),
+      }
     },
     [videoId],
+    { refetchOnFocus: true, staleAfterMs: 5_000 },
   )
 
   function seek(t: number) {
@@ -116,10 +126,10 @@ export function InternalReview({ videoId }: { videoId: string }) {
     )
   }
 
-  const { video, comments } = data
+  const { video, comments, clientComments } = data
   const isSuperseded = video.latestVersionId !== video.id
   const threads = buildThreads(comments)
-  const markers: StageMarker[] = comments
+  const markers: StageMarker[] = [...comments, ...clientComments]
     .filter((c) => !c.parentId)
     .map((c) => ({ id: c.id, timestamp: c.timestamp, label: c.text }))
 
@@ -192,6 +202,12 @@ export function InternalReview({ videoId }: { videoId: string }) {
         </div>
       </div>
 
+      {video.status === 'ajuste' && (
+        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
+          O cliente solicitou ajustes. Os comentários dele aparecem abaixo automaticamente.
+        </div>
+      )}
+
       <FadeIn className="mt-6 lg:grid lg:grid-cols-[1fr_420px] lg:gap-6">
         {/* Player / timeline reaproveitados (sem botões de aprovação) */}
         <div className="lg:min-w-0">
@@ -200,6 +216,24 @@ export function InternalReview({ videoId }: { videoId: string }) {
 
         {/* Thread de comentários internos */}
         <div className="mt-6 lg:mt-0">
+          <section className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+            <h2 className="font-display text-2xl tracking-wide">AJUSTES DO CLIENTE ({clientComments.length})</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Sincronizados com o canal do cliente; ficam visíveis nos dois lugares.
+            </p>
+            {clientComments.length === 0 ? (
+              <p className="mt-3 text-sm text-muted-foreground">Nenhum ajuste enviado pelo cliente ainda.</p>
+            ) : (
+              <ul className="mt-3 flex flex-col gap-2">
+                {clientComments.map((comment) => (
+                  <li key={comment.id} className="rounded-lg border border-border bg-card p-3">
+                    <CommentBody comment={comment} onSeek={seek} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <InternalComposer
             videoId={videoId}
             timestamp={Math.round(current)}

@@ -6,7 +6,7 @@
  * (alinhada à direita, destaque em rosa e label "Resposta da agência").
  */
 import { useState } from 'react'
-import { CornerDownRight, FolderInput, Loader2, MoreVertical, Trash2 } from 'lucide-react'
+import { CornerDownRight, Loader2, MoreVertical, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Comment, CommentAuthorRole } from '@/lib/types'
 import { formatDuration } from '@/lib/format'
@@ -82,26 +82,23 @@ export function ClientCommentItem({
   )
 }
 
-/** Largura (px) do menu de ações revelado ao arrastar (Mover + Excluir). */
-const ACTIONS_WIDTH = 144
+/** Largura (px) do menu de ações revelado ao arrastar. */
+const ACTIONS_WIDTH = 72
 
 /**
  * Comentário do cliente no canal do cliente (visão do owner), com um
- * menuzinho de ações (mover para a revisão interna de outro vídeo / excluir)
+ * menuzinho de ação para excluir
  * revelado arrastando o card para a esquerda — ou pelo botão de "⋮" para
  * quem não está em um dispositivo touch.
  */
 export function DraggableClientCommentItem({
   comment,
   onSeek,
-  onMove,
   onDelete,
   deleting,
 }: {
   comment: Comment
   onSeek: (t: number) => void
-  /** Abre o seletor de vídeo de destino (fora deste componente). */
-  onMove: () => void
   onDelete: () => void
   deleting?: boolean
 }) {
@@ -112,17 +109,6 @@ export function DraggableClientCommentItem({
     <li className="relative overflow-hidden rounded-xl">
       {/* Menu revelado atrás do card */}
       <div className="absolute inset-y-0 right-0 flex" style={{ width: ACTIONS_WIDTH }}>
-        <button
-          type="button"
-          onClick={() => {
-            setOpen(false)
-            onMove()
-          }}
-          className="flex w-[72px] flex-col items-center justify-center gap-1 bg-primary text-[11px] font-semibold text-primary-foreground hover:opacity-90"
-        >
-          <FolderInput className="size-4" />
-          Mover
-        </button>
         <button
           type="button"
           onClick={() => setConfirmingDelete(true)}

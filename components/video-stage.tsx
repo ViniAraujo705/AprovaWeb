@@ -142,6 +142,10 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   // pra preencher a caixa. Com a proporção real, a caixa se ajusta ao vídeo e
   // nada precisa ser cortado.
   const [aspectRatio, setAspectRatio] = useState<number | null>(null)
+  // O Preview Reels também é usado para aprovar peças horizontais. Nesses
+  // casos o aparelho gira para paisagem e o arquivo usa `contain`, evitando
+  // que a moldura vertical corte as laterais do vídeo.
+  const reelsLandscape = (aspectRatio ?? 9 / 16) > 1
   // Tela cheia fiel ao Reels, aberta ao tocar em play na aba "Preview Reels".
   // Só no celular — no computador o toque apenas pausa/retoma o vídeo já
   // visível na moldura em mockup (ver `isDesktop` abaixo), sem cobrir a tela.
@@ -442,7 +446,12 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                 // (decorativos). No celular ganha uma margem lateral pra moldura
                 // não colar na borda da tela; no desktop vira o mockup estreito
                 // ao lado do painel de comentários.
-                'relative mx-3 rounded-[2.75rem] bg-gradient-to-br from-[#8b7aa8] via-[#1c1a22] to-[#0a0a0c] p-[10px] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)] sm:mx-auto sm:max-w-[360px] lg:max-w-[300px] lg:p-[12px]',
+                cn(
+                  'relative mx-3 bg-gradient-to-br from-[#8b7aa8] via-[#1c1a22] to-[#0a0a0c] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)] sm:mx-auto',
+                  reelsLandscape
+                    ? 'rounded-[2rem] p-[9px] sm:max-w-[560px] lg:max-w-[520px] lg:p-[11px]'
+                    : 'rounded-[2.75rem] p-[10px] sm:max-w-[360px] lg:max-w-[300px] lg:p-[12px]',
+                ),
             )}
           >
             {tab === 'reels' && (
@@ -490,7 +499,9 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                     // (que já define a largura máxima) — raio = raio do chassi
                     // menos a espessura do bezel, pra aninhar certinho como o
                     // vidro por dentro do corpo do aparelho.
-                    'w-full border-0 shadow-none rounded-[2.15rem] lg:rounded-[2rem]',
+                    reelsLandscape
+                      ? 'w-full rounded-[1.5rem] border-0 shadow-none lg:rounded-[1.35rem]'
+                      : 'w-full rounded-[2.15rem] border-0 shadow-none lg:rounded-[2rem]',
               )}
             >
             {/*
@@ -506,7 +517,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
               e não 9:16 (177.78%), que deixava a moldura baixa e atarracada
               perto de um aparelho de verdade.
             */}
-            <div style={{ paddingTop: tab === 'player' ? undefined : '216.6667%' }} />
+            <div style={{ paddingTop: tab === 'player' ? undefined : reelsLandscape ? '46.1539%' : '216.6667%' }} />
 
             <div className="absolute inset-0">
               <AnimatePresence initial={false} custom={direction} mode="popLayout">
@@ -528,7 +539,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                       playsInline
                       className={cn(
                         'h-full w-full',
-                        tab === 'player' ? 'object-contain' : 'object-cover',
+                        tab === 'player' || reelsLandscape ? 'object-contain' : 'object-cover',
                       )}
                       onLoadedMetadata={(e) => {
                         const d = e.currentTarget.duration
@@ -574,6 +585,11 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                   />
                 )}
               </AnimatePresence>
+              {tab === 'reels' && reelsLandscape && !processing && (
+                <span className="pointer-events-none absolute left-3 top-3 z-10 rounded-full bg-black/55 px-2 py-1 text-[10px] font-medium text-white/85 backdrop-blur-sm">
+                  Prévia horizontal
+                </span>
+              )}
 
               {/*
                 Navegação por swipe da aba Reels (estilo feed do Instagram): uma
@@ -756,7 +772,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                   poster={video.posterUrl || undefined}
                   playsInline
                   autoPlay
-                  className="h-full w-full object-cover"
+                  className={cn('h-full w-full', reelsLandscape ? 'object-contain' : 'object-cover')}
                   onLoadedMetadata={(e) => {
                     const d = e.currentTarget.duration
                     if (Number.isFinite(d)) setDuration(Math.round(d))
@@ -775,6 +791,12 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
               photoUrl={clientPhotoUrl}
               description={clientDescription}
             />
+
+            {reelsLandscape && (
+              <span className="pointer-events-none absolute left-16 top-4 z-20 rounded-full bg-black/55 px-2 py-1 text-[10px] font-medium text-white/85 backdrop-blur-sm">
+                Prévia horizontal
+              </span>
+            )}
 
             {/* Camada de gesto: arrastar troca de vídeo, tocar pausa/retoma */}
             <motion.div

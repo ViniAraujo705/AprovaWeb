@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Reply, Users, Loader2, Check, Lock, FolderInput, PartyPopper } from 'lucide-react'
-import type { Comment, PublicVideo, TeamMember } from '@/lib/types'
+import { Reply, Users, Loader2, Check, Lock, PartyPopper } from 'lucide-react'
+import type { Comment, PublicVideo } from '@/lib/types'
 import { isAgencyAuthor } from '@/lib/types'
-import { clientChannelService, teamService } from '@/lib/services'
+import { clientChannelService } from '@/lib/services'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { formatDuration } from '@/lib/format'
@@ -13,14 +13,10 @@ import { LoadingState, ErrorState } from '@/components/states'
 import { FadeIn, motion, AnimatePresence } from '@/components/motion'
 import { VideoStage, type VideoStageHandle, type StageMarker } from '@/components/video-stage'
 import { AgencyReplyItem, DraggableClientCommentItem } from '@/components/comment-items'
-import { EditorAssignField } from '@/components/editor-assign-field'
-import { useAuth } from '@/components/auth-provider'
 import { toast } from '@/lib/toast'
 import { playApproveSound } from '@/lib/sound'
 
 export function ClientChannelView({ videoId }: { videoId: string }) {
-  const { user } = useAuth()
-  const isOwner = user?.teamRole === 'owner'
   const stageRef = useRef<VideoStageHandle>(null)
   const [current, setCurrent] = useState(0)
 
@@ -29,7 +25,6 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
     [videoId],
   )
 
-  const [movingComment, setMovingComment] = useState<Comment | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
@@ -82,19 +77,6 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
     } finally {
       setDeletingId(null)
     }
-  }
-
-  function handleMoved(commentId: string) {
-    removeCommentLocally(commentId)
-    setMovingComment(null)
-  }
-
-  function handleEditorAssigned(newEditorId: string | null) {
-    setData((prev) =>
-      prev
-        ? { ...prev, video: { ...prev.video, editorId: newEditorId } }
-        : (prev as unknown as PublicVideo),
-    )
   }
 
   if (loading) {
@@ -181,8 +163,8 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
             CONVERSA COM O CLIENTE ({sorted.length})
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Arraste um comentário do cliente para o lado para movê-lo à revisão interna deste
-            vídeo ou excluí-lo.
+            Os ajustes enviados pelo cliente também aparecem automaticamente na revisão interna.
+            Arraste para o lado apenas se precisar excluir um comentário.
           </p>
           {actionError && <p className="mt-2 text-xs text-destructive">{actionError}</p>}
           {sorted.length === 0 ? (
@@ -200,7 +182,6 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
                     key={c.id}
                     comment={c}
                     onSeek={seek}
-                    onMove={() => setMovingComment(c)}
                     onDelete={() => deleteComment(c)}
                     deleting={deletingId === c.id}
                   />
@@ -210,151 +191,6 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
           )}
         </div>
       </FadeIn>
-
-      <AnimatePresence>
-        {movingComment && (
-          <MoveCommentModal
-            comment={movingComment}
-            videoId={videoId}
-            editorId={video.editorId}
-            canAssignEditor={isOwner}
-            onEditorAssigned={handleEditorAssigned}
-            onClose={() => setMovingComment(null)}
-            onMoved={handleMoved}
-          />
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
-/** Confirmação para mover um comentário do cliente à revisão interna DESTE MESMO vídeo. */
-function MoveCommentModal({
-  comment,
-  videoId,
-  editorId,
-  canAssignEditor,
-  onEditorAssigned,
-  onClose,
-  onMoved,
-}: {
-  comment: Comment
-  videoId: string
-  editorId: string | null
-  canAssignEditor: boolean
-  onEditorAssigned: (editorId: string | null) => void
-  onClose: () => void
-  onMoved: (commentId: string) => void
-}) {
-  const [members, setMembers] = useState<TeamMember[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [moving, setMoving] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    teamService
-      .members()
-      .then((allMembers) => {
-        if (!cancelled) setMembers(allMembers)
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : 'Não foi possível carregar a equipe.')
-          setMembers([])
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const editorName = editorId ? members?.find((m) => m.id === editorId)?.name : null
-
-  async function move() {
-    setMoving(true)
-    setError(null)
-    try {
-      // Mesmo vídeo como origem e destino: só troca o canal (cliente → interno).
-      await clientChannelService.moveToInternal(videoId, comment, videoId)
-      onMoved(comment.id)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Não foi possível mover o comentário.')
-      setMoving(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center p-4">
-      <motion.div
-        className="absolute inset-0 bg-black/70"
-        onClick={onClose}
-        aria-hidden="true"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
-      />
-      <motion.div
-        className="relative w-full max-w-md rounded-xl border border-border bg-card p-5"
-        initial={{ y: 8, scale: 0.98 }}
-        animate={{ y: 0, scale: 1 }}
-        exit={{ y: 8, scale: 0.98 }}
-        transition={{ duration: 0.2 }}
-      >
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <FolderInput className="size-4 text-primary" />
-          Mover comentário para a revisão interna
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {!members ? (
-            'Carregando…'
-          ) : editorName ? (
-            <>
-              Vai aparecer para <strong className="text-foreground">{editorName}</strong> na
-              revisão interna deste vídeo.
-            </>
-          ) : canAssignEditor ? (
-            'Este vídeo ainda não tem um editor responsável definido. Você pode atribuir um agora — o comentário vai aparecer na revisão interna de qualquer forma.'
-          ) : (
-            'Este vídeo ainda não tem um editor responsável definido — o comentário vai aparecer na revisão interna mesmo assim.'
-          )}
-        </p>
-
-        {members && !editorName && canAssignEditor && (
-          <EditorAssignField
-            videoId={videoId}
-            editorId={editorId}
-            members={members.filter((m) => m.status === 'active')}
-            onUpdated={onEditorAssigned}
-            className="mt-2"
-          />
-        )}
-        <p className="mt-3 truncate rounded-lg bg-secondary p-2 text-xs text-muted-foreground">
-          &ldquo;{comment.text}&rdquo;
-        </p>
-
-        {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
-
-        <div className="mt-4 flex gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={moving}
-            className="inline-flex min-h-9 flex-1 items-center justify-center rounded-lg bg-secondary text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={move}
-            disabled={moving || !members}
-            className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-          >
-            {moving && <Loader2 className="size-3.5 animate-spin" />}
-            Mover
-          </button>
-        </div>
-      </motion.div>
     </div>
   )
 }
