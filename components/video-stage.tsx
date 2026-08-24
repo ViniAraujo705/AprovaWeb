@@ -470,28 +470,27 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
             className={cn(
               'w-full',
               tab === 'reels' &&
-                // Chassi estilo iPhone Pro Max ao redor da tela, no celular e no
-                // desktop. Gradiente "titânio roxo" + os botões laterais abaixo
-                // (decorativos). No celular ganha uma margem lateral pra moldura
-                // não colar na borda da tela; no desktop vira o mockup estreito
-                // ao lado do painel de comentários.
+                // No desktop o Preview Reels aparece como mockup de iPhone. No
+                // celular, a própria tela já É o aparelho: manter o conteúdo
+                // edge-to-edge deixa o swipe natural e evita uma moldura alta
+                // prender o gesto dentro da rolagem da página.
                 cn(
-                  'relative mx-3 bg-gradient-to-br from-[#8b7aa8] via-[#1c1a22] to-[#0a0a0c] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)] sm:mx-auto',
+                  'lg:relative lg:mx-auto lg:bg-gradient-to-br lg:from-[#8b7aa8] lg:via-[#1c1a22] lg:to-[#0a0a0c] lg:shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)]',
                   reelsLandscape
-                    ? 'rounded-[2rem] p-[9px] sm:max-w-[560px] lg:max-w-[520px] lg:p-[11px]'
-                    : 'rounded-[2.75rem] p-[10px] sm:max-w-[360px] lg:max-w-[300px] lg:p-[12px]',
+                    ? 'lg:max-w-[520px] lg:rounded-[2rem] lg:p-[11px]'
+                    : 'lg:max-w-[300px] lg:rounded-[2.75rem] lg:p-[12px]',
                 ),
             )}
           >
             {tab === 'reels' && (
               <>
                 {/* Botão de Ação */}
-                <span className="absolute -left-[2px] top-[92px] h-7 w-[3px] rounded-l-sm bg-[#2a2730]" />
+                <span className="hidden lg:absolute lg:-left-[2px] lg:top-[92px] lg:block lg:h-7 lg:w-[3px] lg:rounded-l-sm lg:bg-[#2a2730]" />
                 {/* Volume + / − */}
-                <span className="absolute -left-[2px] top-[132px] h-12 w-[3px] rounded-l-sm bg-[#2a2730]" />
-                <span className="absolute -left-[2px] top-[184px] h-12 w-[3px] rounded-l-sm bg-[#2a2730]" />
+                <span className="hidden lg:absolute lg:-left-[2px] lg:top-[132px] lg:block lg:h-12 lg:w-[3px] lg:rounded-l-sm lg:bg-[#2a2730]" />
+                <span className="hidden lg:absolute lg:-left-[2px] lg:top-[184px] lg:block lg:h-12 lg:w-[3px] lg:rounded-l-sm lg:bg-[#2a2730]" />
                 {/* Botão lateral (power) */}
-                <span className="absolute -right-[2px] top-[150px] h-24 w-[3px] rounded-r-sm bg-[#2a2730]" />
+                <span className="hidden lg:absolute lg:-right-[2px] lg:top-[150px] lg:block lg:h-24 lg:w-[3px] lg:rounded-r-sm lg:bg-[#2a2730]" />
               </>
             )}
             <div
@@ -529,8 +528,8 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                     // menos a espessura do bezel, pra aninhar certinho como o
                     // vidro por dentro do corpo do aparelho.
                     reelsLandscape
-                      ? 'w-full rounded-[1.5rem] border-0 shadow-none lg:rounded-[1.35rem]'
-                      : 'w-full rounded-[2.15rem] border-0 shadow-none lg:rounded-[2rem]',
+                      ? 'w-full rounded-none border-0 shadow-none lg:rounded-[1.35rem]'
+                      : 'w-full rounded-none border-0 shadow-none lg:rounded-[2rem]',
               )}
             >
             {/*
@@ -610,7 +609,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                     client={video.clientName}
                     photoUrl={clientPhotoUrl}
                     description={clientDescription}
-                    framed
+                    framed={isDesktop}
                   />
                 )}
               </AnimatePresence>
@@ -645,7 +644,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                   type="button"
                   onClick={goNext}
                   aria-label="Próximo vídeo"
-                  className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 animate-bounce rounded-full p-1 text-white/80 transition-colors hover:bg-black/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  className="absolute left-1/2 top-14 z-20 -translate-x-1/2 animate-bounce rounded-full bg-black/30 p-1 text-white/90 backdrop-blur-sm transition-colors hover:bg-black/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white lg:top-auto lg:bottom-4"
                 >
                   <ChevronUp className="size-6" />
                 </button>

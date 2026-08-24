@@ -9,7 +9,7 @@
  * Para desativar de vez, basta não usar o botão demo — nada aqui roda quando
  * a flag está desligada.
  */
-import { DEMO_FLAG_KEY, DEMO_PLAN_KEY } from '@/lib/config'
+import { DEMO_FLAG_KEY, DEMO_GOOGLE_DRIVE_KEY, DEMO_PLAN_KEY } from '@/lib/config'
 import type {
   AdminMetrics,
   AdminUser,
@@ -26,6 +26,8 @@ import type {
   DemandKind,
   EditorPerformance,
   GalleryVideoItem,
+  GoogleDriveItem,
+  GoogleDriveStatus,
   PlanId,
   PlanStatus,
   Portfolio,
@@ -84,6 +86,7 @@ export function clearDemoFlag() {
   if (typeof window === 'undefined') return
   window.localStorage.removeItem(DEMO_FLAG_KEY)
   window.localStorage.removeItem(DEMO_PLAN_KEY)
+  window.localStorage.removeItem(DEMO_GOOGLE_DRIVE_KEY)
 }
 
 export const demoUser: User = {
@@ -343,8 +346,8 @@ export const demoVideos: Video[] = [
     type: 'Stories',
     status: 'pendente',
     duration: 9,
-    url: null,
-    originalUrl: null,
+    url: DEMO_SAMPLE_URL,
+    originalUrl: DEMO_SAMPLE_URL,
     posterUrl: '/videos/reel-cosmetics.png',
     publicLink: `${DEMO_LINK}-rv-04`,
     clientName: 'Bela Cosméticos',
@@ -352,7 +355,7 @@ export const demoVideos: Video[] = [
     commentsCount: 0,
     lastCommentAt: null,
     createdAt: iso(60),
-    processingStatus: 'processando',
+    processingStatus: 'pronto',
     productionStage: 'edicao',
     isExample: true,
     deadline: futureIso(96), // prazo tranquilo
@@ -1233,26 +1236,26 @@ const DEMO_PLAN_LIMITS: Record<PlanId, PlanStatus['limits']> = {
     storageGb: 5,
   },
   pro: {
-    maxClients: null,
-    maxVideosPerMonth: null,
+    maxClients: 8,
+    maxVideosPerMonth: 100,
     maxRatingQuestions: null,
-    maxExtraEditors: 1,
+    maxExtraEditors: 2,
     whiteLabel: true,
     pdfReports: true,
     priorityQueue: false,
     teamPerformance: false,
-    storageGb: 50,
+    storageGb: 100,
   },
   agencia: {
-    maxClients: null,
-    maxVideosPerMonth: null,
+    maxClients: 30,
+    maxVideosPerMonth: 500,
     maxRatingQuestions: null,
-    maxExtraEditors: 5,
+    maxExtraEditors: 7,
     whiteLabel: true,
     pdfReports: true,
     priorityQueue: true,
     teamPerformance: true,
-    storageGb: 300,
+    storageGb: 500,
   },
 }
 
@@ -1277,6 +1280,59 @@ export function demoPlanStatus(): PlanStatus {
     },
   }
 }
+
+/**
+ * Conexão "ativa" do Google Drive no modo demo, persistida em localStorage
+ * pelo mesmo motivo do plano (ver `demoSetPlan` acima): não há redirect OAuth
+ * de verdade em modo demo, então `GoogleDriveCard` simula a conexão local e
+ * imediatamente em vez de navegar pra fora do app.
+ */
+function readDemoGoogleDriveConnected(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(DEMO_GOOGLE_DRIVE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function demoSetGoogleDriveConnected(connected: boolean): void {
+  if (typeof window === 'undefined') return
+  if (connected) window.localStorage.setItem(DEMO_GOOGLE_DRIVE_KEY, '1')
+  else window.localStorage.removeItem(DEMO_GOOGLE_DRIVE_KEY)
+}
+
+export function demoGoogleDriveStatus(): GoogleDriveStatus {
+  const connected = readDemoGoogleDriveConnected()
+  return { connected, email: connected ? demoUser.email : null }
+}
+
+export const demoGoogleDriveItems: GoogleDriveItem[] = [
+  {
+    id: 'gd-1',
+    name: 'Bela Cosméticos — Campanha Verão',
+    mimeType: 'application/vnd.google-apps.folder',
+    isFolder: true,
+    iconLink: null,
+    webViewLink: null,
+  },
+  {
+    id: 'gd-2',
+    name: 'briefing-final.pdf',
+    mimeType: 'application/pdf',
+    isFolder: false,
+    iconLink: null,
+    webViewLink: null,
+  },
+  {
+    id: 'gd-3',
+    name: 'roteiro-v3.docx',
+    mimeType: 'application/vnd.google-apps.document',
+    isFolder: false,
+    iconLink: null,
+    webViewLink: null,
+  },
+]
 
 /* ----------------------- canais interno / cliente ------------------------ */
 
@@ -1494,4 +1550,3 @@ export function buildDemoReport(projectId: string): string {
   const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
   return URL.createObjectURL(blob)
 }
-
