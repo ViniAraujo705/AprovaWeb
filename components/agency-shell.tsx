@@ -298,7 +298,7 @@ function SidebarUserFooter() {
             className={cn(
               'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
               user.teamRole === 'owner'
-                ? 'bg-primary/15 text-primary'
+                ? 'bg-secondary text-foreground ring-1 ring-border'
                 : 'bg-secondary text-muted-foreground ring-1 ring-border',
             )}
           >

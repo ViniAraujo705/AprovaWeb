@@ -40,6 +40,9 @@ interface PendingFile {
   /** Velocidade média (bytes/s) e ETA do envio em andamento — só enquanto `status === 'uploading'`. */
   speedBps?: number
   etaSeconds?: number | null
+  /** Miniatura local extraída do vídeo antes do upload. */
+  thumbnailUrl: string | null
+  thumbnailLoading: boolean
 }
 
 /** Formata bytes/s como "3,2 MB/s" (ou KB/s para uploads lentos/no início). */
@@ -55,8 +58,85 @@ function formatEta(seconds: number): string {
   return `${minutes} min restantes`
 }
 
+/** Extrai um frame pequeno do arquivo local para facilitar a identificação no lote. */
+function createVideoThumbnail(file: File): Promise<string | null> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video')
+    const objectUrl = URL.createObjectURL(file)
+    let finished = false
+    const timeout = window.setTimeout(() => finish(null), 5000)
+
+    function finish(thumbnail: string | null) {
+      if (finished) return
+      finished = true
+      window.clearTimeout(timeout)
+      video.removeAttribute('src')
+      video.load()
+      URL.revokeObjectURL(objectUrl)
+      resolve(thumbnail)
+    }
+
+    function capture() {
+      if (!video.videoWidth || !video.videoHeight) return finish(null)
+      const maxWidth = 160
+      const width = Math.min(maxWidth, video.videoWidth)
+      const height = Math.max(1, Math.round((width / video.videoWidth) * video.videoHeight))
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const context = canvas.getContext('2d')
+      if (!context) return finish(null)
+      context.drawImage(video, 0, 0, width, height)
+      try {
+        finish(canvas.toDataURL('image/jpeg', 0.82))
+      } catch {
+        finish(null)
+      }
+    }
+
+    video.preload = 'metadata'
+    video.muted = true
+    video.playsInline = true
+    video.onloadeddata = () => {
+      const frameTime = Math.min(0.1, Math.max(0, (video.duration || 0) / 2))
+      if (frameTime > 0) {
+        video.onseeked = capture
+        video.currentTime = frameTime
+      } else {
+        capture()
+      }
+    }
+    video.onerror = () => finish(null)
+    video.src = objectUrl
+  })
+}
+
 /** 'submitting' cobre tanto o upload pro R2 quanto o registro no backend de cada arquivo. */
 type Phase = 'idle' | 'submitting' | 'done'
+
+function VideoThumbnail({ item }: { item: PendingFile }) {
+  return (
+    <span className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-secondary text-muted-foreground">
+      {item.thumbnailUrl ? (
+        <img src={item.thumbnailUrl} alt="" className="size-full object-cover" />
+      ) : item.thumbnailLoading ? (
+        <Loader2 className="size-5 animate-spin" aria-label="Gerando miniatura" />
+      ) : (
+        <Film className="size-5" aria-label="Miniatura indisponível" />
+      )}
+      {item.status === 'done' && (
+        <span className="absolute bottom-1 right-1 grid size-4 place-items-center rounded-full bg-emerald-500 text-white">
+          <Check className="size-3" />
+        </span>
+      )}
+      {item.status === 'error' && (
+        <span className="absolute bottom-1 right-1 grid size-4 place-items-center rounded-full bg-destructive text-destructive-foreground">
+          <AlertTriangle className="size-3" />
+        </span>
+      )}
+    </span>
+  )
+}
 
 export function UploadView() {
   const clients = useQuery<Client[]>((signal) => clientService.list(signal), [])
@@ -189,6 +269,8 @@ export function UploadView() {
           name: f.name.replace(/\.[^.]+$/, ''),
           status: 'pending',
           progress: 0,
+          thumbnailUrl: null,
+          thumbnailLoading: true,
         })
     }
     setFileError(rejected.length > 0 ? rejected.join('; ') : null)
@@ -196,6 +278,12 @@ export function UploadView() {
 
     setItems((prev) => [...prev, ...accepted])
     if (!title.trim()) setTitle(accepted[0].file.name.replace(/\.[^.]+$/, ''))
+
+    for (const item of accepted) {
+      void createVideoThumbnail(item.file).then((thumbnailUrl) =>
+        updateItem(item.id, { thumbnailUrl, thumbnailLoading: false }),
+      )
+    }
   }
 
   function removeItem(id: string) {
@@ -616,24 +704,7 @@ export function UploadView() {
                   key={item.id}
                   className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
                 >
-                  <span
-                    className={cn(
-                      'grid size-10 shrink-0 place-items-center rounded-lg',
-                      item.status === 'done'
-                        ? 'bg-emerald-500/15 text-emerald-400'
-                        : item.status === 'error'
-                          ? 'bg-destructive/15 text-destructive'
-                          : 'bg-primary/15 text-primary',
-                    )}
-                  >
-                    {item.status === 'done' ? (
-                      <Check className="size-5" />
-                    ) : item.status === 'error' ? (
-                      <AlertTriangle className="size-5" />
-                    ) : (
-                      <Film className="size-5" />
-                    )}
-                  </span>
+                  <VideoThumbnail item={item} />
                   <div className="min-w-0 flex-1">
                     {item.status === 'pending' ? (
                       <input

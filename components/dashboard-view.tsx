@@ -379,7 +379,7 @@ export function DashboardView() {
         )}
       </AnimatePresence>
 
-      {/* Visão geral: pendentes +48h, aprovados no mês, em ajustes, cliente mais rápido */}
+      {/* Visão geral: pendentes, aprovados no mês, em ajustes, cliente mais rápido */}
       <OverviewRow
         insights={insights}
         pending={pending}
@@ -1188,10 +1188,9 @@ function OverviewRow({
   }
 
   const data = insights.data
-  const pendingOver48h = data?.pendingOver48h ?? pending
   const approvedThisMonth = data?.approvedThisMonth ?? approved
   const fastestClient = data?.fastestClient ?? null
-  const hasPendingAlert = pendingOver48h > 0
+  const hasPendingAlert = pending > 0
 
   return (
     <StaggerList className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
@@ -1212,7 +1211,7 @@ function OverviewRow({
         </span>
         <div className="min-w-0">
           <p className="font-display text-3xl leading-none tracking-wide sm:text-4xl">
-            {pendingOver48h}
+            {pending}
           </p>
           <p
             className={cn(
@@ -1220,7 +1219,7 @@ function OverviewRow({
               hasPendingAlert ? 'text-primary-foreground/80' : 'text-muted-foreground',
             )}
           >
-            {hasPendingAlert ? 'pendentes há +48h · vale um lembrete' : 'pendentes há +48h · tudo em dia'}
+            {hasPendingAlert ? 'pendentes · aguardando retorno' : 'pendentes · tudo em dia'}
           </p>
         </div>
       </motion.div>
@@ -1294,7 +1293,7 @@ function StageBreakdown({ videos }: { videos: Video[] }) {
         <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
           <LayoutGrid className="size-4 text-muted-foreground" /> Produção por etapa
         </h2>
-        <Link href="/kanban" className="text-xs font-medium text-primary hover:underline">
+        <Link href="/kanban" className="text-xs font-medium text-foreground hover:underline">
           Ver kanban
         </Link>
       </div>
