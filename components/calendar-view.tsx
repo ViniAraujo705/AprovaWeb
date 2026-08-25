@@ -319,7 +319,10 @@ export function CalendarView() {
                               key={ev.id}
                               type="button"
                               onClick={() => setModal({ date: new Date(ev.startAt), event: ev })}
-                              className="flex flex-col rounded-sm border border-zinc-200 bg-white px-1.5 py-1 text-left text-zinc-950 transition-colors hover:bg-zinc-100"
+                              className={cn(
+                                'flex flex-col rounded-sm border border-zinc-200 px-1.5 py-1 text-left text-zinc-950 transition-colors',
+                                CALENDAR_TYPE_META[ev.type].chipBg,
+                              )}
                               title={[ev.title, extra].filter(Boolean).join(' — ')}
                             >
                               <span className="flex min-w-0 items-start gap-1 text-[10px] font-bold leading-[1.2] sm:text-[11px]">
