@@ -180,20 +180,16 @@ export function PlansView() {
                     </p>
                   )}
 
-                  <ul className={cn('mt-9 flex-1 space-y-3 border-t pt-5 lg:mt-12 lg:space-y-4 lg:pt-6', highlighted ? 'border-white/10' : 'border-border')}>
-                    {plan.features.map((feature) => (
-                      <li key={feature} className={cn('flex items-start gap-2 text-sm leading-5 lg:gap-3 lg:text-base lg:leading-6', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
-                        <Check className="mt-0.5 size-4 shrink-0 text-emerald-500 lg:size-5" />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-
                   {isCurrent ? (
                     <button
                       type="button"
                       disabled
-                      className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-white/10 px-4 text-sm font-bold text-plan-featured-muted disabled:cursor-not-allowed lg:mt-6"
+                      className={cn(
+                        'mt-5 inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-bold disabled:cursor-not-allowed lg:mt-6',
+                        highlighted
+                          ? 'bg-white/10 text-plan-featured-muted'
+                          : 'bg-secondary text-muted-foreground',
+                      )}
                     >
                       plano atual
                     </button>
@@ -229,6 +225,15 @@ export function PlansView() {
                       )}
                     </>
                   )}
+
+                  <ul className={cn('mt-9 flex-1 space-y-3 border-t pt-5 lg:mt-12 lg:space-y-4 lg:pt-6', highlighted ? 'border-white/10' : 'border-border')}>
+                    {plan.features.map((feature) => (
+                      <li key={feature} className={cn('flex items-start gap-2 text-sm leading-5 lg:gap-3 lg:text-base lg:leading-6', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
+                        <Check className="mt-0.5 size-4 shrink-0 text-emerald-500 lg:size-5" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </FadeIn>

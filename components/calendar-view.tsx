@@ -267,14 +267,14 @@ export function CalendarView() {
           <ErrorState message={error} onRetry={refetch} />
         </div>
       ) : (
-        <FadeIn className="mt-4 overflow-hidden rounded-xl border border-zinc-300 bg-white text-zinc-950 shadow-sm">
+        <FadeIn className="mt-4 overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-sm">
           <div className="overflow-x-auto">
             <div className="min-w-[760px]">
-              <div className="grid grid-cols-[repeat(7,minmax(108px,1fr))] border-b border-zinc-300 bg-zinc-200">
+              <div className="grid grid-cols-[repeat(7,minmax(108px,1fr))] border-b border-border bg-secondary">
                 {WEEKDAYS.map((w) => (
                   <div
                     key={w}
-                    className="px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide text-zinc-700"
+                    className="px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide text-muted-foreground"
                   >
                     {w}
                   </div>
@@ -290,8 +290,8 @@ export function CalendarView() {
                     <div
                       key={key}
                       className={cn(
-                        'flex min-h-[92px] flex-col items-stretch gap-1 border-b border-r border-zinc-200 p-1.5 text-left last:border-r-0 sm:min-h-[110px] sm:p-2',
-                        !inMonth && 'bg-zinc-100 text-zinc-400',
+                        'flex min-h-[92px] flex-col items-stretch gap-1 border-b border-r border-border p-1.5 text-left last:border-r-0 sm:min-h-[110px] sm:p-2',
+                        !inMonth && 'bg-secondary/50 text-muted-foreground',
                       )}
                     >
                       <button
@@ -299,12 +299,12 @@ export function CalendarView() {
                         onClick={() => setModal({ date: d, event: null })}
                         aria-label={`Adicionar atividade em ${d.toLocaleDateString('pt-BR')}`}
                         className={cn(
-                          'inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-[11px] font-bold transition-colors hover:bg-zinc-200',
+                          'inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-[11px] font-bold transition-colors hover:bg-secondary',
                           isToday
-                            ? 'bg-zinc-950 text-white hover:bg-zinc-800'
+                            ? 'bg-foreground text-background hover:bg-foreground/85'
                             : inMonth
-                              ? 'text-zinc-950'
-                              : 'text-zinc-400',
+                              ? 'text-foreground'
+                              : 'text-muted-foreground',
                         )}
                       >
                         {d.getDate()}
@@ -320,7 +320,7 @@ export function CalendarView() {
                               type="button"
                               onClick={() => setModal({ date: new Date(ev.startAt), event: ev })}
                               className={cn(
-                                'flex flex-col rounded-sm border border-zinc-200 px-1.5 py-1 text-left text-zinc-950 transition-colors',
+                                'flex flex-col rounded-sm border border-border px-1.5 py-1 text-left text-foreground transition-colors',
                                 CALENDAR_TYPE_META[ev.type].chipBg,
                               )}
                               title={[ev.title, extra].filter(Boolean).join(' — ')}
@@ -335,7 +335,7 @@ export function CalendarView() {
                                 <span className="min-w-0 break-all">{timeLabel(ev.startAt)} {ev.title}</span>
                               </span>
                               {extra && (
-                                <span className="mt-0.5 break-all pl-2.5 text-[9px] leading-[1.2] text-zinc-600 sm:text-[10px]">
+                                <span className="mt-0.5 break-all pl-2.5 text-[9px] leading-[1.2] text-muted-foreground sm:text-[10px]">
                                   {extra}
                                 </span>
                               )}
