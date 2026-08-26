@@ -25,6 +25,15 @@ export const metadata: Metadata = {
   description:
     'Suba reels, posts e campanhas, envie um link e receba aprovação, comentários e notas do cliente direto do navegador.',
   generator: 'v0.app',
+  applicationName: 'Check',
+  appleWebApp: {
+    capable: true,
+    title: 'Check',
+    statusBarStyle: 'black-translucent',
+  },
+  icons: {
+    apple: '/apple-icon.png',
+  },
 }
 
 export const viewport: Viewport = {
