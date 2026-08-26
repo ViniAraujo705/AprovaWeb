@@ -24,7 +24,6 @@ export const metadata: Metadata = {
   title: 'Check',
   description:
     'Suba reels, posts e campanhas, envie um link e receba aprovação, comentários e notas do cliente direto do navegador.',
-  generator: 'v0.app',
   applicationName: 'Check',
   appleWebApp: {
     capable: true,
@@ -32,7 +31,7 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
   },
   icons: {
-    apple: '/apple-icon.png',
+    apple: '/logo-check.png',
   },
 }
 
