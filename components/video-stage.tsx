@@ -245,10 +245,11 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   const total = duration || video.duration || 0
   // Vídeo otimizado ainda sendo preparado no backend: thumbnail + aviso sutil.
   const processing = video.processingStatus === 'processando'
-  // Reprodução sempre no arquivo original (qualidade máxima enviada), nunca na
-  // versão "otimizada" do backend — que costuma vir com bitrate/resolução bem
-  // mais baixos. `originalUrl` é o mesmo arquivo usado em "baixar original".
-  const playbackUrl = video.originalUrl || video.url
+  // O arquivo original pode ser um .MOV de celular em um codec que não existe
+  // no aparelho do cliente. A versão otimizada é produzida justamente para
+  // reprodução web, portanto vem primeiro; o original permanece como
+  // fallback enquanto a otimização ainda não estiver disponível.
+  const playbackUrl = video.url || video.originalUrl
 
   function updateCurrent(t: number) {
     setCurrent(t)

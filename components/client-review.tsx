@@ -17,7 +17,6 @@ import { isAgencyAuthor } from '@/lib/types'
 import { publicService } from '@/lib/services'
 import { ApiError } from '@/lib/api'
 import { formatDuration } from '@/lib/format'
-import { triggerDownload } from '@/lib/download'
 import { FadeIn, motion, AnimatePresence, useReducedMotion } from '@/components/motion'
 import { AgencyLogo } from '@/components/agency-logo'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -126,6 +125,7 @@ export function ClientReview({
   const [decision, setDecision] = useState<VideoStatus | null>(decisionFromStatus(video.status))
   const [decisionBusy, setDecisionBusy] = useState<VideoStatus | null>(null)
   const [decisionError, setDecisionError] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
   // Marca pra qual `activeLink` o som de aprovado já tocou, pra não repetir o
   // som do clique em `decide()` (que já toca na hora, pro gesto do usuário
   // não se perder) e ainda assim tocar toda vez que o cliente abrir/deslizar
@@ -342,6 +342,24 @@ export function ClientReview({
     decide('aprovado')
   }
 
+  async function downloadVideo() {
+    if (downloading) return
+    setDownloading(true)
+    try {
+      // A rota devolve uma URL R2 assinada com `attachment`; navegar para ela
+      // deixa o navegador (inclusive Safari/iPhone) iniciar o download nativo.
+      const download = await publicService.getDownloadUrl(activeLink, 'otimizado')
+      if (!download.url) throw new Error('URL de download indisponível.')
+      window.location.href = download.url
+    } catch (err) {
+      toast.error(
+        'Não foi possível iniciar o download',
+        err instanceof ApiError ? err.message : 'Tente novamente em instantes.',
+      )
+      setDownloading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen" style={brandAccentStyle(data.branding?.accentColor)}>
       {/* Top bar — logo da agência (branding) com fallback pro logo do sistema */}
@@ -416,13 +434,12 @@ export function ClientReview({
             {(video.originalUrl || video.url) && (
               <button
                 type="button"
-                onClick={() =>
-                  triggerDownload(video.originalUrl || video.url!, `${video.title || 'video'}.mp4`)
-                }
-                className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70"
+                onClick={downloadVideo}
+                disabled={downloading}
+                className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:cursor-wait disabled:opacity-60"
               >
-                <Download className="size-3.5" />
-                Baixar vídeo
+                {downloading ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+                {downloading ? 'Preparando…' : 'Baixar vídeo'}
               </button>
             )}
           </div>

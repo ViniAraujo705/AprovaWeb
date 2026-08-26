@@ -1949,6 +1949,39 @@ export const publicService = {
     }
   },
 
+  /**
+   * URL temporária de download, assinada pelo backend com
+   * `Content-Disposition: attachment`. Ela deve ser aberta diretamente pelo
+   * navegador (sem fetch/blob), especialmente para o Safari/iPhone não tentar
+   * manter arquivos grandes em memória nem bloquear o download cross-origin.
+   */
+  async getDownloadUrl(
+    link: string,
+    type: 'original' | 'otimizado' = 'otimizado',
+  ): Promise<{ url: string; filename: string; type: 'original' | 'otimizado'; statusProcessing: string }> {
+    if (isDemoVideoLink(link)) {
+      const demo = await demoPublicVideo(link)
+      const url = type === 'original' ? demo.video.originalUrl ?? demo.video.url : demo.video.url ?? demo.video.originalUrl
+      return {
+        url: url ?? '',
+        filename: demo.video.title || 'video.mp4',
+        type,
+        statusProcessing: demo.video.processingStatus,
+      }
+    }
+    const res = await api.get<Raw>(`/public/videos/${encodeURIComponent(link)}/download`, {
+      auth: false,
+      query: { tipo: type },
+    })
+    const returnedType = pick<string>(res, ['tipo', 'type'], type)
+    return {
+      url: pick<string>(res, ['url'], ''),
+      filename: pick<string>(res, ['filename', 'nomeArquivo', 'nome_arquivo'], 'video.mp4'),
+      type: returnedType === 'original' ? 'original' : 'otimizado',
+      statusProcessing: pick<string>(res, ['statusProcessamento', 'status_processing'], ''),
+    }
+  },
+
   async addComment(
     link: string,
     input: { text: string; timestamp: number; author?: string; audioUrl?: string | null },
