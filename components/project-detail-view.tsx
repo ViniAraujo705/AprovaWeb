@@ -173,6 +173,8 @@ export function ProjectDetailView({ id }: { id: string }) {
   // funciona no botão de baixar da tela do vídeo).
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkDownloading, setBulkDownloading] = useState(false)
+  const [bulkDownloadProgress, setBulkDownloadProgress] = useState<{ current: number; total: number } | null>(null)
+  const [bulkDownloadResult, setBulkDownloadResult] = useState<{ downloaded: number; total: number } | null>(null)
   const [bulkError, setBulkError] = useState<string | null>(null)
   const downloadableVideos = currentVideos.filter((v) => !!v.url || !!v.publicLink)
 
@@ -272,9 +274,12 @@ export function ProjectDetailView({ id }: { id: string }) {
     if (items.length === 0) return
     setBulkDownloading(true)
     setBulkError(null)
+    setBulkDownloadResult(null)
+    setBulkDownloadProgress({ current: 0, total: items.length })
     let failed = 0
     try {
-      for (const v of items) {
+      for (const [index, v] of items.entries()) {
+        setBulkDownloadProgress({ current: index + 1, total: items.length })
         try {
           let url = v.originalUrl ?? v.url ?? null
           if (!url && v.publicLink) {
@@ -291,10 +296,13 @@ export function ProjectDetailView({ id }: { id: string }) {
           failed++
         }
       }
+      const downloaded = items.length - failed
+      setBulkDownloadResult({ downloaded, total: items.length })
       if (failed > 0) setBulkError(`${failed} vídeo(s) não puderam ser baixados.`)
       else toast.success(`${items.length} vídeo(s) baixados`)
     } finally {
       setBulkDownloading(false)
+      setBulkDownloadProgress(null)
     }
   }
 
@@ -503,6 +511,29 @@ export function ProjectDetailView({ id }: { id: string }) {
         <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
           <AlertTriangle className="size-4" /> {bulkError}
         </p>
+      )}
+      {bulkDownloadProgress && (
+        <div role="status" aria-live="polite" className="mt-3 flex items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 p-3 text-sm">
+          <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-foreground">Baixando vídeos…</p>
+            <p className="text-xs text-muted-foreground">
+              Arquivo {bulkDownloadProgress.current} de {bulkDownloadProgress.total} sendo preparado.
+            </p>
+          </div>
+          <span className="text-xs font-medium text-muted-foreground">{Math.round((bulkDownloadProgress.current / bulkDownloadProgress.total) * 100)}%</span>
+        </div>
+      )}
+      {bulkDownloadResult && !bulkDownloadProgress && (
+        <div role="status" aria-live="polite" className="mt-3 flex items-center gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3 text-sm">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-emerald-500"><Check className="size-4" /></span>
+          <div>
+            <p className="font-medium text-foreground">Download concluído</p>
+            <p className="text-xs text-muted-foreground">
+              {bulkDownloadResult.downloaded} de {bulkDownloadResult.total} vídeo{bulkDownloadResult.total === 1 ? '' : 's'} foram enviados para Downloads.
+            </p>
+          </div>
+        </div>
       )}
       {deleteError && (
         <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">

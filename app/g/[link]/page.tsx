@@ -39,6 +39,11 @@ export async function generateMetadata({
   const description = data.clientName
     ? `Vídeos de ${title} para ${data.clientName} assistir, comentar e aprovar.`
     : 'Assista, comente e aprove os vídeos direto pelo navegador.'
+  // A galeria já resolve `branding` com a marca própria do cliente acima da
+  // marca da agência. Open Graph é o que WhatsApp/Facebook leem para montar
+  // o cartão compartilhado; sem `images`, eles caem no ícone padrão do app.
+  const image = data.branding?.logoUrl || data.videos[0]?.posterUrl || undefined
+  const imageAlt = data.branding?.agencyName || data.clientName || title
 
   return {
     title: `${title} — CHECK`,
@@ -47,6 +52,13 @@ export async function generateMetadata({
       title,
       description,
       siteName: 'CHECK',
+      images: image ? [{ url: image, alt: imageAlt }] : undefined,
+    },
+    twitter: {
+      card: image ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      images: image ? [image] : undefined,
     },
   }
 }
