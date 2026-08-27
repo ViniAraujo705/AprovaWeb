@@ -27,6 +27,7 @@ import {
   Bell,
   Gauge,
   CalendarDays,
+  NotebookPen,
   Images,
   ChevronRight,
   Plug,
@@ -83,6 +84,7 @@ const navModules: NavModule[] = [
       { href: '/upload', label: 'Enviar vídeo', icon: Upload },
       { href: '/projetos', label: 'Projetos', icon: FolderOpen },
       { href: '/calendario', label: 'Calendário', icon: CalendarDays },
+      { href: '/checkday', label: 'CheckDay', icon: NotebookPen },
     ],
   },
   {

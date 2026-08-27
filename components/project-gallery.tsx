@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, Film, Download, AlertTriangle, Share2, Check, X, Info, Package } from 'lucide-react'
 import type { ProjectGallery } from '@/lib/types'
 import { publicService } from '@/lib/services'
@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/states'
 import { FadeIn, StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
 import { brandAccentStyle } from '@/lib/theme'
 import { toast } from '@/lib/toast'
+import { cn } from '@/lib/utils'
 
 const GALLERY_ONBOARDING_SEEN_KEY = 'aprova_gallery_onboarding_seen'
 
@@ -47,6 +48,9 @@ export function ProjectGalleryView({
   // alimenta o player em /v/:link).
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkDownloading, setBulkDownloading] = useState(false)
+  const [downloadStatus, setDownloadStatus] = useState<
+    { phase: 'preparing' | 'started'; count: number } | null
+  >(null)
   const [bulkError, setBulkError] = useState<string | null>(null)
   const [downloadConfirmOpen, setDownloadConfirmOpen] = useState(false)
   const [sharing, setSharing] = useState(false)
@@ -98,6 +102,14 @@ export function ProjectGalleryView({
   const LONG_PRESS_MS = 450
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressTriggered = useRef(false)
+  const downloadStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(
+    () => () => {
+      if (downloadStatusTimer.current) clearTimeout(downloadStatusTimer.current)
+    },
+    [],
+  )
 
   function handlePressStart(videoLink: string) {
     longPressTriggered.current = false
@@ -140,6 +152,7 @@ export function ProjectGalleryView({
       return
     }
     setBulkDownloading(true)
+    setDownloadStatus({ phase: 'preparing', count: items.length })
     setBulkError(null)
     try {
       const download = await publicService.downloadProjectGallery(link, items.map((video) => video.link))
@@ -156,9 +169,17 @@ export function ProjectGalleryView({
         ].filter(Boolean)
         toast.info('O ZIP será baixado com os arquivos disponíveis.', messages.join(' e ') + '.')
       }
+      // A geração do ZIP terminou e o browser recebeu a URL assinada. Não há
+      // API web confiável para saber quando o gerenciador nativo do navegador
+      // acabou de gravar o arquivo no aparelho, então o status comunica o
+      // marco verificável: arquivo pronto e download disparado.
+      setDownloadStatus({ phase: 'started', count: items.length })
+      if (downloadStatusTimer.current) clearTimeout(downloadStatusTimer.current)
+      downloadStatusTimer.current = setTimeout(() => setDownloadStatus(null), 7000)
       window.location.href = download.url
     } catch {
       setBulkError('Não foi possível preparar o arquivo ZIP. Verifique a conexão e tente novamente.')
+      setDownloadStatus(null)
     } finally {
       setBulkDownloading(false)
     }
@@ -261,6 +282,38 @@ export function ProjectGalleryView({
           Link copiado para a área de transferência.
         </p>
       )}
+
+      <AnimatePresence>
+        {downloadStatus && (
+          <motion.div
+            role="status"
+            aria-live="polite"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="fixed left-1/2 top-4 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-xl sm:w-auto sm:min-w-96"
+          >
+            <span className={cn('grid size-9 shrink-0 place-items-center rounded-lg', downloadStatus.phase === 'preparing' ? 'bg-primary/15 text-primary' : 'bg-emerald-500/15 text-emerald-500')}>
+              {downloadStatus.phase === 'preparing' ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">
+                {downloadStatus.phase === 'preparing' ? 'Preparando seu download…' : 'Arquivo pronto — download iniciado'}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {downloadStatus.phase === 'preparing'
+                  ? `Reunindo ${downloadStatus.count} vídeo${downloadStatus.count === 1 ? '' : 's'} em um ZIP.`
+                  : 'Confira o andamento e o arquivo final na área de Downloads do navegador.'}
+              </p>
+            </div>
+            {downloadStatus.phase === 'started' && (
+              <button type="button" onClick={() => setDownloadStatus(null)} aria-label="Fechar aviso de download" className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+                <X className="size-4" />
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Instruções rápidas de como usar a galeria — some após a primeira dispensa. */}
       <AnimatePresence>
