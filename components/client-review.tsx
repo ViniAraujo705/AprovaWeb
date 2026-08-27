@@ -348,13 +348,17 @@ export function ClientReview({
     try {
       // A rota devolve uma URL R2 assinada com `attachment`; navegar para ela
       // deixa o navegador (inclusive Safari/iPhone) iniciar o download nativo.
-      const download = await publicService.getDownloadUrl(activeLink, 'otimizado')
+      const download = await publicService.getDownloadUrl(activeLink, 'original')
       if (!download.url) throw new Error('URL de download indisponível.')
+      // Entrega para o cliente nunca deve cair silenciosamente na versão de
+      // preview. Se o backend não tiver o original, informamos o problema em
+      // vez de baixar um arquivo comprimido como se fosse a entrega final.
+      if (download.type !== 'original') throw new Error('Arquivo original indisponível.')
       window.location.href = download.url
     } catch (err) {
       toast.error(
         'Não foi possível iniciar o download',
-        err instanceof ApiError ? err.message : 'Tente novamente em instantes.',
+        err instanceof Error ? err.message : 'Tente novamente em instantes.',
       )
       setDownloading(false)
     }
@@ -439,7 +443,7 @@ export function ClientReview({
                 className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:cursor-wait disabled:opacity-60"
               >
                 {downloading ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
-                {downloading ? 'Preparando…' : 'Baixar vídeo'}
+                {downloading ? 'Preparando…' : 'Baixar original'}
               </button>
             )}
           </div>
