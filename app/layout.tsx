@@ -31,6 +31,10 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
   },
   icons: {
+    // Declaração explícita: alguns navegadores não inferem `app/icon.png`
+    // quando a página também usa manifest/apple-touch-icon e mostram o globo
+    // genérico na aba. O PNG traz a marca Check com boa leitura em 16–32 px.
+    icon: [{ url: '/icon.png', type: 'image/png', sizes: '180x180' }],
     apple: '/logo-check.png',
   },
 }

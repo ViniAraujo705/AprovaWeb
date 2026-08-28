@@ -126,6 +126,7 @@ export function ClientReview({
   const [decisionBusy, setDecisionBusy] = useState<VideoStatus | null>(null)
   const [decisionError, setDecisionError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
+  const [optimizedDownload, setOptimizedDownload] = useState<{ url: string } | null>(null)
   // Marca pra qual `activeLink` o som de aprovado já tocou, pra não repetir o
   // som do clique em `decide()` (que já toca na hora, pro gesto do usuário
   // não se perder) e ainda assim tocar toda vez que o cliente abrir/deslizar
@@ -348,12 +349,27 @@ export function ClientReview({
     try {
       // A rota devolve uma URL R2 assinada com `attachment`; navegar para ela
       // deixa o navegador (inclusive Safari/iPhone) iniciar o download nativo.
-      const download = await publicService.getDownloadUrl(activeLink, 'original')
+      let download: Awaited<ReturnType<typeof publicService.getDownloadUrl>>
+      try {
+        download = await publicService.getDownloadUrl(activeLink, 'original')
+      } catch (originalError) {
+        // Alguns backends retornam 404 quando o arquivo original não existe,
+        // em vez de devolver a versão otimizada no mesmo response. Buscamos a
+        // alternativa aqui para ainda oferecer a escolha ao cliente.
+        const optimized = await publicService.getDownloadUrl(activeLink, 'otimizado').catch(() => null)
+        if (!optimized?.url) throw originalError
+        setOptimizedDownload({ url: optimized.url })
+        setDownloading(false)
+        return
+      }
       if (!download.url) throw new Error('URL de download indisponível.')
-      // Entrega para o cliente nunca deve cair silenciosamente na versão de
-      // preview. Se o backend não tiver o original, informamos o problema em
-      // vez de baixar um arquivo comprimido como se fosse a entrega final.
-      if (download.type !== 'original') throw new Error('Arquivo original indisponível.')
+      // Nunca baixa a prévia silenciosamente: o cliente decide de forma
+      // consciente se quer prosseguir com a versão otimizada.
+      if (download.type !== 'original') {
+        setOptimizedDownload({ url: download.url })
+        setDownloading(false)
+        return
+      }
       window.location.href = download.url
     } catch (err) {
       toast.error(
@@ -678,6 +694,48 @@ export function ClientReview({
             onReset={() => setDecision(null)}
             galleryLink={galleryLink}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {optimizedDownload && (
+          <div className="fixed inset-0 z-50 grid place-items-center p-4">
+            <motion.div
+              className="absolute inset-0 bg-black/70"
+              onClick={() => setOptimizedDownload(null)}
+              aria-hidden="true"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            />
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="optimized-download-title"
+              initial={{ opacity: 0, y: 8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              className="relative w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl"
+            >
+              <span className="grid size-10 place-items-center rounded-xl bg-amber-500/15 text-amber-500">
+                <Info className="size-5" />
+              </span>
+              <h2 id="optimized-download-title" className="mt-3 text-lg font-semibold text-foreground">
+                Original indisponível
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                Este vídeo está disponível apenas em uma versão otimizada, com qualidade menor que o arquivo original.
+              </p>
+              <div className="mt-5 flex gap-2">
+                <button type="button" onClick={() => setOptimizedDownload(null)} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-secondary text-sm font-medium text-foreground hover:bg-secondary/70">
+                  Cancelar
+                </button>
+                <button type="button" onClick={() => { setDownloading(true); window.location.href = optimizedDownload.url }} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:opacity-90">
+                  <Download className="size-4" /> Baixar otimizada
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

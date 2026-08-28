@@ -478,40 +478,23 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
       <div className="mt-3">
         <div className={cn('flex justify-center', tab === 'reels' ? 'px-0' : 'px-4 lg:px-0')}>
           <div
-            // `w-full` sempre: sem isso, a caixa interna (que também é `w-full`,
-            // agora relativa a ESTE div em vez de ser ela mesma o item flex
-            // direto) perde a referência de largura e a aba Player colapsa pra
-            // 0×0 — o max-w-[300px] do chassi abaixo (só na Reels) é quem limita
-            // a largura final, não este wrapper.
+            // `w-full` sempre: sem isso, a caixa interna perde a referência de
+            // largura e a aba Player colapsa. No Reels o max-width mantém uma
+            // prévia confortável, sem simular o corpo de um aparelho.
             className={cn(
               'w-full',
               tab === 'reels' &&
-                // O Preview Reels mantém o chassi de iPhone em qualquer tela.
-                // No celular a altura da tela interna é limitada pelo spacer
-                // abaixo, então a moldura continua visível sem dominar a página.
                 cn(
-                  'relative mx-3 bg-gradient-to-br from-[#8b7aa8] via-[#1c1a22] to-[#0a0a0c] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)] sm:mx-auto',
+                  'relative mx-auto',
                   reelsLandscape
-                    ? 'rounded-[2rem] p-[9px] sm:max-w-[560px] lg:max-w-[520px] lg:p-[11px]'
-                    : 'rounded-[2.75rem] p-[10px] sm:max-w-[360px] lg:max-w-[300px] lg:p-[12px]',
+                    ? 'max-w-[560px] lg:max-w-[520px]'
+                    : 'max-w-[360px] lg:max-w-[300px]',
                 ),
             )}
           >
-            {tab === 'reels' && (
-              <>
-                {/* Botão de Ação */}
-                <span className="absolute -left-[2px] top-[92px] h-7 w-[3px] rounded-l-sm bg-[#2a2730]" />
-                {/* Volume + / − */}
-                <span className="absolute -left-[2px] top-[132px] h-12 w-[3px] rounded-l-sm bg-[#2a2730]" />
-                <span className="absolute -left-[2px] top-[184px] h-12 w-[3px] rounded-l-sm bg-[#2a2730]" />
-                {/* Botão lateral (power) */}
-                <span className="absolute -right-[2px] top-[150px] h-24 w-[3px] rounded-r-sm bg-[#2a2730]" />
-              </>
-            )}
             <div
               ref={playerFrameRef}
-              // Moldura: define a largura final da caixa (incl. max-w no desktop),
-              // cor de fundo, borda e cantos arredondados. Não é animada com Framer
+              // Caixa do vídeo: define a largura final e não é animada com Framer
               // Motion `layout` — o morph entre Player e Reels deixava um
               // transform: scale(...) grudado sem nunca terminar de resolver (tanto
               // em teste automatizado quanto no Safari do iPhone), espremendo o
@@ -538,13 +521,10 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                     // igual já acontecia com a caixa 16:9 fixa antes desta aba
                     // passar a usar a proporção real do arquivo.
                     cn('w-full sm:rounded-xl', playerMaxHeightClass ?? 'lg:max-h-[75vh]')
-                  : // Reels: a "tela" fica sempre dentro do chassi de iPhone acima
-                    // (que já define a largura máxima) — raio = raio do chassi
-                    // menos a espessura do bezel, pra aninhar certinho como o
-                    // vidro por dentro do corpo do aparelho.
+                  : // Reels: prévia limpa, sem a moldura de aparelho.
                     reelsLandscape
-                      ? 'w-full rounded-[1.5rem] border-0 shadow-none lg:rounded-[1.35rem]'
-                      : 'w-full rounded-[2.15rem] border-0 shadow-none lg:rounded-[2rem]',
+                      ? 'w-full rounded-xl border-0 shadow-none'
+                      : 'w-full rounded-2xl border-0 shadow-none',
               )}
             >
             {/*
@@ -636,7 +616,6 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                     client={video.clientName}
                     photoUrl={clientPhotoUrl}
                     description={clientDescription}
-                    framed
                   />
                 )}
               </AnimatePresence>

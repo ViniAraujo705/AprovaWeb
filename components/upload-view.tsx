@@ -43,6 +43,8 @@ interface PendingFile {
   /** Miniatura local extraída do vídeo antes do upload. */
   thumbnailUrl: string | null
   thumbnailLoading: boolean
+  /** Arquivo local para o preview nativo; funciona mesmo quando o canvas não consegue extrair frame (ex.: alguns MOV do iPhone). */
+  previewUrl: string
 }
 
 /** Formata bytes/s como "3,2 MB/s" (ou KB/s para uploads lentos/no início). */
@@ -114,15 +116,18 @@ function createVideoThumbnail(file: File): Promise<string | null> {
 /** 'submitting' cobre tanto o upload pro R2 quanto o registro no backend de cada arquivo. */
 type Phase = 'idle' | 'submitting' | 'done'
 
-function VideoThumbnail({ item }: { item: PendingFile }) {
+function VideoThumbnail({ item, onPreview }: { item: PendingFile; onPreview: () => void }) {
   return (
-    <span className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-secondary text-muted-foreground">
+    <button type="button" onClick={onPreview} aria-label={`Ver take de ${item.name}`} title="Ver take" className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-secondary text-muted-foreground transition-opacity hover:opacity-80">
       {item.thumbnailUrl ? (
         <img src={item.thumbnailUrl} alt="" className="size-full object-cover" />
       ) : item.thumbnailLoading ? (
         <Loader2 className="size-5 animate-spin" aria-label="Gerando miniatura" />
       ) : (
-        <Film className="size-5" aria-label="Miniatura indisponível" />
+        <>
+          <video src={item.previewUrl} muted playsInline preload="metadata" className="size-full object-cover opacity-65" />
+          <span className="absolute grid size-6 place-items-center rounded-full bg-black/70 text-white"><Film className="size-3.5" /></span>
+        </>
       )}
       {item.status === 'done' && (
         <span className="absolute bottom-1 right-1 grid size-4 place-items-center rounded-full bg-emerald-500 text-white">
@@ -134,7 +139,7 @@ function VideoThumbnail({ item }: { item: PendingFile }) {
           <AlertTriangle className="size-3" />
         </span>
       )}
-    </span>
+    </button>
   )
 }
 
@@ -158,6 +163,7 @@ export function UploadView() {
   // tela quando o controle voltar pra página, e não só depois.
   const [selecting, setSelecting] = useState(false)
   const [items, setItems] = useState<PendingFile[]>([])
+  const [previewing, setPreviewing] = useState<PendingFile | null>(null)
   const [fileError, setFileError] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [clientId, setClientId] = useState('')
@@ -230,6 +236,14 @@ export function UploadView() {
 
   const inputRef = useRef<HTMLInputElement>(null)
   const nextId = useRef(0)
+  const previewUrls = useRef(new Set<string>())
+
+  useEffect(
+    () => () => {
+      previewUrls.current.forEach((url) => URL.revokeObjectURL(url))
+    },
+    [],
+  )
 
   // 'cancel' não faz parte do typing do React p/ <input>; escuta nativamente.
   // Dispara quando o usuário fecha o seletor de arquivos sem escolher nada.
@@ -262,7 +276,9 @@ export function UploadView() {
     for (const f of files) {
       const err = validateVideoFile(f)
       if (err) rejected.push(`${f.name}: ${err}`)
-      else
+      else {
+        const previewUrl = URL.createObjectURL(f)
+        previewUrls.current.add(previewUrl)
         accepted.push({
           id: String(nextId.current++),
           file: f,
@@ -271,7 +287,9 @@ export function UploadView() {
           progress: 0,
           thumbnailUrl: null,
           thumbnailLoading: true,
+          previewUrl,
         })
+      }
     }
     setFileError(rejected.length > 0 ? rejected.join('; ') : null)
     if (accepted.length === 0) return
@@ -287,7 +305,15 @@ export function UploadView() {
   }
 
   function removeItem(id: string) {
-    setItems((prev) => prev.filter((i) => i.id !== id))
+    setItems((prev) => {
+      const item = prev.find((current) => current.id === id)
+      if (item) {
+        URL.revokeObjectURL(item.previewUrl)
+        previewUrls.current.delete(item.previewUrl)
+      }
+      return prev.filter((i) => i.id !== id)
+    })
+    setPreviewing((current) => (current?.id === id ? null : current))
   }
 
   function updateItem(id: string, patch: Partial<PendingFile>) {
@@ -479,7 +505,12 @@ export function UploadView() {
   }
 
   function reset() {
+    items.forEach((item) => {
+      URL.revokeObjectURL(item.previewUrl)
+      previewUrls.current.delete(item.previewUrl)
+    })
     setItems([])
+    setPreviewing(null)
     setFileError(null)
     setTitle('')
     // Com projeto travado (veio de "Novo vídeo" dentro de um projeto), o
@@ -704,7 +735,7 @@ export function UploadView() {
                   key={item.id}
                   className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
                 >
-                  <VideoThumbnail item={item} />
+                  <VideoThumbnail item={item} onPreview={() => setPreviewing(item)} />
                   <div className="min-w-0 flex-1">
                     {item.status === 'pending' ? (
                       <input
@@ -1035,6 +1066,17 @@ export function UploadView() {
             )}
           </button>
         </>
+      )}
+      {previewing && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4" role="dialog" aria-modal="true" aria-label={`Preview de ${previewing.name}`}>
+          <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+              <p className="truncate text-sm font-semibold text-foreground">{previewing.name}</p>
+              <button type="button" onClick={() => setPreviewing(null)} aria-label="Fechar preview" className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"><X className="size-4" /></button>
+            </div>
+            <video src={previewing.previewUrl} controls autoPlay playsInline className="max-h-[72vh] w-full bg-black" />
+          </div>
+        </div>
       )}
     </div>
   )

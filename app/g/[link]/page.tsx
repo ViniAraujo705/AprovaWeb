@@ -41,8 +41,9 @@ export async function generateMetadata({
     : 'Assista, comente e aprove os vídeos direto pelo navegador.'
   // A galeria já resolve `branding` com a marca própria do cliente acima da
   // marca da agência. Open Graph é o que WhatsApp/Facebook leem para montar
-  // o cartão compartilhado; sem `images`, eles caem no ícone padrão do app.
-  const image = data.branding?.logoUrl || data.videos[0]?.posterUrl || undefined
+  // o cartão compartilhado. Sem logo, deixamos o WhatsApp cair no ícone
+  // padrão do app — a capa de um vídeo não representa a identidade da marca.
+  const image = data.branding?.logoUrl || undefined
   const imageAlt = data.branding?.agencyName || data.clientName || title
 
   return {
