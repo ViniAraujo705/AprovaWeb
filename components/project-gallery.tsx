@@ -143,7 +143,10 @@ export function ProjectGalleryView({
     }
   }
 
-  /** Gera um ZIP no backend e navega até ele — uma única ação funciona no Safari/iPhone. */
+  /**
+   * Um arquivo baixa direto, sem empacotar em ZIP. Para duas ou mais peças,
+   * o ZIP continua sendo o formato mais confiável no Safari/iPhone.
+   */
   async function downloadSelected() {
     const items = gallery.videos.filter((v) => selected.has(v.link))
     if (items.length === 0) return
@@ -155,6 +158,18 @@ export function ProjectGalleryView({
     setDownloadStatus({ phase: 'preparing', count: items.length })
     setBulkError(null)
     try {
+      if (items.length === 1) {
+        const download = await publicService.getDownloadUrl(items[0].link, 'original')
+        if (!download.url) throw new Error('Arquivo original indisponível.')
+        if (download.type !== 'original') {
+          throw new Error('Arquivo original indisponível. Abra o vídeo para escolher a versão otimizada.')
+        }
+        setDownloadStatus({ phase: 'started', count: 1 })
+        if (downloadStatusTimer.current) clearTimeout(downloadStatusTimer.current)
+        downloadStatusTimer.current = setTimeout(() => setDownloadStatus(null), 7000)
+        window.location.href = download.url
+        return
+      }
       const download = await publicService.downloadProjectGallery(link, items.map((video) => video.link))
       if (!download.url) {
         setBulkError('Nenhum vídeo selecionado está disponível para download no momento.')
@@ -177,8 +192,12 @@ export function ProjectGalleryView({
       if (downloadStatusTimer.current) clearTimeout(downloadStatusTimer.current)
       downloadStatusTimer.current = setTimeout(() => setDownloadStatus(null), 7000)
       window.location.href = download.url
-    } catch {
-      setBulkError('Não foi possível preparar o arquivo ZIP. Verifique a conexão e tente novamente.')
+    } catch (err) {
+      setBulkError(
+        err instanceof Error
+          ? err.message
+          : 'Não foi possível preparar o download. Verifique a conexão e tente novamente.',
+      )
       setDownloadStatus(null)
     } finally {
       setBulkDownloading(false)
@@ -397,7 +416,7 @@ export function ProjectGalleryView({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setDownloadConfirmOpen(true)}
+                    onClick={() => (selected.size === 1 ? downloadSelected() : setDownloadConfirmOpen(true))}
                     disabled={bulkDownloading}
                     className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
                   >

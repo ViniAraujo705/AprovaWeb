@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   Lock,
   MessageSquarePlus,
@@ -12,7 +13,6 @@ import {
   Download,
   AlertTriangle,
   UploadCloud,
-  Copy,
   History,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -539,20 +539,18 @@ function DownloadOriginalButton({ videoId }: { videoId: string }) {
 
 /**
  * Sobe uma nova versão vinculada a este vídeo (ex.: correção pedida pelo
- * cliente). O backend gera um `publicLink` novo e independente pra essa
- * versão — não existe redirect automático do link antigo — por isso, ao
- * concluir, mostramos o link novo pronto pra copiar e reenviar ao cliente.
+ * cliente). Ao concluir, a própria revisão interna abre automaticamente a
+ * nova versão, para a equipe não continuar olhando o arquivo anterior.
  *
  * `title` é o título do vídeo atual: nova versão troca só o ARQUIVO, o nome
  * do vídeo é pra continuar o mesmo (ver `restoreTitle` abaixo).
  */
 function NewVersionButton({ videoId, title }: { videoId: string; title: string }) {
+  const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [phase, setPhase] = useState<'idle' | 'uploading' | 'done'>('idle')
+  const [phase, setPhase] = useState<'idle' | 'uploading'>('idle')
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const [newVideo, setNewVideo] = useState<Video | null>(null)
-  const [copied, setCopied] = useState(false)
 
   async function handleFile(file: File) {
     const validationError = validateVideoFile(file)
@@ -609,9 +607,8 @@ function NewVersionButton({ videoId, title }: { videoId: string; title: string }
           // segue com o título que o backend deu
         }
       }
-      setNewVideo(final)
-      setPhase('done')
-      toast.success('Nova versão enviada')
+      toast.success('Nova versão enviada', 'Abrindo a nova versão…')
+      router.replace(`/videos/${final.id}/revisao`)
     } catch (err) {
       const message =
         err instanceof UploadError
@@ -622,42 +619,6 @@ function NewVersionButton({ videoId, title }: { videoId: string; title: string }
       setError(message)
       setPhase('idle')
     }
-  }
-
-  async function copyLink(link: string) {
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}/v/${link}`)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      setCopied(false)
-    }
-  }
-
-  if (phase === 'done' && newVideo) {
-    return (
-      <div className="flex flex-col items-end gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2">
-        <p className="text-xs font-medium text-foreground">
-          Nova versão enviada — reenvie o link ao cliente:
-        </p>
-        <div className="flex items-center gap-1.5">
-          <code className="max-w-[220px] truncate rounded bg-background px-2 py-1 text-xs text-primary">
-            {window.location.origin}/v/{newVideo.publicLink ?? ''}
-          </code>
-          <button
-            type="button"
-            onClick={() => newVideo.publicLink && copyLink(newVideo.publicLink)}
-            className="inline-flex min-h-7 shrink-0 items-center gap-1 rounded-md bg-foreground px-2 text-xs font-medium text-background hover:opacity-90"
-          >
-            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-            {copied ? 'Copiado' : 'Copiar'}
-          </button>
-        </div>
-        <Link href={`/videos/${newVideo.id}/revisao`} className="text-xs font-medium text-primary underline">
-          Ir para a nova versão
-        </Link>
-      </div>
-    )
   }
 
   return (
