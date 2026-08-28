@@ -27,6 +27,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Gauge,
+  Settings2,
   Maximize,
   Minimize,
   Film,
@@ -40,6 +41,9 @@ import { motion, AnimatePresence, useReducedMotion } from '@/components/motion'
 
 /** Safari iOS: API proprietária de tela cheia nativa do `<video>`, não tipada pelo TS DOM lib. */
 type IOSVideoElement = HTMLVideoElement & { webkitEnterFullscreen?: () => void }
+
+/** Escolha de qualidade de quem assiste — por aparelho, vale para todos os vídeos. */
+const QUALITY_STORAGE_KEY = 'check:qualidade-video'
 
 export interface StageMarker {
   id: string
@@ -245,11 +249,64 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   const total = duration || video.duration || 0
   // Vídeo otimizado ainda sendo preparado no backend: thumbnail + aviso sutil.
   const processing = video.processingStatus === 'processando'
-  // O arquivo original pode ser um .MOV de celular em um codec que não existe
-  // no aparelho do cliente. A versão otimizada é produzida justamente para
-  // reprodução web, portanto vem primeiro; o original permanece como
-  // fallback enquanto a otimização ainda não estiver disponível.
-  const playbackUrl = video.url || video.originalUrl
+  // O ARQUIVO ORIGINAL vem primeiro: é sobre ele que o cliente aprova ou pede
+  // ajuste, então ele precisa ver a mesma qualidade que a agência entregou. A
+  // cópia otimizada do backend hoje sai muito abaixo do original (medido em
+  // 28/08: 2160x3840 a ~25 Mbps virando 406x720 a ~0,4 Mbps), e foi
+  // exatamente disso que um cliente reclamou.
+  //
+  // O original ainda pode não tocar em algum aparelho (ex.: .MOV em HEVC do
+  // iPhone, que o Chrome não decodifica), então o `onError` do <video> troca
+  // para a versão otimizada — ela existe justamente como formato web seguro.
+  const [originalFailed, setOriginalFailed] = useState(false)
+  // Só serve de fallback se for mesmo um arquivo diferente do original
+  // (`mapVideo` faz `url` cair no original quando não há otimizada).
+  const optimizedUrl = video.url && video.url !== video.originalUrl ? video.url : null
+  // Quem assiste escolhe: máxima (original) ou leve (otimizada, para internet
+  // ruim). Começa sempre em máxima; a escolha é lembrada neste aparelho.
+  const [quality, setQuality] = useState<'maxima' | 'leve'>('maxima')
+  useEffect(() => {
+    // Lido depois da montagem (e não no initializer) para o HTML do servidor e
+    // o do cliente baterem na hidratação.
+    try {
+      if (localStorage.getItem(QUALITY_STORAGE_KEY) === 'leve') setQuality('leve')
+    } catch {
+      // aparelho sem storage (aba anônima, cookies bloqueados): segue em máxima
+    }
+  }, [])
+  useEffect(() => {
+    setOriginalFailed(false)
+  }, [video.id])
+  const canChooseQuality = !!video.originalUrl && !!optimizedUrl
+  const showingOriginal = !originalFailed && quality === 'maxima' && !!video.originalUrl
+  const playbackUrl = showingOriginal
+    ? video.originalUrl
+    : (optimizedUrl ?? video.url ?? video.originalUrl)
+
+  /** Original não decodificou neste aparelho: cai para a cópia otimizada. */
+  function handlePlaybackError() {
+    if (!originalFailed && optimizedUrl) setOriginalFailed(true)
+  }
+
+  function toggleQuality() {
+    const next = quality === 'maxima' ? 'leve' : 'maxima'
+    setQuality(next)
+    // Voltar para "máxima" na mão é um pedido explícito de tentar o original de
+    // novo — pode ser outra rede/outro aparelho desde o erro anterior.
+    if (next === 'maxima') setOriginalFailed(false)
+    try {
+      localStorage.setItem(QUALITY_STORAGE_KEY, next)
+    } catch {
+      // sem storage: a escolha vale só enquanto a tela estiver aberta
+    }
+  }
+
+  /** Explica, em uma linha, qual arquivo está tocando e o que muda ao trocar. */
+  const qualityMessage = originalFailed
+    ? 'Este aparelho não conseguiu abrir o arquivo original — você está vendo a versão leve, com menos qualidade.'
+    : showingOriginal
+      ? 'Qualidade máxima: arquivo original, do mesmo jeito que a agência entregou. Em internet lenta pode demorar mais para carregar.'
+      : 'Versão leve: carrega rápido em internet lenta, mas com menos qualidade que o arquivo original.'
 
   function updateCurrent(t: number) {
     setCurrent(t)
@@ -572,6 +629,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                       src={playbackUrl}
                       poster={video.posterUrl || undefined}
                       playsInline
+                      onError={handlePlaybackError}
                       className={cn(
                         'h-full w-full',
                         tab === 'player' || reelsLandscape ? 'object-contain' : 'object-cover',
@@ -689,6 +747,22 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                     <Gauge className="size-3.5" />
                     {playbackRate}x
                   </button>
+                  {canChooseQuality && (
+                    <button
+                      type="button"
+                      onClick={toggleQuality}
+                      aria-label={
+                        showingOriginal
+                          ? 'Trocar para a versão leve do vídeo'
+                          : 'Trocar para a qualidade máxima do vídeo'
+                      }
+                      title={qualityMessage}
+                      className="inline-flex min-h-8 items-center gap-1 rounded-full bg-black/50 px-2.5 text-xs font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                    >
+                      <Settings2 className="size-3.5" />
+                      {showingOriginal ? 'Máxima' : 'Leve'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={togglePlayerFullscreen}
@@ -794,6 +868,29 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
             </div>
           </div>
         )}
+
+        {/*
+          Mensagem de qualidade: quem assiste precisa saber QUAL arquivo está
+          vendo antes de aprovar ou pedir ajuste — e como trocar. Aparece só
+          quando existem os dois arquivos (ou quando o original falhou).
+        */}
+        {tab === 'player' && !processing && (canChooseQuality || originalFailed) && (
+          <p className="mt-2 px-4 text-xs text-muted-foreground lg:px-0">
+            {qualityMessage}
+            {canChooseQuality && (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  onClick={toggleQuality}
+                  className="font-medium text-foreground underline underline-offset-2 hover:text-primary"
+                >
+                  {showingOriginal ? 'Ver versão leve' : 'Ver em qualidade máxima'}
+                </button>
+              </>
+            )}
+          </p>
+        )}
       </div>
 
       {/*
@@ -823,6 +920,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                   poster={video.posterUrl || undefined}
                   playsInline
                   autoPlay
+                  onError={handlePlaybackError}
                   className={cn('h-full w-full', reelsLandscape ? 'object-contain' : 'object-cover')}
                   onLoadedMetadata={(e) => {
                     const d = e.currentTarget.duration

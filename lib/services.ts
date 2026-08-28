@@ -389,9 +389,14 @@ function mapVideo(raw: Raw, extra?: { clientName?: string | null }): Video {
     url: pick<string | null>(raw, ['urlOtimizada', 'url_otimizada'], null) ?? originalUrl,
     originalUrl,
     posterUrl: pick<string | null>(raw, ['thumbnailUrl', 'thumbnail_url', 'posterUrl', 'poster'], null),
+    // `linkPublicoEfetivo` (backend, 28/08) é o link ESTÁVEL da cadeia: o que o
+    // cliente recebeu na v1 e continua valendo depois de cada nova versão — o
+    // público resolve qualquer link da cadeia para a versão mais recente. Vem
+    // primeiro porque é o que a agência deve copiar/compartilhar; `linkPublico`
+    // (o link próprio desta linha) fica de fallback para respostas antigas.
     publicLink: pick<string | null>(
       raw,
-      ['linkPublico', 'link_publico', 'publicLink', 'link'],
+      ['linkPublicoEfetivo', 'link_publico_efetivo', 'linkPublico', 'link_publico', 'publicLink', 'link'],
       null,
     ),
     clientName: extra?.clientName ?? pick(clientRaw, ['nome', 'name'], '') ?? '',
@@ -417,9 +422,13 @@ function mapVideo(raw: Raw, extra?: { clientName?: string | null }): Video {
       firstEditorId,
     version: Number(pick(raw, ['versao', 'version'], 1)) || 1,
     videoPaiId: pick<string | null>(raw, ['videoPaiId', 'video_pai_id'], videoPaiRaw?.id ?? null),
-    // Preenchido depois pelo `resolveLatestVersions`, ao id do próprio vídeo
-    // até ser recalculado com a lista completa (não dá pra saber sozinho).
-    latestVersionId: String(pick(raw, ['id', '_id', 'videoId'], '')),
+    // `GET /public/videos/:link` já resolve a cadeia e manda `latestVersionId`
+    // pronto (backend, 28/08). O autenticado `GET /videos` ainda não manda, e
+    // aí isto começa como o id do próprio vídeo e é recalculado por
+    // `resolveLatestVersions` com a lista completa em mãos.
+    latestVersionId: String(
+      pick(raw, ['latestVersionId', 'latest_version_id'], pick(raw, ['id', '_id', 'videoId'], '')),
+    ),
   }
 }
 
@@ -596,6 +605,10 @@ function mapGalleryVideoItem(raw: Raw): GalleryVideoItem {
  * versão — mesmo problema que dashboard/projeto resolvem com `resolveLatestVersions`
  * (lib/services.ts:281), mas a galeria não tem a cadeia completa de ids, só
  * precisa saber "alguém aponta pra mim como pai?" pra se esconder.
+ *
+ * Desde 28/08 o backend já devolve uma entrada por cadeia (sempre a versão mais
+ * recente), então na prática isto não filtra mais nada — fica como rede de
+ * segurança, e porque `id`/`videoPaiId` continuam expostos na resposta.
  */
 function hideSupersededGalleryVideos(videos: GalleryVideoItem[]): GalleryVideoItem[] {
   const supersededIds = new Set<string>()
@@ -1079,10 +1092,16 @@ export const videoService = {
   /**
    * Sobe uma nova versão vinculada a um vídeo existente (ex.: cliente pediu
    * ajuste e o editor reenvia a correção). O backend cria uma linha nova com
-   * `videoPaiId` apontando pro vídeo atual, incrementa `versao` e gera um
-   * `linkPublico` novo e independente — o link antigo NÃO passa a redirecionar
-   * pra essa versão nova, então quem chamar isto precisa reenviar o link novo
-   * pro cliente. O status do vídeo antigo também não é alterado pelo backend.
+   * `videoPaiId` apontando pro vídeo atual e incrementa `versao`.
+   *
+   * A linha nova ganha um `linkPublico` próprio, mas **o link que o cliente já
+   * tem continua valendo**: o público resolve qualquer link da cadeia para a
+   * versão mais recente, e a resposta traz `linkPublicoEfetivo` com esse link
+   * estável (é ele que `mapVideo` expõe como `publicLink`). Ou seja: nova
+   * versão substitui de verdade, sem reenviar link pro cliente.
+   *
+   * Comentários/avaliações antigos seguem ligados à linha antiga (histórico) e
+   * o status do vídeo antigo não é alterado pelo backend.
    */
   async newVersion(
     videoId: string,

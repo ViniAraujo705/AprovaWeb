@@ -229,6 +229,15 @@ continuam ligados a ela (histórico preservado).
 
 Body: `{ "urlStorage": "...", "nomeArquivo": "..." }`
 
+**Nova versão substitui de verdade (28/08).** A linha nova ganha um
+`linkPublico` próprio, mas o link que o cliente já tem continua valendo: o
+acesso público resolve qualquer link da cadeia para a versão mais recente
+(ver `GET /public/videos/:linkPublico`). A resposta traz, além do `Video`
+normal, `linkPublicoEfetivo` — o link estável da cadeia, que é o que a
+agência deve compartilhar. **Não é preciso reenviar link pro cliente.**
+`mapVideo` (lib/services.ts) já lê `linkPublicoEfetivo` na frente de
+`linkPublico` ao montar `Video.publicLink`.
+
 ### `GET /videos?project_id=<uuid>`
 Lista os vídeos de um projeto (mais recente primeiro por versão).
 
@@ -665,10 +674,20 @@ comentários).
 ### `GET /public/videos/:linkPublico`
 Sem rate limit específico (usa o global de 60/min).
 
+**Resolve a cadeia de versões (28/08):** dado qualquer `linkPublico` da
+cadeia, o backend segue os filhos (`videoPaiId`) e devolve a **versão mais
+recente** — vídeo, `status`, comentários e avaliações já são os dela. Por
+isso `id` é o id da versão resolvida: comentário, avaliação, aprovação e
+pedido de ajuste feitos por esta rota caem na versão nova, não na antiga.
+Vêm também `latestVersionId` (id da versão resolvida) e
+`resolvedFromVersion` (a `versao` do link que foi pedido).
+
 Resposta:
 ```json
 {
-  "id": "uuid",
+  "id": "uuid (versão mais recente da cadeia)",
+  "latestVersionId": "uuid",
+  "resolvedFromVersion": 2,
   "nomeArquivo": "video.mp4",
   "urlStorage": "https://...",
   "urlOtimizada": "https://... ou null (ainda processando)",
@@ -730,14 +749,11 @@ Resposta:
   (não-`null`), o frontend sobrepõe campo a campo sobre `agencia` (o cliente
   pode ter só cor, só logo, ou os dois; o que não estiver setado cai pra
   `agencia`). `null`/campo ausente = usa só a marca da agência, como hoje.
-- **[ PENDENTE NO BACKEND — hoje a resposta não traz `id` nem `videoPaiId` por
-  vídeo ]** O frontend usa esses dois campos só para esconder da galeria uma
-  versão que já foi substituída por uma mais nova (`POST
-  /videos/:id/new-version` cria uma linha nova com `videoPaiId` apontando pra
-  antiga, mas a antiga continua existindo e continua vindo nesta lista).
-  Sem `id`/`videoPaiId` aqui, a versão antiga (com erro, por exemplo) fica
-  visível pro cliente lado a lado com a nova pra sempre — mesmo shape que já
-  é usado em `GET /videos?project_id=` (ver acima).
+- **Uma entrada por cadeia de versões (28/08):** a lista já vem só com a
+  versão mais recente de cada vídeo — a antiga não aparece mais lado a lado
+  com a nova. Cada item continua expondo `id`, `videoPaiId` e `versao`
+  (mesmo shape de `GET /videos?project_id=`); `hideSupersededGalleryVideos`
+  (lib/services.ts) segue no frontend só como rede de segurança.
 - O link do projeto (`linkPublico`) já vem no retorno de `POST /projects` e
   `GET /projects` / `GET /projects/:id` (ver seção Projetos) — não precisa de
   chamada separada para descobri-lo.
