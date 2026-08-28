@@ -2,7 +2,6 @@
 
 import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import {
   Lock,
   MessageSquarePlus,
@@ -546,7 +545,6 @@ function DownloadOriginalButton({ videoId }: { videoId: string }) {
  * do vídeo é pra continuar o mesmo (ver `restoreTitle` abaixo).
  */
 function NewVersionButton({ videoId, title }: { videoId: string; title: string }) {
-  const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const [phase, setPhase] = useState<'idle' | 'uploading'>('idle')
   const [progress, setProgress] = useState(0)
@@ -608,7 +606,10 @@ function NewVersionButton({ videoId, title }: { videoId: string; title: string }
         }
       }
       toast.success('Nova versão enviada', 'Abrindo a nova versão…')
-      router.replace(`/videos/${final.id}/revisao`)
+      // Navegação completa em vez da troca client-side do App Router: garante
+      // que o player e todos os dados sejam buscados novamente para o ID novo,
+      // sem reutilizar o estado/mídia da revisão anterior.
+      window.location.assign(`/videos/${final.id}/revisao`)
     } catch (err) {
       const message =
         err instanceof UploadError
