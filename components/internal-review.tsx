@@ -187,7 +187,9 @@ export function InternalReview({ videoId }: { videoId: string }) {
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <DownloadOriginalButton videoId={videoId} />
-            {!isSuperseded && <NewVersionButton videoId={videoId} title={video.title} />}
+            {!isSuperseded && (
+              <NewVersionButton videoId={videoId} projectId={video.projectId} title={video.title} />
+            )}
             {video.publicLink && (
               <Link
                 href={`/videos/${videoId}/canal-cliente`}
@@ -544,7 +546,15 @@ function DownloadOriginalButton({ videoId }: { videoId: string }) {
  * `title` é o título do vídeo atual: nova versão troca só o ARQUIVO, o nome
  * do vídeo é pra continuar o mesmo (ver `restoreTitle` abaixo).
  */
-function NewVersionButton({ videoId, title }: { videoId: string; title: string }) {
+function NewVersionButton({
+  videoId,
+  projectId,
+  title,
+}: {
+  videoId: string
+  projectId: string | null
+  title: string
+}) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [phase, setPhase] = useState<'idle' | 'uploading'>('idle')
   const [progress, setProgress] = useState(0)
@@ -605,11 +615,32 @@ function NewVersionButton({ videoId, title }: { videoId: string; title: string }
           // segue com o título que o backend deu
         }
       }
+      // A resposta de `new-version` deveria conter a linha filha recém-criada,
+      // mas confirmamos pela lista do projeto antes de navegar. Isso evita
+      // reabrir o vídeo antigo se o endpoint retornar o registro pai por
+      // engano durante uma atualização do backend.
+      let newVersionId = final.id
+      if (projectId) {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const projectVideos = await videoService.list(projectId)
+          const child = projectVideos
+            .filter((candidate) => candidate.videoPaiId === videoId)
+            .sort((a, b) => b.version - a.version)[0]
+          if (child) {
+            newVersionId = child.id
+            break
+          }
+          if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500))
+        }
+      }
+      if (!newVersionId || newVersionId === videoId) {
+        throw new Error('O servidor não retornou uma nova versão do vídeo. Tente novamente em instantes.')
+      }
       toast.success('Nova versão enviada', 'Abrindo a nova versão…')
       // Navegação completa em vez da troca client-side do App Router: garante
       // que o player e todos os dados sejam buscados novamente para o ID novo,
       // sem reutilizar o estado/mídia da revisão anterior.
-      window.location.assign(`/videos/${final.id}/revisao`)
+      window.location.assign(`/videos/${newVersionId}/revisao`)
     } catch (err) {
       const message =
         err instanceof UploadError
