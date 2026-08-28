@@ -620,18 +620,20 @@ function NewVersionButton({
       // reabrir o vídeo antigo se o endpoint retornar o registro pai por
       // engano durante uma atualização do backend.
       let newVersionId = final.id
-      if (projectId) {
-        for (let attempt = 0; attempt < 3; attempt++) {
-          const projectVideos = await videoService.list(projectId)
-          const child = projectVideos
-            .filter((candidate) => candidate.videoPaiId === videoId)
-            .sort((a, b) => b.version - a.version)[0]
-          if (child) {
-            newVersionId = child.id
-            break
-          }
-          if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500))
+      // A revisão antiga nem sempre traz projectId. Nesse caso aproveitamos o
+      // ID do projeto vindo na resposta da nova versão; se ambos faltarem,
+      // consultamos a lista da conta para não cair no registro pai.
+      const versionProjectId = projectId ?? final.projectId
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const projectVideos = await videoService.list(versionProjectId ?? undefined)
+        const child = projectVideos
+          .filter((candidate) => candidate.videoPaiId === videoId)
+          .sort((a, b) => b.version - a.version)[0]
+        if (child) {
+          newVersionId = child.id
+          break
         }
+        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500))
       }
       if (!newVersionId || newVersionId === videoId) {
         throw new Error('O servidor não retornou uma nova versão do vídeo. Tente novamente em instantes.')
