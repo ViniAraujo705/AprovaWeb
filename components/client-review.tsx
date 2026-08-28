@@ -10,6 +10,7 @@ import {
   Download,
   Info,
   X,
+  ChevronDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Comment, PublicVideo, QueueVideoItem, VideoStatus } from '@/lib/types'
@@ -128,6 +129,11 @@ export function ClientReview({
   const [decisionError, setDecisionError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
   const [optimizedDownload, setOptimizedDownload] = useState<{ url: string } | null>(null)
+  // Escolha de formato: o original costuma ser .MOV de iPhone, que no Android
+  // baixa normalmente mas some da Galeria (o Google Fotos não indexa .mov). O
+  // MP4 otimizado abre em qualquer aparelho — quem baixa precisa poder escolher.
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false)
+  const downloadMenuRef = useRef<HTMLDivElement>(null)
   // Marca pra qual `activeLink` o som de aprovado já tocou, pra não repetir o
   // som do clique em `decide()` (que já toca na hora, pro gesto do usuário
   // não se perder) e ainda assim tocar toda vez que o cliente abrir/deslizar
@@ -344,8 +350,47 @@ export function ClientReview({
     decide('aprovado')
   }
 
+  useEffect(() => {
+    if (!downloadMenuOpen) return
+    function onPointerDown(e: MouseEvent | TouchEvent) {
+      if (!downloadMenuRef.current?.contains(e.target as Node)) setDownloadMenuOpen(false)
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setDownloadMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('touchstart', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('touchstart', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [downloadMenuOpen])
+
+  /** Baixa a cópia MP4 (otimizada), o formato que abre em qualquer aparelho. */
+  async function downloadOptimized() {
+    if (downloading) return
+    setDownloadMenuOpen(false)
+    setDownloading(true)
+    try {
+      const download = await publicService.getDownloadUrl(activeLink, 'otimizado')
+      if (!download.url) throw new Error('Versão MP4 ainda não está pronta.')
+      window.location.href = download.url
+    } catch (err) {
+      toast.error(
+        'Não foi possível baixar o MP4',
+        err instanceof ApiError || err instanceof Error
+          ? err.message
+          : 'Tente novamente em instantes.',
+      )
+      setDownloading(false)
+    }
+  }
+
   async function downloadVideo() {
     if (downloading) return
+    setDownloadMenuOpen(false)
     setDownloading(true)
     try {
       // A rota devolve uma URL R2 assinada com `attachment`; navegar para ela
@@ -453,15 +498,58 @@ export function ClientReview({
               />
             </div>
             {(video.originalUrl || video.url) && (
-              <button
-                type="button"
-                onClick={downloadVideo}
-                disabled={downloading}
-                className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:cursor-wait disabled:opacity-60"
-              >
-                {downloading ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
-                {downloading ? 'Preparando…' : 'Baixar original'}
-              </button>
+              <div ref={downloadMenuRef} className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setDownloadMenuOpen((open) => !open)}
+                  disabled={downloading}
+                  aria-haspopup="menu"
+                  aria-expanded={downloadMenuOpen}
+                  className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {downloading ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Download className="size-3.5" />
+                  )}
+                  {downloading ? 'Preparando…' : 'Baixar'}
+                  {!downloading && <ChevronDown className="size-3.5" />}
+                </button>
+                {downloadMenuOpen && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 top-full z-30 mt-2 w-72 rounded-xl border border-border bg-popover p-1 text-left shadow-xl"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={downloadVideo}
+                      className="w-full rounded-lg px-3 py-2.5 text-left hover:bg-secondary/70"
+                    >
+                      <span className="block text-sm font-medium text-foreground">
+                        Arquivo original
+                      </span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        Qualidade máxima, do jeito que a agência entregou.
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={downloadOptimized}
+                      className="w-full rounded-lg px-3 py-2.5 text-left hover:bg-secondary/70"
+                    >
+                      <span className="block text-sm font-medium text-foreground">
+                        MP4 compatível
+                      </span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        Menor e abre em qualquer celular — no Android o original
+                        pode não aparecer na Galeria.
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
