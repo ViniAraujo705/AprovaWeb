@@ -7,7 +7,7 @@ import { AgencyLogo } from '@/components/agency-logo'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { EmptyState } from '@/components/states'
 import { FadeIn, StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
-import { brandAccentStyle } from '@/lib/theme'
+import { useBrandAccentStyle } from '@/lib/theme'
 
 /**
  * Vitrine pública de um portfólio (rota /p/:link) — grade de vídeos em
@@ -18,6 +18,7 @@ import { brandAccentStyle } from '@/lib/theme'
  * capa mantém a proporção original do vídeo/foto enviado, sem recorte forçado.
  */
 export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPortfolio; link: string }) {
+  const brandAccent = useBrandAccentStyle(portfolio.branding?.accentColor)
   const count = portfolio.videos.length
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const active = activeIndex !== null ? portfolio.videos[activeIndex] : null
@@ -69,7 +70,7 @@ export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPort
   )
 
   return (
-    <div className="flex min-h-screen bg-background" style={brandAccentStyle(portfolio.branding?.accentColor)}>
+    <div className="flex min-h-screen bg-background" style={brandAccent}>
       <aside className="hidden w-72 shrink-0 flex-col items-center gap-6 bg-sidebar px-10 py-12 text-sidebar-foreground md:flex">
         <AgencyLogo branding={portfolio.branding} size="lg" />
       </aside>

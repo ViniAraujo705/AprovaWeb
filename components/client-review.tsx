@@ -27,7 +27,7 @@ import { VideoTitleField } from '@/components/video-title-field'
 import { AudioCommentRecorder } from '@/components/audio-comment-recorder'
 import { toast } from '@/lib/toast'
 import { playApproveSound } from '@/lib/sound'
-import { brandAccentStyle } from '@/lib/theme'
+import { useBrandAccentStyle } from '@/lib/theme'
 import { isDemoVideoLink } from '@/lib/demo'
 import { uploadToPresignedUrl, UploadError } from '@/lib/upload'
 
@@ -84,6 +84,7 @@ export function ClientReview({
   // como um feed do Instagram). `activeLink` acompanha qual link usar nas
   // chamadas de comentário/nota/decisão.
   const [data, setData] = useState<PublicVideo>(initial)
+  const brandAccent = useBrandAccentStyle(data.branding?.accentColor)
   const [activeLink, setActiveLink] = useState(link)
   const [switchingVideo, setSwitchingVideo] = useState(false)
   const { video } = data
@@ -381,7 +382,7 @@ export function ClientReview({
   }
 
   return (
-    <div className="min-h-screen" style={brandAccentStyle(data.branding?.accentColor)}>
+    <div className="min-h-screen" style={brandAccent}>
       {/* Top bar — logo da agência (branding) com fallback pro logo do sistema */}
       <motion.header
         initial={{ opacity: 0 }}

@@ -41,7 +41,7 @@ import { AccountSwitcher } from '@/components/account-switcher'
 import { AgencyLogo } from '@/components/agency-logo'
 import { teamRoleLabel, type Role, type TeamRole } from '@/lib/types'
 import { AnimatePresence, motion, useReducedMotion } from '@/components/motion'
-import { brandAccentStyle } from '@/lib/theme'
+import { useBrandAccentStyle } from '@/lib/theme'
 
 type NavItem = {
   href: string
@@ -327,6 +327,7 @@ function SidebarUserFooter() {
 
 export function AgencyShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
+  const brandAccent = useBrandAccentStyle(user?.branding?.accentColor)
   const pathname = usePathname()
   const modules = useVisibleModules()
   const [open, setOpen] = useState(false)
@@ -365,7 +366,7 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
   return (
     <div
       className="min-h-screen lg:grid lg:grid-cols-[auto_1fr]"
-      style={brandAccentStyle(user?.branding?.accentColor)}
+      style={brandAccent}
     >
       {/* Desktop sidebar: lista completa (expandida) ou rail de ícones (recolhida) */}
       <motion.aside

@@ -11,7 +11,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { StatusBadge } from '@/components/status-badge'
 import { EmptyState } from '@/components/states'
 import { FadeIn, StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
-import { brandAccentStyle } from '@/lib/theme'
+import { useBrandAccentStyle } from '@/lib/theme'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
@@ -39,6 +39,7 @@ export function ProjectGalleryView({
   /** Link público desta galeria (linkPublico do projeto) — repassado ao player via query string para escopar o swipe a este projeto, em vez de todos os vídeos do cliente. */
   link: string
 }) {
+  const brandAccent = useBrandAccentStyle(gallery.branding?.accentColor)
   const count = gallery.videos.length
 
   // Seleção múltipla, para o cliente baixar vários vídeos de uma vez. A
@@ -260,7 +261,7 @@ export function ProjectGalleryView({
   }
 
   return (
-    <div className="min-h-screen" style={brandAccentStyle(gallery.branding?.accentColor)}>
+    <div className="min-h-screen" style={brandAccent}>
       <motion.header
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

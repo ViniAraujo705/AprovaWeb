@@ -9,7 +9,7 @@ import { AgencyLogo } from '@/components/agency-logo'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { EmptyState } from '@/components/states'
 import { FadeIn, StaggerList, staggerItem, motion } from '@/components/motion'
-import { brandAccentStyle } from '@/lib/theme'
+import { useBrandAccentStyle } from '@/lib/theme'
 import { resolvePortfolioTemplateLayout, type PortfolioTemplateLayout } from '@/lib/portfolio-templates'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils'
  * ("Livre") é o layout original, sidebar à esquerda.
  */
 export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
+  const brandAccent = useBrandAccentStyle(hub.branding?.accentColor)
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -58,7 +59,7 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
 
   if (layout.sidebarPosition === 'top') {
     return (
-      <div className="min-h-screen bg-background" style={brandAccentStyle(hub.branding?.accentColor)}>
+      <div className="min-h-screen bg-background" style={brandAccent}>
         {layout.heroBanner && hub.coverUrl && (
           <div className="relative h-56 w-full overflow-hidden sm:h-72">
             <Image src={hub.coverUrl} alt="" fill className="object-cover" sizes="100vw" unoptimized priority />
@@ -140,7 +141,7 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background" style={brandAccentStyle(hub.branding?.accentColor)}>
+    <div className="flex min-h-screen flex-col bg-background" style={brandAccent}>
       <div className="flex min-w-0 flex-1">
         <aside
           className={cn(
