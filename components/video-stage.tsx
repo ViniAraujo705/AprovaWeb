@@ -301,12 +301,20 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
     }
   }
 
+  // A cópia otimizada ainda está sendo gerada, mas o ARQUIVO ORIGINAL já subiu
+  // pro R2 e toca. Prender a tela no aviso "Preparando vídeo…" nesse intervalo
+  // só atrasa quem já poderia assistir — a espera de verdade é quando não há
+  // nenhum arquivo tocável.
+  const waitingForFile = processing && !playbackUrl
+
   /** Explica, em uma linha, qual arquivo está tocando e o que muda ao trocar. */
   const qualityMessage = originalFailed
     ? 'Este aparelho não conseguiu abrir o arquivo original — você está vendo a versão leve, com menos qualidade.'
-    : showingOriginal
-      ? 'Qualidade máxima: arquivo original, do mesmo jeito que a agência entregou. Em internet lenta pode demorar mais para carregar.'
-      : 'Versão leve: carrega rápido em internet lenta, mas com menos qualidade que o arquivo original.'
+    : processing && showingOriginal
+      ? 'Você está vendo o arquivo original, em qualidade máxima. A versão leve, para internet lenta, ainda está sendo gerada.'
+      : showingOriginal
+        ? 'Qualidade máxima: arquivo original, do mesmo jeito que a agência entregou. Em internet lenta pode demorar mais para carregar.'
+        : 'Versão leve: carrega rápido em internet lenta, mas com menos qualidade que o arquivo original.'
 
   function updateCurrent(t: number) {
     setCurrent(t)
@@ -334,7 +342,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
    * então nesse caso o toque também só pausa/retoma, igual ao desktop.
    */
   function handleReelsTap() {
-    if (processing) return
+    if (waitingForFile) return
     if (isDesktop || !(hasNext || hasPrev)) {
       togglePlay()
       return
@@ -623,7 +631,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                   transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
                   className="absolute inset-0"
                 >
-                  {playbackUrl && !processing && !fullscreen ? (
+                  {playbackUrl && !waitingForFile && !fullscreen ? (
                     <video
                       ref={bindVideoRef(video.id)}
                       src={playbackUrl}
@@ -665,11 +673,11 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
               </AnimatePresence>
 
               {/* Indicador sutil de "preparando vídeo" (status_processamento) */}
-              {processing && <ProcessingOverlay />}
+              {waitingForFile && <ProcessingOverlay />}
 
               {/* Chrome do Reels (aparece só nessa aba, com fade) */}
               <AnimatePresence>
-                {tab === 'reels' && !processing && (
+                {tab === 'reels' && !waitingForFile && (
                   <ReelsChrome
                     client={video.clientName}
                     photoUrl={clientPhotoUrl}
@@ -677,12 +685,12 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                   />
                 )}
               </AnimatePresence>
-              {tab === 'reels' && reelsLandscape && !processing && (
+              {tab === 'reels' && reelsLandscape && !waitingForFile && (
                 <span className="pointer-events-none absolute left-3 top-3 z-10 rounded-full bg-black/55 px-2 py-1 text-[10px] font-medium text-white/85 backdrop-blur-sm">
                   Prévia horizontal
                 </span>
               )}
-              {tab === 'reels' && !processing && playbackUrl && (
+              {tab === 'reels' && !waitingForFile && playbackUrl && (
                 <button
                   type="button"
                   onClick={toggleReelsMute}
@@ -713,7 +721,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
               )}
 
               {/* Dica sutil de swipe — só quando há próximo vídeo na fila do cliente */}
-              {tab === 'reels' && !fullscreen && !processing && hasNext && (
+              {tab === 'reels' && !fullscreen && !waitingForFile && hasNext && (
                 <button
                   type="button"
                   onClick={goNext}
@@ -727,7 +735,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
               {/* Indicador de pausado — Reels sempre tenta tocar sozinho, mas se
                   o navegador recusar o autoplay (ou o usuário pausar de propósito)
                   isso deixa claro na tela, em vez de parecer travado. */}
-              {tab === 'reels' && !fullscreen && !processing && showPaused && (
+              {tab === 'reels' && !fullscreen && !waitingForFile && showPaused && (
                 <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
                   <span className="grid size-16 place-items-center rounded-full bg-black/45 text-white backdrop-blur-sm">
                     <Play className="size-7 fill-current" />
@@ -736,7 +744,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
               )}
 
               {/* Velocidade de reprodução e tela cheia — só no player */}
-              {tab === 'player' && !processing && playbackUrl && (
+              {tab === 'player' && !waitingForFile && playbackUrl && (
                 <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
                   <button
                     type="button"
@@ -779,7 +787,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
               )}
 
               {/* Botão de play — só no player */}
-              {tab === 'player' && !processing && (
+              {tab === 'player' && !waitingForFile && (
                 <button
                   type="button"
                   onClick={togglePlay}
@@ -832,7 +840,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
         )}
 
         {/* Barra de progresso com marcadores de comentário — só no player */}
-        {tab === 'player' && !processing && (
+        {tab === 'player' && !waitingForFile && (
           <div className="px-4 pt-3 lg:px-0">
             <div onClick={scrub} className="group relative h-6 cursor-pointer">
               <div className="absolute top-1/2 h-1.5 w-full -translate-y-1/2 rounded-full bg-secondary">
@@ -874,7 +882,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
           vendo antes de aprovar ou pedir ajuste — e como trocar. Aparece só
           quando existem os dois arquivos (ou quando o original falhou).
         */}
-        {tab === 'player' && !processing && (canChooseQuality || originalFailed) && (
+        {tab === 'player' && !waitingForFile && (canChooseQuality || originalFailed || processing) && (
           <p className="mt-2 px-4 text-xs text-muted-foreground lg:px-0">
             {qualityMessage}
             {canChooseQuality && (
