@@ -64,6 +64,10 @@ function buildThreads(comments: Comment[]): CommentThread[] {
 export function InternalReview({ videoId }: { videoId: string }) {
   const stageRef = useRef<VideoStageHandle>(null)
   const [current, setCurrent] = useState(0)
+  // Enquanto uma nova versão está subindo, o refetch-on-focus fica desligado:
+  // um alt-tab no meio do upload não pode trocar `data` (e o player) embaixo
+  // do upload em andamento.
+  const [uploadingVersion, setUploadingVersion] = useState(false)
   const { user } = useAuth()
   const isOwner = user?.teamRole === 'owner'
 
@@ -84,7 +88,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
       }
     },
     [videoId],
-    { refetchOnFocus: true, staleAfterMs: 5_000 },
+    { refetchOnFocus: !uploadingVersion, staleAfterMs: 5_000 },
   )
 
   function seek(t: number) {
@@ -109,18 +113,30 @@ export function InternalReview({ videoId }: { videoId: string }) {
     )
   }
 
-  if (loading) {
-    return (
-      <div className="grid min-h-[60vh] place-items-center">
-        <LoadingState label="Carregando revisão interna…" />
-      </div>
-    )
-  }
-
-  if (error || !data) {
+  // Só troca a tela inteira por spinner/erro enquanto ainda não há nada para
+  // mostrar. Um refetch em segundo plano (`refetchOnFocus`) NÃO pode desmontar
+  // o conteúdo: ao escolher um arquivo em "Enviar nova versão", o Chrome dispara
+  // o `focus` da janela ANTES do `change` do input; se o refetch trocasse a tela
+  // pelo spinner nesse intervalo, o <input type="file"> saía do DOM e o `change`
+  // nunca chegava no React — o upload não começava e a tela só "piscava".
+  if (!data) {
+    if (error) {
+      return (
+        <div className="px-4 py-10 sm:px-6 lg:px-10">
+          <ErrorState message={error} onRetry={refetch} />
+        </div>
+      )
+    }
+    if (loading) {
+      return (
+        <div className="grid min-h-[60vh] place-items-center">
+          <LoadingState label="Carregando revisão interna…" />
+        </div>
+      )
+    }
     return (
       <div className="px-4 py-10 sm:px-6 lg:px-10">
-        <ErrorState message={error ?? 'Vídeo não encontrado.'} onRetry={refetch} />
+        <ErrorState message="Vídeo não encontrado." onRetry={refetch} />
       </div>
     )
   }
@@ -188,7 +204,12 @@ export function InternalReview({ videoId }: { videoId: string }) {
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <DownloadOriginalButton videoId={videoId} />
             {!isSuperseded && (
-              <NewVersionButton videoId={videoId} projectId={video.projectId} title={video.title} />
+              <NewVersionButton
+                videoId={videoId}
+                projectId={video.projectId}
+                title={video.title}
+                onUploadingChange={setUploadingVersion}
+              />
             )}
             {video.publicLink && (
               <Link
@@ -550,15 +571,23 @@ function NewVersionButton({
   videoId,
   projectId,
   title,
+  onUploadingChange,
 }: {
   videoId: string
   projectId: string | null
   title: string
+  onUploadingChange: (uploading: boolean) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [phase, setPhase] = useState<'idle' | 'uploading'>('idle')
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
+
+  /** Mantém a tela pai avisada: ela pausa o refetch-on-focus durante o upload. */
+  function startUploading(uploading: boolean) {
+    setPhase(uploading ? 'uploading' : 'idle')
+    onUploadingChange(uploading)
+  }
 
   async function handleFile(file: File) {
     const validationError = validateVideoFile(file)
@@ -567,7 +596,7 @@ function NewVersionButton({
       return
     }
     setError(null)
-    setPhase('uploading')
+    startUploading(true)
     setProgress(0)
     try {
       // Modo demo: simula o upload sem tocar no backend/R2 — getUploadUrl()
@@ -651,7 +680,7 @@ function NewVersionButton({
             ? err.message
             : 'Falha ao enviar a nova versão.'
       setError(message)
-      setPhase('idle')
+      startUploading(false)
     }
   }
 
