@@ -1,11 +1,10 @@
 'use client'
 
 /**
- * Integrações (/configuracoes/integracoes) — owner-only. Ainda não existe API
- * de integrações no backend, então o estado de conexão vive só no componente
- * (reseta ao recarregar). A tela existe para validar o fluxo/copy antes de
- * termos endpoints reais; quando existirem, trocar os `useState` locais por
- * chamadas em `lib/services.ts` seguindo o mesmo padrão das outras telas.
+ * Integrações (/configuracoes/integracoes) — owner-only. Google Drive já tem
+ * API real no backend (OAuth em modo de testes: só contas testadoras
+ * conseguem conectar) — ver `googleDriveService`. WhatsApp e Canva ainda não
+ * têm endpoint, então continuam com estado local/"em breve".
  */
 import { useState } from 'react'
 import Image from 'next/image'
@@ -14,6 +13,9 @@ import { SiWhatsapp } from 'react-icons/si'
 import { cn } from '@/lib/utils'
 import { toast } from '@/lib/toast'
 import { FadeIn } from '@/components/motion'
+import { ApiError } from '@/lib/api'
+import { googleDriveService } from '@/lib/services'
+import { useQuery } from '@/lib/use-query'
 
 export function IntegrationsView() {
   return (
@@ -189,16 +191,22 @@ function WhatsAppCard() {
 }
 
 function GoogleDriveCard() {
-  const [connected, setConnected] = useState(false)
+  const { data: status, loading } = useQuery((signal) => googleDriveService.getStatus(signal))
   const [busy, setBusy] = useState(false)
+  const connected = status?.connected ?? false
 
-  async function toggle() {
+  async function connect() {
     setBusy(true)
-    await new Promise((r) => setTimeout(r, 500))
-    const next = !connected
-    setConnected(next)
-    toast[next ? 'success' : 'info'](next ? 'Google Drive conectado' : 'Google Drive desconectado')
-    setBusy(false)
+    try {
+      const url = await googleDriveService.getConnectUrl()
+      if (!url) throw new Error('Resposta de conexão do Google Drive sem URL.')
+      window.location.href = url
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : 'Não foi possível iniciar a conexão com o Google Drive.',
+      )
+      setBusy(false)
+    }
   }
 
   return (
@@ -207,12 +215,18 @@ function GoogleDriveCard() {
       name="Google Drive"
       description="Conecte pastas e arquivos do Drive aos seus projetos e entregas no Check."
       badge={<StatusBadge connected={connected} />}
-      action={<ConnectButton connected={connected} busy={busy} onClick={toggle} />}
+      action={
+        connected ? null : (
+          <ConnectButton connected={false} busy={busy || loading} onClick={connect} />
+        )
+      }
     >
       {connected && (
         <p className="mt-4 flex items-center gap-1.5 border-t border-border pt-4 text-xs text-muted-foreground">
           <Check className="size-3.5 shrink-0 text-emerald-400" />
-          Suas pastas do Drive já podem ser vinculadas ao criar um projeto.
+          {status?.email
+            ? `Conectado como ${status.email}. Suas pastas do Drive já podem ser vinculadas ao criar um projeto.`
+            : 'Suas pastas do Drive já podem ser vinculadas ao criar um projeto.'}
         </p>
       )}
     </IntegrationShell>

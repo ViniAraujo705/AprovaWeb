@@ -623,6 +623,56 @@ em `GET /public/videos/:linkPublico` (campo `agencia`).
 
 ---
 
+## Integrações — Google Drive (`/integrations/google-drive`)
+
+Autenticado. Verificado ponta a ponta em produção em 29/08/2026 com uma
+conta owner (OAuth em **modo de testes** no Google: só contas cadastradas
+como testadoras conseguem concluir).
+
+| Método | Rota | Resposta |
+| --- | --- | --- |
+| `GET` | `/integrations/google-drive/status` | `{ connected: boolean, googleEmail: string \| null }` |
+| `GET` | `/integrations/google-drive/connect` | `{ url }` — URL do consentimento Google |
+| `GET` | `/integrations/google-drive/items` | `{ items: [...] }` |
+| `GET` | `/integrations/google-drive/callback` | usado pelo Google, redireciona pro front |
+
+O campo é `googleEmail` (não `email`).
+
+`connect` devolve uma URL de `accounts.google.com` com
+`access_type=offline`, `prompt=consent`, `redirect_uri` apontando pro
+**callback do backend** e escopo
+`drive.metadata.readonly openid email` — só metadados, sem conteúdo de
+arquivo e sem escrita. O front deve navegar a janela inteira
+(`window.location.href`), não popup/iframe. O `state` é um JWT com **10
+minutos** de validade. Ao final, o backend redireciona pra
+`<CORS_ORIGIN>/configuracoes/integracoes?googleDrive=conectado`.
+
+> Se o usuário concluir o consentimento **sem marcar** a permissão do
+> Drive, o `status` fica `connected: true` mas `items` responde
+> `502 { message: "Falha ao consultar Google Drive: Request had
+> insufficient authentication scopes." }`. Refazer o `connect` marcando a
+> permissão resolve. Vale tratar esse 502 na UI como "reconecte", não como
+> erro genérico.
+
+`GET /items` → cada item:
+```json
+{ "id": "1Qbs…", "name": "Clientes",
+  "mimeType": "application/vnd.google-apps.folder",
+  "webViewLink": "https://drive.google.com/drive/folders/1Qbs…",
+  "isFolder": true }
+```
+Query aceita **só** `q` (busca por nome) e `parentId` (conteúdo de uma
+pasta). Qualquer outra chave volta `400 property X should not exist` —
+sem `pageSize`/`limit`/`type` (a chamada sem filtro devolveu 50 itens).
+
+**Ainda não existe**: `DELETE /integrations/google-drive` (desconectar) não
+foi verificado, `GET /integrations/google-drive/folders` responde `404`, e
+`Project` **não tem** nenhum campo de pasta do Drive (`GET /projects`
+devolve `id, nome, clientId, accountId, isExemplo, linkPublico, criadoEm,
+client`). Vincular pasta↔projeto depende de campo novo no backend.
+
+---
+
 ## Dashboard
 Autenticado — roles `owner`, `editor`. Escopado à conta do token.
 

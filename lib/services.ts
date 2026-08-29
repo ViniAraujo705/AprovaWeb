@@ -57,6 +57,9 @@ import {
   demoSessions,
   demoTeamMembers,
   demoTeamPerformance,
+  demoGoogleDriveItems,
+  demoGoogleDriveStatus,
+  demoSetGoogleDriveConnected,
   demoUpdateCategory,
   demoUpdateDemand,
   demoUpdateDemandStage,
@@ -98,6 +101,8 @@ import type {
   DemandKind,
   EditorPerformance,
   GalleryVideoItem,
+  GoogleDriveItem,
+  GoogleDriveStatus,
   LoginResult,
   MemberStatus,
   NotificationType,
@@ -3037,6 +3042,65 @@ export const calendarService = {
     if (isDemo()) return delay(demoNotifyCrew(id, memberIds), 300)
     const res = await api.post<Raw>(`/recording-events/${id}/notify`, { equipeIds: memberIds })
     return { notified: Number(pick(res, ['notificados', 'notified'], memberIds.length)) || 0 }
+  },
+}
+
+function mapGoogleDriveItem(raw: Raw): GoogleDriveItem {
+  const mimeType = pick<string>(raw, ['mimeType', 'mime_type'], '')
+  return {
+    id: String(pick(raw, ['id'], '')),
+    name: pick(raw, ['name', 'nome'], ''),
+    mimeType,
+    isFolder: pick(raw, ['isFolder', 'is_folder'], mimeType === 'application/vnd.google-apps.folder'),
+    iconLink: pick(raw, ['iconLink', 'icon_link'], null),
+    webViewLink: pick(raw, ['webViewLink', 'webViewLinkUrl', 'web_view_link'], null),
+  }
+}
+
+/**
+ * Integração OAuth com o Google Drive (`/configuracoes/integracoes`). O
+ * front só vincula referências a arquivos/pastas do Drive da conta
+ * conectada — nunca faz upload, cópia, movimentação nem muda permissões.
+ * O OAuth do Google ainda está em modo de testes: só contas cadastradas
+ * como testadoras conseguem completar o `connect`.
+ */
+export const googleDriveService = {
+  async getStatus(signal?: AbortSignal): Promise<GoogleDriveStatus> {
+    if (isDemo()) return delay(demoGoogleDriveStatus())
+    const res = await api.get<Raw>('/integrations/google-drive/status', { signal })
+    return {
+      connected: Boolean(pick(res, ['connected', 'isConnected', 'active'], false)),
+      email: pick(res, ['googleEmail', 'email', 'accountEmail'], null),
+    }
+  },
+
+  /**
+   * URL de início do fluxo OAuth — o front deve navegar o navegador inteiro
+   * pra lá (`window.location.href`), não abrir como popup/iframe.
+   */
+  async getConnectUrl(): Promise<string> {
+    if (isDemo()) {
+      // Sem OAuth de verdade no demo: simula sucesso imediato e recarrega a
+      // própria tela de integrações já conectada (mesmo padrão do checkout).
+      demoSetGoogleDriveConnected(true)
+      return delay('/configuracoes/integracoes', 400)
+    }
+    const res = await api.get<Raw>('/integrations/google-drive/connect')
+    return pick(res, ['url', 'authUrl', 'redirectUrl'], '')
+  },
+
+  /**
+   * Lista arquivos/pastas da conta conectada. O DTO do backend só aceita
+   * `q` (busca por nome) e `parentId` (conteúdo de uma pasta) — qualquer
+   * outra chave volta `400 property X should not exist`.
+   */
+  async listItems(
+    query?: { q?: string; parentId?: string },
+    signal?: AbortSignal,
+  ): Promise<GoogleDriveItem[]> {
+    if (isDemo()) return delay(demoGoogleDriveItems)
+    const res = await api.get('/integrations/google-drive/items', { query, signal })
+    return asArray(res).map(mapGoogleDriveItem)
   },
 }
 
