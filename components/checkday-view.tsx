@@ -159,39 +159,39 @@ export function CheckDayView() {
         <p className="mt-1 text-sm text-muted-foreground">Notas, listas e prioridades do seu dia.</p>
       </div>
 
-      <section className="grid min-h-[650px] overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] shadow-2xl shadow-black/20 md:grid-cols-[240px_minmax(0,1fr)]">
-        <aside className="flex min-h-0 flex-col border-b border-[#2a2a2a] bg-[#111] p-3 md:border-b-0 md:border-r">
+      <section className="grid min-h-[650px] overflow-hidden rounded-2xl border border-border bg-card shadow-lg shadow-black/5 md:grid-cols-[240px_minmax(0,1fr)]">
+        <aside className="flex min-h-0 flex-col border-b border-border bg-muted/40 p-3 md:border-b-0 md:border-r">
           <div className="flex items-center justify-between px-1 pb-3">
-            <h2 className="text-base font-semibold text-[#f5f5f0]">CheckDay</h2>
-            <button type="button" onClick={createNote} aria-label="Nova nota" title="Nova nota" className="grid size-8 place-items-center rounded-lg bg-[#1e1e1e] text-[#f5f5f0] transition-colors hover:bg-[#2a2a2a]">
+            <h2 className="text-base font-semibold text-foreground">CheckDay</h2>
+            <button type="button" onClick={createNote} aria-label="Nova nota" title="Nova nota" className="grid size-8 place-items-center rounded-lg bg-secondary text-secondary-foreground transition-colors hover:bg-secondary/70">
               <PencilLine className="size-4" />
             </button>
           </div>
           <label className="relative mb-3 block">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[#6a6a66]" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="buscar nota..." className="h-9 w-full rounded-lg border border-[#2a2a2a] bg-[#0d0d0d] pl-8 pr-3 text-xs text-[#f5f5f0] outline-none placeholder:text-[#6a6a66] focus:border-[#565656]" />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="buscar nota..." className="h-9 w-full rounded-lg border border-border bg-card pl-8 pr-3 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-ring" />
           </label>
           <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
             {filteredNotes.map((note) => {
               const checks = note.items.filter((item) => item.kind === 'check')
               const isActive = note.id === selectedNote?.id
               return (
-                <button key={note.id} type="button" onClick={() => setSelectedId(note.id)} className={cn('w-full rounded-xl px-3 py-2.5 text-left transition-colors', isActive ? 'bg-[#222]' : 'hover:bg-[#1a1a1a]')}>
+                <button key={note.id} type="button" onClick={() => setSelectedId(note.id)} className={cn('w-full rounded-xl px-3 py-2.5 text-left transition-colors', isActive ? 'bg-secondary' : 'hover:bg-muted/60')}>
                   <div className="flex items-center gap-2">
-                    {checks.length > 0 && <span className={cn('size-1.5 shrink-0 rounded-full', checks.every((item) => item.checked) ? 'bg-[#1D9E75]' : 'bg-[#E0983F]')} />}
-                    <p className="min-w-0 truncate text-sm font-semibold text-[#f5f5f0]">{note.title || 'Sem título'}</p>
+                    {checks.length > 0 && <span className={cn('size-1.5 shrink-0 rounded-full', checks.every((item) => item.checked) ? 'bg-emerald-500' : 'bg-amber-500')} />}
+                    <p className="min-w-0 truncate text-sm font-semibold text-foreground">{note.title || 'Sem título'}</p>
                   </div>
-                  <p className="mt-1 truncate text-xs text-[#8a8a86]">{notePreview(note)}</p>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">{notePreview(note)}</p>
                 </button>
               )
             })}
-            {filteredNotes.length === 0 && <p className="px-3 py-6 text-center text-xs text-[#6a6a66]">Nenhuma nota encontrada.</p>}
+            {filteredNotes.length === 0 && <p className="px-3 py-6 text-center text-xs text-muted-foreground">Nenhuma nota encontrada.</p>}
           </div>
         </aside>
 
         {selectedNote ? (
-          <article className="flex min-w-0 flex-col bg-[#0d0d0d]">
-            <div className="flex items-center gap-1 border-b border-[#1e1e1e] px-4 py-2.5 sm:px-6">
+          <article className="flex min-w-0 flex-col bg-card">
+            <div className="flex items-center gap-1 border-b border-border px-4 py-2.5 sm:px-6">
               <ToolbarButton label="Adicionar checklist" onClick={() => addItem('check')}><CheckSquare2 className="size-4" /></ToolbarButton>
               <ToolbarButton label="Adicionar lista" onClick={() => addItem('bullet')}><List className="size-4" /></ToolbarButton>
               <ToolbarButton label="Negrito" active={bold} onClick={() => setBold((value) => !value)}><Bold className="size-4" /></ToolbarButton>
@@ -200,29 +200,29 @@ export function CheckDayView() {
               <ToolbarButton label="Excluir nota" destructive onClick={deleteNote}><Trash2 className="size-4" /></ToolbarButton>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8">
-              <input value={selectedNote.title} onChange={(event) => updateNote(selectedNote.id, { title: event.target.value })} aria-label="Título da nota" className="w-full bg-transparent text-xl font-semibold text-[#f5f5f0] outline-none placeholder:text-[#6a6a66]" placeholder="Título" />
-              <p className="mt-1 text-xs text-[#6a6a66]">editado {selectedNote.updatedAt} · hoje</p>
-              <textarea value={selectedNote.body} onChange={(event) => updateNote(selectedNote.id, { body: event.target.value })} rows={2} placeholder="Comece a escrever..." className={cn('mt-6 w-full resize-none bg-transparent text-sm leading-6 text-[#c9c9c3] outline-none placeholder:text-[#6a6a66]', bold && 'font-bold')} />
-              {selectedNote.imageUrl && <img src={selectedNote.imageUrl} alt="Imagem da nota" className="mt-3 max-h-64 rounded-xl border border-[#2a2a2a] object-cover" />}
+              <input value={selectedNote.title} onChange={(event) => updateNote(selectedNote.id, { title: event.target.value })} aria-label="Título da nota" className="w-full bg-transparent text-xl font-semibold text-foreground outline-none placeholder:text-muted-foreground" placeholder="Título" />
+              <p className="mt-1 text-xs text-muted-foreground">editado {selectedNote.updatedAt} · hoje</p>
+              <textarea value={selectedNote.body} onChange={(event) => updateNote(selectedNote.id, { body: event.target.value })} rows={2} placeholder="Comece a escrever..." className={cn('mt-6 w-full resize-none bg-transparent text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground', bold && 'font-bold')} />
+              {selectedNote.imageUrl && <img src={selectedNote.imageUrl} alt="Imagem da nota" className="mt-3 max-h-64 rounded-xl border border-border object-cover" />}
               <div className="mt-3 space-y-1">
                 {selectedNote.items.map((item) => (
-                  <div key={item.id} className="group flex items-center gap-3 rounded-lg px-1 py-2 hover:bg-[#151515]">
+                  <div key={item.id} className="group flex items-center gap-3 rounded-lg px-1 py-2 hover:bg-muted/50">
                     {item.kind === 'check' ? (
-                      <button type="button" onClick={() => updateNote(selectedNote.id, { items: selectedNote.items.map((current) => current.id === item.id ? { ...current, checked: !current.checked } : current) })} aria-label={item.checked ? `Desmarcar ${item.text}` : `Concluir ${item.text}`} className={cn('grid size-5 shrink-0 place-items-center rounded-md border transition-colors', item.checked ? 'border-[#1D9E75] bg-[#1D9E75] text-white' : 'border-[#565656] hover:border-[#8a8a86]')}>
+                      <button type="button" onClick={() => updateNote(selectedNote.id, { items: selectedNote.items.map((current) => current.id === item.id ? { ...current, checked: !current.checked } : current) })} aria-label={item.checked ? `Desmarcar ${item.text}` : `Concluir ${item.text}`} className={cn('grid size-5 shrink-0 place-items-center rounded-md border transition-colors', item.checked ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-input hover:border-muted-foreground')}>
                         {item.checked && <Check className="size-3.5 stroke-[3]" />}
                       </button>
-                    ) : <span className="ml-1 size-1.5 shrink-0 rounded-full bg-[#8a8a86]" />}
-                    <input value={item.text} onChange={(event) => updateNote(selectedNote.id, { items: selectedNote.items.map((current) => current.id === item.id ? { ...current, text: event.target.value } : current) })} className={cn('min-w-0 flex-1 bg-transparent text-sm text-[#f5f5f0] outline-none', item.checked && 'text-[#8a8a86] line-through')} />
-                    <button type="button" onClick={() => updateNote(selectedNote.id, { items: selectedNote.items.filter((current) => current.id !== item.id) })} aria-label={`Remover ${item.text}`} className="invisible grid size-7 place-items-center rounded-md text-[#6a6a66] hover:bg-[#222] hover:text-[#f5f5f0] group-hover:visible"><Plus className="size-4 rotate-45" /></button>
+                    ) : <span className="ml-1 size-1.5 shrink-0 rounded-full bg-muted-foreground" />}
+                    <input value={item.text} onChange={(event) => updateNote(selectedNote.id, { items: selectedNote.items.map((current) => current.id === item.id ? { ...current, text: event.target.value } : current) })} className={cn('min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none', item.checked && 'text-muted-foreground line-through')} />
+                    <button type="button" onClick={() => updateNote(selectedNote.id, { items: selectedNote.items.filter((current) => current.id !== item.id) })} aria-label={`Remover ${item.text}`} className="invisible grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground group-hover:visible"><Plus className="size-4 rotate-45" /></button>
                   </div>
                 ))}
               </div>
-              <button type="button" onClick={() => addItem('check')} className="mt-5 inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-[#8a8a86] hover:bg-[#1e1e1e] hover:text-[#f5f5f0]"><Plus className="size-3.5" /> Adicionar item</button>
+              <button type="button" onClick={() => addItem('check')} className="mt-5 inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"><Plus className="size-3.5" /> Adicionar item</button>
             </div>
           </article>
         ) : (
-          <div className="grid min-h-80 place-items-center bg-[#0d0d0d] text-sm text-[#6a6a66]">
-            <button type="button" onClick={createNote} className="rounded-lg bg-[#1e1e1e] px-4 py-2 text-[#f5f5f0] hover:bg-[#2a2a2a]">Criar primeira nota</button>
+          <div className="grid min-h-80 place-items-center bg-card text-sm text-muted-foreground">
+            <button type="button" onClick={createNote} className="rounded-lg bg-secondary px-4 py-2 text-secondary-foreground hover:bg-secondary/70">Criar primeira nota</button>
           </div>
         )}
       </section>
@@ -231,5 +231,5 @@ export function CheckDayView() {
 }
 
 function ToolbarButton({ children, label, onClick, active, destructive }: { children: React.ReactNode; label: string; onClick: () => void; active?: boolean; destructive?: boolean }) {
-  return <button type="button" onClick={onClick} aria-label={label} title={label} className={cn('grid size-8 place-items-center rounded-lg text-[#8a8a86] transition-colors hover:bg-[#1e1e1e] hover:text-[#f5f5f0]', active && 'bg-[#222] text-[#f5f5f0]', destructive && 'hover:text-red-400')}>{children}</button>
+  return <button type="button" onClick={onClick} aria-label={label} title={label} className={cn('grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground', active && 'bg-secondary text-foreground', destructive && 'hover:text-destructive')}>{children}</button>
 }
