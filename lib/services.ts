@@ -1981,7 +1981,7 @@ export const publicService = {
    */
   async getDownloadUrl(
     link: string,
-    type: 'original' | 'otimizado' = 'otimizado',
+    type: 'original' | 'otimizado' = 'original',
   ): Promise<{ url: string; filename: string; type: 'original' | 'otimizado'; statusProcessing: string }> {
     if (isDemoVideoLink(link)) {
       const demo = await demoPublicVideo(link)
