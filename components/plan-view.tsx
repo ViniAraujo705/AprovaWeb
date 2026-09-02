@@ -48,9 +48,12 @@ const POLL_TIMEOUT_MS = 30000
 type ConfirmState = 'idle' | 'polling' | 'success' | 'timeout'
 
 /**
- * A Asaas redireciona de volta para `?status=sucesso`, mas a
- * confirmação em si vem de um webhook assíncrono — o plano só muda de fato
- * quando o backend processa isso, o que pode levar alguns segundos. Por
+ * A Asaas volta para `?status=sucesso | cancelado | expirado` (minúsculas,
+ * sem acento — valores confirmados com o backend). Só `sucesso` inicia uma
+ * confirmação, e mesmo ela não é a palavra final: quem efetiva a troca de
+ * plano é um webhook assíncrono, não o retorno do usuário — em pix/boleto dá
+ * pra voltar aqui antes da compensação. O plano só muda de fato quando o
+ * backend processa o webhook, o que pode levar alguns segundos. Por
  * isso não dá pra confiar cegamente no parâmetro da URL nem comparar contra
  * um "estado anterior": se o webhook for rápido (ou, no modo demo, instantâneo),
  * o plano já pode chegar atualizado na primeiríssima consulta. Em vez disso,
@@ -64,7 +67,8 @@ function useCheckoutConfirmation(
 ): ConfirmState {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const isReturning = searchParams.get('status') === 'sucesso'
+  const status = searchParams.get('status')
+  const isReturning = status === 'sucesso'
   const [state, setState] = useState<ConfirmState>('idle')
   const target = useRef<PlanId | null>(null)
 
@@ -87,6 +91,28 @@ function useCheckoutConfirmation(
     // a tela em polling da API da Asaas. Se não houver confirmação ainda, o
     // fluxo abaixo continua aguardando o webhook normalmente.
     void billingService.sync().then(refetch).catch(() => undefined)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Os outros dois retornos da Asaas não geram cobrança confirmada:
+  // `cancelado` (o usuário desistiu na tela de pagamento) e `expirado` (o
+  // prazo do boleto/pix venceu). Nos dois casos não há o que confirmar — o
+  // alvo guardado antes do redirect vira lixo e precisa sair do storage,
+  // senão uma volta posterior por `?status=sucesso` tentaria confirmar um
+  // plano que ninguém chegou a pagar. Limpa a URL junto para o aviso não se
+  // repetir a cada F5.
+  useEffect(() => {
+    if (status !== 'cancelado' && status !== 'expirado') return
+    sessionStorage.removeItem(PENDING_CHECKOUT_PLAN_KEY)
+    if (status === 'cancelado') {
+      toast.info('Pagamento cancelado', 'Nenhuma cobrança foi feita — seu plano continua o mesmo.')
+    } else {
+      toast.info(
+        'Cobrança expirada',
+        'O prazo para pagamento venceu. Gere uma nova cobrança para concluir o upgrade.',
+      )
+    }
+    router.replace('/configuracoes/plano')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
