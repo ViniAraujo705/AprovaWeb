@@ -1389,6 +1389,8 @@ function ClientBrandingForm({
 }
 
 function ClientProjects({ clientId }: { clientId: string }) {
+  // Criar projeto é do owner — editor só vê a lista (dos projetos em que é membro).
+  const isOwner = useAuth().user?.teamRole === 'owner'
   const router = useRouter()
   const projects = useQuery<Project[]>((signal) => projectService.list(clientId, signal), [clientId])
 
@@ -1419,7 +1421,7 @@ function ClientProjects({ clientId }: { clientId: string }) {
     <div>
       <div className="flex items-center justify-between">
         <h2 className="font-display text-2xl tracking-wide">PROJETOS</h2>
-        {!creating && (
+        {isOwner && !creating && (
           <button
             type="button"
             onClick={() => {
@@ -1434,7 +1436,7 @@ function ClientProjects({ clientId }: { clientId: string }) {
         )}
       </div>
 
-      {creating && (
+      {isOwner && creating && (
         <div className="mt-3 rounded-xl border border-border bg-card p-4">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-foreground">Novo projeto para este cliente</span>
@@ -1478,8 +1480,12 @@ function ClientProjects({ clientId }: { clientId: string }) {
         ) : (projects.data ?? []).length === 0 ? (
           <EmptyState
             icon={<FolderOpen className="size-7" />}
-            title="Nenhum projeto ainda"
-            description="Crie um projeto para este cliente para começar a enviar vídeos."
+            title={isOwner ? 'Nenhum projeto ainda' : 'Nenhum projeto atribuído a você'}
+            description={
+              isOwner
+                ? 'Crie um projeto para este cliente para começar a enviar vídeos.'
+                : 'Peça para o responsável da agência te adicionar a um projeto deste cliente.'
+            }
           />
         ) : (
           <StaggerList className="grid gap-3 sm:grid-cols-2">

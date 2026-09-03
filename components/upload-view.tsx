@@ -25,6 +25,7 @@ import { UPLOAD_ACCEPTED_LABEL } from '@/lib/config'
 import { DEMO_LINK, isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
 import { usePlanLimit } from '@/components/plan-limit-provider'
+import { useAuth } from '@/components/auth-provider'
 import { DateField } from '@/components/date-field'
 
 type ItemStatus = 'pending' | 'uploading' | 'done' | 'error'
@@ -167,6 +168,10 @@ function VideoThumbnail({ item, onPreview }: { item: PendingFile; onPreview: () 
 }
 
 export function UploadView() {
+  // Criar cliente/projeto é coisa de owner: o editor só envia vídeo pra um
+  // cliente e um projeto que já existem (ele nem vê os atalhos de criação).
+  const { user } = useAuth()
+  const isOwner = user?.teamRole === 'owner'
   const clients = useQuery<Client[]>((signal) => clientService.list(signal), [])
   const members = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
   const { handlePlanLimitError, bumpUsage } = usePlanLimit()
@@ -200,7 +205,10 @@ export function UploadView() {
   // pode escolher um projeto já existente do cliente para agrupar a entrega
   // (ex.: vários vídeos do mesmo lote aparecendo juntos na galeria pública).
   // Cliente/projeto são configurados uma vez só e valem pro lote inteiro.
-  const [projectMode, setProjectMode] = useState<'novo' | 'existente'>('novo')
+  const [projectModeChoice, setProjectMode] = useState<'novo' | 'existente'>('novo')
+  // Editor não cria projeto: independente do que estiver guardado no estado,
+  // o modo dele é sempre "projeto existente".
+  const projectMode = isOwner ? projectModeChoice : 'existente'
   const [projectId, setProjectId] = useState('')
   const projectsForClient = useQuery<Project[]>(
     (signal) => projectService.list(clientId, signal),
@@ -836,23 +844,24 @@ export function UploadView() {
                 <label className="flex min-w-0 flex-col gap-1.5">
                   <span className="flex items-center justify-between text-sm font-medium text-foreground">
                     Cliente
-                    {newClient === null ? (
-                      <button
-                        type="button"
-                        onClick={() => setNewClient('')}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-                      >
-                        <Plus className="size-3" /> Novo
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setNewClient(null)}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="size-3" /> Cancelar
-                      </button>
-                    )}
+                    {isOwner &&
+                      (newClient === null ? (
+                        <button
+                          type="button"
+                          onClick={() => setNewClient('')}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                        >
+                          <Plus className="size-3" /> Novo
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setNewClient(null)}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="size-3" /> Cancelar
+                        </button>
+                      ))}
                   </span>
 
                   {newClient === null ? (
@@ -915,34 +924,36 @@ export function UploadView() {
 
                 <div className="flex min-w-0 flex-col gap-1.5">
                   <span className="text-sm font-medium text-foreground">Projeto</span>
-                  <div className="flex gap-1 rounded-lg bg-secondary p-1">
-                    <button
-                      type="button"
-                      onClick={() => setProjectMode('novo')}
-                      disabled={busy}
-                      className={cn(
-                        'min-h-9 flex-1 rounded-md text-sm font-medium transition-colors disabled:opacity-60',
-                        projectMode === 'novo'
-                          ? 'bg-background text-foreground shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground',
-                      )}
-                    >
-                      Novo projeto
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setProjectMode('existente')}
-                      disabled={busy}
-                      className={cn(
-                        'min-h-9 flex-1 rounded-md text-sm font-medium transition-colors disabled:opacity-60',
-                        projectMode === 'existente'
-                          ? 'bg-background text-foreground shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground',
-                      )}
-                    >
-                      Projeto existente
-                    </button>
-                  </div>
+                  {isOwner && (
+                    <div className="flex gap-1 rounded-lg bg-secondary p-1">
+                      <button
+                        type="button"
+                        onClick={() => setProjectMode('novo')}
+                        disabled={busy}
+                        className={cn(
+                          'min-h-9 flex-1 rounded-md text-sm font-medium transition-colors disabled:opacity-60',
+                          projectMode === 'novo'
+                            ? 'bg-background text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        Novo projeto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProjectMode('existente')}
+                        disabled={busy}
+                        className={cn(
+                          'min-h-9 flex-1 rounded-md text-sm font-medium transition-colors disabled:opacity-60',
+                          projectMode === 'existente'
+                            ? 'bg-background text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        Projeto existente
+                      </button>
+                    </div>
+                  )}
 
                   {projectMode === 'novo' ? (
                     <input
@@ -966,7 +977,9 @@ export function UploadView() {
                     </p>
                   ) : (projectsForClient.data ?? []).length === 0 ? (
                     <p className="rounded-lg border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground">
-                      Esse cliente ainda não tem nenhum projeto. Use &quot;Novo projeto&quot;.
+                      {isOwner
+                        ? 'Esse cliente ainda não tem nenhum projeto. Use "Novo projeto".'
+                        : 'Você não está em nenhum projeto desse cliente. Peça para o responsável da agência te adicionar a um projeto.'}
                     </p>
                   ) : (
                     <select

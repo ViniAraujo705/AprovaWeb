@@ -235,7 +235,9 @@ export function ProjectsView() {
               {showArchived ? 'Ver ativos' : `Arquivados (${archivedCount})`}
             </button>
           )}
-          {!creatingProject && (
+          {/* Criar projeto (e cliente) é do owner: editor só trabalha nos
+              projetos em que foi colocado como membro. */}
+          {isOwner && !creatingProject && (
             <button
               type="button"
               onClick={openProjectForm}
@@ -247,7 +249,7 @@ export function ProjectsView() {
         </div>
       </div>
 
-      {creatingProject && (
+      {isOwner && creatingProject && (
         <div className="mt-4 rounded-xl border border-border bg-card p-4">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-foreground">Novo projeto</span>
