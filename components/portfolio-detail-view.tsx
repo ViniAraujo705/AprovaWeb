@@ -34,6 +34,7 @@ import { isDemo } from '@/lib/demo'
 import { AnimatePresence, motion, FadeIn } from '@/components/motion'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
+import { ImageCropModal } from '@/components/image-crop-modal'
 
 /** Lê um arquivo como Data URL (usado só no preview/modo demo). */
 function readAsDataUrl(file: File): Promise<string> {
@@ -261,6 +262,7 @@ function PortfolioDetailsForm({
   const [error, setError] = useState<string | null>(null)
   const [coverBusy, setCoverBusy] = useState(false)
   const [coverError, setCoverError] = useState<string | null>(null)
+  const [coverCropFile, setCoverCropFile] = useState<File | null>(null)
   const [categoryBusy, setCategoryBusy] = useState(false)
   const [clientBusy, setClientBusy] = useState(false)
 
@@ -291,6 +293,17 @@ function PortfolioDetailsForm({
     } finally {
       setBusy(false)
     }
+  }
+
+  function onCoverFileSelected(file: File | undefined | null) {
+    if (!file) return
+    const invalid = validatePhotoFile(file)
+    if (invalid) {
+      setCoverError(invalid)
+      return
+    }
+    setCoverError(null)
+    setCoverCropFile(file)
   }
 
   async function handleCoverFile(file: File | undefined | null) {
@@ -381,10 +394,28 @@ function PortfolioDetailsForm({
               type="file"
               accept="image/png,image/jpeg,image/webp"
               className="hidden"
-              onChange={(e) => handleCoverFile(e.target.files?.[0])}
+              onChange={(e) => {
+                onCoverFileSelected(e.target.files?.[0])
+                e.target.value = ''
+              }}
             />
           </button>
           {coverError && <p className="mt-1.5 max-w-40 text-xs text-destructive">{coverError}</p>}
+          {coverCropFile && (
+            <ImageCropModal
+              file={coverCropFile}
+              aspect={16 / 9}
+              shape="rect"
+              title="Ajustar capa"
+              outputWidth={1280}
+              outputType="image/jpeg"
+              onCancel={() => setCoverCropFile(null)}
+              onConfirm={(cropped) => {
+                setCoverCropFile(null)
+                void handleCoverFile(cropped)
+              }}
+            />
+          )}
         </div>
 
         <div className="min-w-0 flex-1">

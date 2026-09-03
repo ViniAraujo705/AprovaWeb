@@ -58,6 +58,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from '@/lib/toast'
 import { usePlanLimit } from '@/components/plan-limit-provider'
 import { useAuth } from '@/components/auth-provider'
+import { ImageCropModal } from '@/components/image-crop-modal'
 
 /** Lê um arquivo como Data URL (usado só no preview/modo demo). */
 function readAsDataUrl(file: File): Promise<string> {
@@ -669,6 +670,7 @@ function ClientForm({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [cropFile, setCropFile] = useState<File | null>(null)
 
   function flashSaved() {
     setSaved(true)
@@ -692,6 +694,22 @@ function ClientForm({
     } finally {
       setBusy(false)
     }
+  }
+
+  /** Valida e abre o recorte antes de subir — SVG não passa por canvas (perderia a nitidez vetorial). */
+  function onFileSelected(file: File | undefined | null) {
+    if (!file) return
+    const invalid = validateImageFile(file)
+    if (invalid) {
+      setFileError(invalid)
+      return
+    }
+    setFileError(null)
+    if (file.type === 'image/svg+xml') {
+      void handleFile(file)
+      return
+    }
+    setCropFile(file)
   }
 
   async function handleFile(file: File | undefined | null) {
@@ -793,7 +811,7 @@ function ClientForm({
           onDrop={(e) => {
             e.preventDefault()
             setDragging(false)
-            if (!busy) handleFile(e.dataTransfer.files?.[0])
+            if (!busy) onFileSelected(e.dataTransfer.files?.[0])
           }}
           onClick={() => !busy && inputRef.current?.click()}
           className={cn(
@@ -811,7 +829,10 @@ function ClientForm({
             type="file"
             accept="image/png,image/jpeg,image/svg+xml,image/webp"
             className="hidden"
-            onChange={(e) => handleFile(e.target.files?.[0])}
+            onChange={(e) => {
+              onFileSelected(e.target.files?.[0])
+              e.target.value = ''
+            }}
           />
           <span className="grid size-12 place-items-center rounded-full bg-primary/15 text-primary">
             {busy ? <Loader2 className="size-6 animate-spin" /> : <ImagePlus className="size-6" />}
@@ -820,6 +841,21 @@ function ClientForm({
             {busy ? 'Enviando…' : 'Arraste uma foto ou clique para selecionar'}
           </p>
         </div>
+        {cropFile && (
+          <ImageCropModal
+            file={cropFile}
+            aspect={1}
+            shape="circle"
+            title="Ajustar foto do cliente"
+            outputWidth={480}
+            outputType="image/jpeg"
+            onCancel={() => setCropFile(null)}
+            onConfirm={(cropped) => {
+              setCropFile(null)
+              void handleFile(cropped)
+            }}
+          />
+        )}
         {fileError && (
           <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
             <AlertTriangle className="size-4" /> {fileError}
@@ -1041,6 +1077,7 @@ function ClientBrandingForm({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [cropFile, setCropFile] = useState<File | null>(null)
   const { handlePlanLimitError, planStatus, openUpgradeModal } = usePlanLimit()
   // Enquanto o plano ainda não carregou, não bloqueia (o 403 real continua
   // sendo o backstop) — evita prender a UI atrás de um estado de loading.
@@ -1066,6 +1103,26 @@ function ClientBrandingForm({
           ? { logoUrl: branding.logoUrl, agencyName: null, accentColor: branding.accentColor }
           : null,
     }))
+  }
+
+  /** Valida e abre o recorte antes de subir — SVG não passa por canvas (perderia a nitidez vetorial). */
+  function onFileSelected(file: File | undefined | null) {
+    if (locked) {
+      requireUpgrade()
+      return
+    }
+    if (!file) return
+    const invalid = validateImageFile(file)
+    if (invalid) {
+      setFileError(invalid)
+      return
+    }
+    setFileError(null)
+    if (file.type === 'image/svg+xml') {
+      void handleFile(file)
+      return
+    }
+    setCropFile(file)
   }
 
   async function handleFile(file: File | undefined | null) {
@@ -1214,8 +1271,7 @@ function ClientBrandingForm({
           onDrop={(e) => {
             e.preventDefault()
             setDragging(false)
-            if (locked) requireUpgrade()
-            else if (!busy) handleFile(e.dataTransfer.files?.[0])
+            if (!busy) onFileSelected(e.dataTransfer.files?.[0])
           }}
           onClick={() => {
             if (locked) requireUpgrade()
@@ -1236,7 +1292,10 @@ function ClientBrandingForm({
             type="file"
             accept="image/png,image/jpeg,image/svg+xml,image/webp"
             className="hidden"
-            onChange={(e) => handleFile(e.target.files?.[0])}
+            onChange={(e) => {
+              onFileSelected(e.target.files?.[0])
+              e.target.value = ''
+            }}
           />
           <span className="grid size-12 place-items-center rounded-full bg-primary/15 text-primary">
             {busy ? <Loader2 className="size-6 animate-spin" /> : <ImagePlus className="size-6" />}
@@ -1245,6 +1304,21 @@ function ClientBrandingForm({
             {busy ? 'Enviando…' : 'Arraste um logo ou clique para selecionar'}
           </p>
         </div>
+        {cropFile && (
+          <ImageCropModal
+            file={cropFile}
+            aspect={2.4}
+            shape="rect"
+            title="Ajustar logo"
+            outputWidth={800}
+            outputType="image/png"
+            onCancel={() => setCropFile(null)}
+            onConfirm={(cropped) => {
+              setCropFile(null)
+              void handleFile(cropped)
+            }}
+          />
+        )}
         {fileError && (
           <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
             <AlertTriangle className="size-4" /> {fileError}
