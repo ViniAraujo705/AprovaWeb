@@ -66,19 +66,22 @@ function createVideoThumbnail(file: File): Promise<string | null> {
     const video = document.createElement('video')
     // Alguns navegadores mobile (Safari iOS, Chrome Android) só decodificam frames
     // de um <video> que está de fato no DOM — fora dele, currentTime/drawImage falham em silêncio.
+    // Um tamanho real (não 1x1) evita otimizações de "elemento invisível" que pausam a decodificação.
     video.style.position = 'fixed'
-    video.style.top = '-9999px'
-    video.style.width = '1px'
-    video.style.height = '1px'
+    video.style.left = '-9999px'
+    video.style.top = '0'
+    video.style.width = '160px'
+    video.style.height = '90px'
     document.body.appendChild(video)
     const objectUrl = URL.createObjectURL(file)
     let finished = false
-    const timeout = window.setTimeout(() => finish(null), 5000)
+    const timeout = window.setTimeout(() => finish(null), 6000)
 
     function finish(thumbnail: string | null) {
       if (finished) return
       finished = true
       window.clearTimeout(timeout)
+      video.pause()
       video.removeAttribute('src')
       video.load()
       video.remove()
@@ -96,26 +99,37 @@ function createVideoThumbnail(file: File): Promise<string | null> {
       canvas.height = height
       const context = canvas.getContext('2d')
       if (!context) return finish(null)
-      context.drawImage(video, 0, 0, width, height)
       try {
+        context.drawImage(video, 0, 0, width, height)
         finish(canvas.toDataURL('image/jpeg', 0.82))
       } catch {
         finish(null)
       }
     }
 
-    video.preload = 'metadata'
-    video.muted = true
-    video.playsInline = true
-    video.setAttribute('webkit-playsinline', 'true')
-    video.onloadeddata = () => {
-      const frameTime = Math.min(0.1, Math.max(0, (video.duration || 0) / 2))
-      if (frameTime > 0) {
-        video.onseeked = capture
-        video.currentTime = frameTime
+    // No mobile, buscar um frame só com currentTime/seeked costuma render em branco —
+    // é preciso um play() real (ainda que de ~150ms, mudo) pra forçar a decodificação.
+    function playThenCapture() {
+      const playPromise = video.play()
+      const afterPlay = () => window.setTimeout(() => { video.pause(); capture() }, 150)
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise.then(afterPlay).catch(capture)
       } else {
-        capture()
+        afterPlay()
       }
+    }
+
+    video.preload = 'auto'
+    video.muted = true
+    video.defaultMuted = true
+    video.playsInline = true
+    video.setAttribute('muted', '')
+    video.setAttribute('playsinline', '')
+    video.setAttribute('webkit-playsinline', 'true')
+    video.onloadedmetadata = () => {
+      const frameTime = Math.min(0.1, Math.max(0, (video.duration || 0) / 2))
+      if (frameTime > 0) video.currentTime = frameTime
+      playThenCapture()
     }
     video.onerror = () => finish(null)
     video.src = objectUrl
