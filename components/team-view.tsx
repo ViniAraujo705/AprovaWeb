@@ -29,6 +29,8 @@ import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { toast } from '@/lib/toast'
 import { usePlanLimit } from '@/components/plan-limit-provider'
+import { ClientAvatar } from '@/components/client-avatar'
+import { useAuth } from '@/components/auth-provider'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -284,6 +286,7 @@ function MemberRow({
   onChanged: (m: TeamMember) => void
   onRemoved: (id: string) => void
 }) {
+  const { user } = useAuth()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -350,6 +353,11 @@ function MemberRow({
 
   const [sessionsOpen, setSessionsOpen] = useState(false)
 
+  // A listagem de membros ainda não traz foto pra todo mundo; pelo menos a
+  // própria linha do usuário logado usa a foto que já temos da sessão.
+  const isSelf = !!user && user.email.toLowerCase() === member.email.toLowerCase()
+  const photoUrl = member.photoUrl ?? (isSelf ? user.photoUrl : null)
+
   const isOwner = member.teamRole === 'owner'
   const isPendingInvite = member.status === 'invited'
   const expired = isInviteExpired(member)
@@ -359,7 +367,17 @@ function MemberRow({
   return (
     <>
     <tr className="text-foreground">
-      <td className="px-4 py-3 font-medium">{member.name || '—'}</td>
+      <td className="px-4 py-3 font-medium">
+        <div className="flex items-center gap-2.5">
+          {/* Convite pendente ainda não tem conta/foto — só o placeholder do e-mail. */}
+          <ClientAvatar
+            name={member.name || member.email}
+            photoUrl={photoUrl}
+            seed={member.id}
+          />
+          <span className={cn(!member.name && 'text-muted-foreground')}>{member.name || '—'}</span>
+        </div>
+      </td>
       <td className="px-4 py-3 text-muted-foreground">{member.email}</td>
       <td className="px-4 py-3">
         <span

@@ -638,6 +638,11 @@ export interface TeamMember {
   id: string
   name: string
   email: string
+  /**
+   * Foto de perfil do membro, quando ele configurou uma. Convite pendente
+   * (`status: 'invited'`) nunca tem foto — a conta ainda nem existe.
+   */
+  photoUrl: string | null
   teamRole: TeamRole
   status: MemberStatus
   createdAt: string | null
