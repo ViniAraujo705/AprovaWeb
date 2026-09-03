@@ -448,7 +448,10 @@ function CommentBody({
             <span className="text-xs text-muted-foreground">{formatSentAt(comment.createdAt)}</span>
           )}
         </div>
-        <p className="mt-0.5 text-sm text-muted-foreground">{comment.text}</p>
+        {comment.text && <p className="mt-0.5 text-sm text-muted-foreground">{comment.text}</p>}
+        {comment.audioUrl && (
+          <audio controls src={comment.audioUrl} className="mt-1.5 h-9 w-full max-w-full" />
+        )}
       </div>
     </div>
   )
