@@ -17,6 +17,7 @@ import {
   demoAddExistingPortfolioVideo,
   demoAddUploadedPortfolioVideo,
   demoAssignProjectMember,
+  demoUpdateProject,
   demoClientActivityPage,
   demoClientChannel,
   demoClientFields,
@@ -302,6 +303,7 @@ function mapProject(raw: Raw): Project {
     client: clientRaw ? mapClient(clientRaw) : undefined,
     isExample: Boolean(pick(raw, ['isExemplo', 'is_exemplo', 'isExample'], false)),
     publicLink: pick<string | null>(raw, ['linkPublico', 'link_publico', 'publicLink'], null),
+    photoUrl: pick<string | null>(raw, ['fotoUrl', 'foto_url', 'photoUrl', 'imagemUrl'], null),
     members: membersRaw ? membersRaw.map(mapProjectMember) : undefined,
   }
 }
@@ -1574,9 +1576,38 @@ export const projectService = {
     const res = await api.post<Raw>('/projects', { nome: input.name, clientId: input.clientId })
     return mapProject(res)
   },
-  async update(id: string, input: { name?: string; clientId?: string }): Promise<Project> {
-    const res = await api.patch<Raw>(`/projects/${id}`, { nome: input.name, clientId: input.clientId })
+  async update(
+    id: string,
+    input: { name?: string; clientId?: string; photoUrl?: string | null },
+  ): Promise<Project> {
+    if (isDemo()) return delay(demoUpdateProject(id, input), 300)
+    const res = await api.patch<Raw>(`/projects/${id}`, {
+      nome: input.name,
+      clientId: input.clientId,
+      fotoUrl: input.photoUrl,
+    })
     return mapProject(res)
+  },
+  /**
+   * Passo 1/2 da foto do projeto (só imagem, mesmo formato de
+   * `clientService.getPhotoUploadUrl`): pega a presigned URL, sobe pro R2 e
+   * grava a `publicUrl` com `update({ photoUrl })`. Sem branch demo — quem
+   * chama isto já checou `isDemo()` e usa data URL no lugar.
+   */
+  async getPhotoUploadUrl(
+    projectId: string,
+    input: { fileName: string; contentType: string },
+  ): Promise<{ uploadUrl: string; key: string; publicUrl: string | null; headers?: Record<string, string> }> {
+    const res = await api.post<Raw>(`/projects/${projectId}/photo-upload-url`, {
+      nomeArquivo: input.fileName,
+      contentType: input.contentType,
+    })
+    return {
+      uploadUrl: pick(res, ['uploadUrl'], ''),
+      key: pick(res, ['key'], ''),
+      publicUrl: pick<string | null>(res, ['publicUrl'], null),
+      headers: pick<Record<string, string> | undefined>(res, ['headers'], undefined),
+    }
   },
   async remove(id: string): Promise<void> {
     await api.delete(`/projects/${id}`)

@@ -199,6 +199,13 @@ export interface Project {
   isExample: boolean
   /** Link público (slug) da galeria do projeto, para a rota /g/:linkPublico. */
   publicLink: string | null
+  /**
+   * Miniatura do projeto escolhida pela agência. `null` = projeto sem foto,
+   * e aí cada tela cai no fallback que já usava (avatar do cliente na lista,
+   * ícone de pasta dentro do cliente). Só interno — a galeria pública do
+   * cliente (/g/:link) não mostra isso.
+   */
+  photoUrl: string | null
   /** Editores com acesso a este projeto. Só vem em `GET /projects/:id`. */
   members?: ProjectMember[]
 }

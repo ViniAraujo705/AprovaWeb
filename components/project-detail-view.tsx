@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   MessageSquare,
   Clock,
@@ -23,6 +23,7 @@ import {
   Archive,
   ArchiveRestore,
   UploadCloud,
+  ImagePlus,
 } from 'lucide-react'
 import {
   projectService,
@@ -46,6 +47,10 @@ import { triggerDownload } from '@/lib/download'
 import { toast } from '@/lib/toast'
 import { archiveProject, isProjectArchived, unarchiveProject } from '@/lib/archived-projects'
 import { usePlanLimit } from '@/components/plan-limit-provider'
+import { ProjectThumb } from '@/components/project-thumb'
+import { ImageCropModal } from '@/components/image-crop-modal'
+import { UploadError, validatePhotoFile } from '@/lib/upload'
+import { uploadProjectPhoto } from '@/lib/project-photo'
 
 export function ProjectDetailView({ id }: { id: string }) {
   const router = useRouter()
@@ -63,6 +68,11 @@ export function ProjectDetailView({ id }: { id: string }) {
     },
     [id],
   )
+  // Foto do projeto (só owner troca) — mesmo fluxo da capa de portfólio:
+  // recorta local, sobe pro R2 e grava a URL com `projectService.update`.
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [photoCropFile, setPhotoCropFile] = useState<File | null>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
   const [page, setPage] = useState(1)
   const [loadingMore, setLoadingMore] = useState(false)
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
@@ -306,6 +316,22 @@ export function ProjectDetailView({ id }: { id: string }) {
     }
   }
 
+  async function handlePhotoFile(file: File) {
+    setPhotoBusy(true)
+    try {
+      const updated = await uploadProjectPhoto(id, file)
+      project.setData(updated)
+      toast.success('Foto do projeto atualizada')
+    } catch (err) {
+      toast.error(
+        'Não foi possível salvar a foto',
+        err instanceof UploadError || err instanceof ApiError ? err.message : undefined,
+      )
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
+
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -314,6 +340,63 @@ export function ProjectDetailView({ id }: { id: string }) {
         ) : project.error ? (
           <ErrorState message={project.error} onRetry={project.refetch} />
         ) : (
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            {isOwner ? (
+              <button
+                type="button"
+                onClick={() => !photoBusy && photoInputRef.current?.click()}
+                disabled={photoBusy}
+                aria-label={project.data?.photoUrl ? 'Trocar a foto do projeto' : 'Adicionar uma foto ao projeto'}
+                title="Foto do projeto"
+                className={`group relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg border border-border bg-secondary text-muted-foreground/70 transition-colors hover:border-primary/50 hover:text-foreground disabled:opacity-70 ${
+                  project.data?.photoUrl ? '' : 'border-dashed'
+                }`}
+              >
+                <ProjectThumb
+                  photoUrl={project.data?.photoUrl}
+                  size="lg"
+                  className="rounded-none"
+                  fallback={<ImagePlus className="size-5" />}
+                />
+                <span className="absolute inset-0 hidden place-items-center bg-black/50 text-white group-hover:grid">
+                  {photoBusy ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
+                </span>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    e.target.value = ''
+                    if (!file) return
+                    const invalid = validatePhotoFile(file)
+                    if (invalid) {
+                      toast.error('Imagem inválida', invalid)
+                      return
+                    }
+                    setPhotoCropFile(file)
+                  }}
+                />
+              </button>
+            ) : (
+              <ProjectThumb photoUrl={project.data?.photoUrl} size="lg" />
+            )}
+            {photoCropFile && (
+              <ImageCropModal
+                file={photoCropFile}
+                aspect={1}
+                shape="rect"
+                title="Ajustar foto do projeto"
+                outputWidth={480}
+                outputType="image/jpeg"
+                onCancel={() => setPhotoCropFile(null)}
+                onConfirm={(cropped) => {
+                  setPhotoCropFile(null)
+                  void handlePhotoFile(cropped)
+                }}
+              />
+            )}
           <div className="min-w-0">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
               {project.data?.client?.name ?? 'Projeto'}
@@ -334,6 +417,7 @@ export function ProjectDetailView({ id }: { id: string }) {
                 </span>
               )}
             </div>
+          </div>
           </div>
         )}
 

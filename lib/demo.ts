@@ -138,6 +138,7 @@ export const demoProjects: Project[] = [
     client: demoClients[0],
     isExample: true,
     publicLink: 'demo-projeto',
+    photoUrl: null,
     members: [{ id: 'pm1', userId: 'm2', name: 'Marina Alves', email: 'marina@agencia.com' }],
   },
   {
@@ -147,9 +148,30 @@ export const demoProjects: Project[] = [
     client: demoClients[1],
     isExample: false,
     publicLink: 'demo-projeto-combo',
+    photoUrl: null,
     members: [{ id: 'pm2', userId: 'm3', name: 'Rafael Souza', email: 'rafael@agencia.com' }],
   },
 ]
+
+/**
+ * Edita um projeto de exemplo in-memory (nome/cliente/foto) — mesma ideia de
+ * `demoAssignProjectMember`: só pra exercitar a UI no modo demo, não persiste
+ * entre reloads.
+ */
+export function demoUpdateProject(
+  id: string,
+  input: { name?: string; clientId?: string; photoUrl?: string | null },
+): Project {
+  const project = demoProjects.find((p) => p.id === id)
+  if (!project) throw new Error('Projeto não encontrado.')
+  if (input.name !== undefined) project.name = input.name
+  if (input.clientId !== undefined) {
+    project.clientId = input.clientId
+    project.client = demoClients.find((c) => c.id === input.clientId)
+  }
+  if (input.photoUrl !== undefined) project.photoUrl = input.photoUrl
+  return project
+}
 
 /**
  * Atribui/remove um editor de um projeto de exemplo (mutação in-memory, só

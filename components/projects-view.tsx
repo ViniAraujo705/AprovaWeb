@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   FolderOpen,
   Film,
@@ -15,6 +16,7 @@ import {
   Archive,
   ArchiveRestore,
   Search,
+  ImagePlus,
 } from 'lucide-react'
 import { clientService, projectService, videoService } from '@/lib/services'
 import type { Client, Project, Video } from '@/lib/types'
@@ -25,6 +27,10 @@ import { StaggerList, staggerItem, motion } from '@/components/motion'
 import { toast } from '@/lib/toast'
 import { getArchivedProjectIds, unarchiveProject } from '@/lib/archived-projects'
 import { ClientAvatar } from '@/components/client-avatar'
+import { ProjectThumb } from '@/components/project-thumb'
+import { ImageCropModal } from '@/components/image-crop-modal'
+import { validatePhotoFile, UploadError } from '@/lib/upload'
+import { uploadProjectPhoto } from '@/lib/project-photo'
 import { useAuth } from '@/components/auth-provider'
 
 const ALL_CLIENTS = 'Todos os clientes'
@@ -76,6 +82,22 @@ export function ProjectsView() {
   const [creatingClient, setCreatingClient] = useState(false)
   const [creatingBusy, setCreatingBusy] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  // Foto do projeto: escolhida e recortada aqui, mas só enviada depois do
+  // POST /projects — a presigned URL é escopada no id, que ainda não existe
+  // enquanto o formulário está aberto.
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [photoCropFile, setPhotoCropFile] = useState<File | null>(null)
+  const [photoError, setPhotoError] = useState<string | null>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  function setPhoto(file: File | null) {
+    setPhotoPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return file ? URL.createObjectURL(file) : null
+    })
+    setPhotoFile(file)
+  }
 
   function openProjectForm() {
     setCreatingProject(true)
@@ -83,6 +105,8 @@ export function ProjectsView() {
     setProjectClientId('')
     setNewClientName(null)
     setCreateError(null)
+    setPhoto(null)
+    setPhotoError(null)
   }
 
   async function createInlineClient() {
@@ -115,6 +139,18 @@ export function ProjectsView() {
     setCreateError(null)
     try {
       const created = await projectService.create({ name, clientId: projectClientId })
+      // Foto é acessório: se o upload falhar, o projeto criado continua valendo
+      // e o usuário tenta de novo pela tela do projeto, em vez de perder tudo.
+      if (photoFile) {
+        try {
+          await uploadProjectPhoto(created.id, photoFile)
+        } catch (err) {
+          toast.error(
+            'Projeto criado, mas a foto não subiu',
+            err instanceof UploadError || err instanceof ApiError ? err.message : undefined,
+          )
+        }
+      }
       toast.success('Projeto criado')
       router.push(`/projetos/${created.id}`)
     } catch (err) {
@@ -262,7 +298,57 @@ export function ProjectsView() {
               <X className="size-4" />
             </button>
           </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+            {/* Foto opcional do projeto — vira a miniatura do card na lista. */}
+            <div className="shrink-0">
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                aria-label={photoPreview ? 'Trocar a foto do projeto' : 'Escolher uma foto do projeto'}
+                title="Foto do projeto (opcional)"
+                className={`group relative grid size-14 place-items-center overflow-hidden rounded-lg border border-border bg-secondary text-muted-foreground/70 transition-colors hover:border-primary/50 hover:text-foreground ${
+                  photoPreview ? '' : 'border-dashed'
+                }`}
+              >
+                {photoPreview ? (
+                  <Image src={photoPreview} alt="" fill className="object-cover" sizes="56px" unoptimized />
+                ) : (
+                  <ImagePlus className="size-5" />
+                )}
+                <span className="absolute inset-0 hidden place-items-center bg-black/50 text-white group-hover:grid">
+                  <ImagePlus className="size-4" />
+                </span>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    e.target.value = ''
+                    if (!file) return
+                    const invalid = validatePhotoFile(file)
+                    if (invalid) {
+                      setPhotoError(invalid)
+                      return
+                    }
+                    setPhotoError(null)
+                    setPhotoCropFile(file)
+                  }}
+                />
+              </button>
+              {photoPreview && (
+                <button
+                  type="button"
+                  onClick={() => setPhoto(null)}
+                  className="mt-1 block w-14 text-center text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  Remover
+                </button>
+              )}
+            </div>
+
+            <div className="grid flex-1 gap-3 sm:grid-cols-2">
             <input
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
@@ -324,7 +410,24 @@ export function ProjectsView() {
                 </div>
               )}
             </div>
+            </div>
           </div>
+          {photoCropFile && (
+            <ImageCropModal
+              file={photoCropFile}
+              aspect={1}
+              shape="rect"
+              title="Ajustar foto do projeto"
+              outputWidth={480}
+              outputType="image/jpeg"
+              onCancel={() => setPhotoCropFile(null)}
+              onConfirm={(cropped) => {
+                setPhotoCropFile(null)
+                setPhoto(cropped)
+              }}
+            />
+          )}
+          {photoError && <p className="mt-2 text-xs text-destructive">{photoError}</p>}
           {createError && <p className="mt-2 text-xs text-destructive">{createError}</p>}
           <button
             type="button"
@@ -483,10 +586,16 @@ function ProjectCard({
       */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-start gap-3">
-          <ClientAvatar
-            name={project.client?.name ?? 'Cliente'}
-            photoUrl={project.client?.photoUrl}
-            seed={project.clientId}
+          <ProjectThumb
+            photoUrl={project.photoUrl}
+            size="sm"
+            fallback={
+              <ClientAvatar
+                name={project.client?.name ?? 'Cliente'}
+                photoUrl={project.client?.photoUrl}
+                seed={project.clientId}
+              />
+            }
           />
           <div className="min-w-0">
             <p className="truncate text-xs text-muted-foreground" title={project.client?.name ?? 'Cliente'}>

@@ -59,6 +59,7 @@ import { toast } from '@/lib/toast'
 import { usePlanLimit } from '@/components/plan-limit-provider'
 import { useAuth } from '@/components/auth-provider'
 import { ImageCropModal } from '@/components/image-crop-modal'
+import { ProjectThumb } from '@/components/project-thumb'
 
 /** Lê um arquivo como Data URL (usado só no preview/modo demo). */
 function readAsDataUrl(file: File): Promise<string> {
@@ -1495,7 +1496,11 @@ function ClientProjects({ clientId }: { clientId: string }) {
                   href={`/projetos/${p.id}`}
                   className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"
                 >
-                  <FolderOpen className="size-5 shrink-0 text-primary" />
+                  <ProjectThumb
+                    photoUrl={p.photoUrl}
+                    size="sm"
+                    fallback={<FolderOpen className="size-5 shrink-0 text-primary" />}
+                  />
                   <span className="min-w-0 truncate font-medium text-foreground" title={p.name}>
                     {p.name}
                   </span>
