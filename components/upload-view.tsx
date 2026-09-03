@@ -64,6 +64,13 @@ function formatEta(seconds: number): string {
 function createVideoThumbnail(file: File): Promise<string | null> {
   return new Promise((resolve) => {
     const video = document.createElement('video')
+    // Alguns navegadores mobile (Safari iOS, Chrome Android) só decodificam frames
+    // de um <video> que está de fato no DOM — fora dele, currentTime/drawImage falham em silêncio.
+    video.style.position = 'fixed'
+    video.style.top = '-9999px'
+    video.style.width = '1px'
+    video.style.height = '1px'
+    document.body.appendChild(video)
     const objectUrl = URL.createObjectURL(file)
     let finished = false
     const timeout = window.setTimeout(() => finish(null), 5000)
@@ -74,6 +81,7 @@ function createVideoThumbnail(file: File): Promise<string | null> {
       window.clearTimeout(timeout)
       video.removeAttribute('src')
       video.load()
+      video.remove()
       URL.revokeObjectURL(objectUrl)
       resolve(thumbnail)
     }
@@ -99,6 +107,7 @@ function createVideoThumbnail(file: File): Promise<string | null> {
     video.preload = 'metadata'
     video.muted = true
     video.playsInline = true
+    video.setAttribute('webkit-playsinline', 'true')
     video.onloadeddata = () => {
       const frameTime = Math.min(0.1, Math.max(0, (video.duration || 0) / 2))
       if (frameTime > 0) {
