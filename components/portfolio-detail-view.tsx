@@ -29,7 +29,7 @@ import type { Client, Portfolio, PortfolioCategory, PortfolioItem, PortfolioItem
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
-import { UploadError, uploadToPresignedUrl, validatePhotoFile, validateVideoFile } from '@/lib/upload'
+import { UploadError, uploadToPresignedUrl, validatePhotoFile, validateVideoFile, resolveContentType } from '@/lib/upload'
 import { isDemo } from '@/lib/demo'
 import { AnimatePresence, motion, FadeIn } from '@/components/motion'
 import { toast } from '@/lib/toast'
@@ -325,7 +325,7 @@ function PortfolioDetailsForm({
       }
       const presigned = await portfolioService.getCoverUploadUrl(portfolio.id, {
         fileName: file.name,
-        contentType: file.type || 'application/octet-stream',
+        contentType: resolveContentType(file),
       })
       if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
       await uploadToPresignedUrl({ url: presigned.uploadUrl, file, headers: presigned.headers })
@@ -832,7 +832,7 @@ function UploadPortfolioMediaForm({
 
         const presigned = await portfolioService.getUploadUrl(portfolioId, {
           fileName: item.file.name,
-          contentType: item.file.type || 'application/octet-stream',
+          contentType: resolveContentType(item.file),
         })
         if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
         if (!presigned.publicUrl) throw new UploadError('Servidor não retornou a URL pública do arquivo.')

@@ -13,6 +13,51 @@ export class UploadError extends Error {
   }
 }
 
+/** Fallback de Content-Type por extensão, para quando o navegador não informa o tipo. */
+const CONTENT_TYPE_BY_EXTENSION: Record<string, string> = {
+  // vídeo — `.mov` é o caso real: no macOS/iOS costuma chegar com `file.type` vazio
+  mov: 'video/quicktime',
+  qt: 'video/quicktime',
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  webm: 'video/webm',
+  avi: 'video/x-msvideo',
+  mpeg: 'video/mpeg',
+  mpg: 'video/mpeg',
+  // imagem
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  // áudio (comentário por voz)
+  weba: 'audio/webm',
+  m4a: 'audio/mp4',
+  mp3: 'audio/mpeg',
+  // documentos do cliente
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+  csv: 'text/csv',
+  zip: 'application/zip',
+}
+
+/**
+ * Content-Type efetivo do arquivo, com fallback pela extensão.
+ *
+ * O backend rejeita `application/octet-stream` com 400 ao gerar a presigned
+ * URL, então um `.mov` que chega com `file.type` vazio (comum no macOS/iOS)
+ * nem chegava a subir. Além disso, o tipo vai **assinado na URL**: o valor
+ * enviado no `contentType` do POST precisa ser idêntico ao header
+ * `Content-Type` do PUT, senão o R2 responde `SignatureDoesNotMatch` (403) —
+ * que na aba Network é indistinguível de um erro de CORS. Por isso os dois
+ * lados passam por esta função, e não por `file.type` direto.
+ */
+export function resolveContentType(file: File): string {
+  if (file.type) return file.type
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
+  return CONTENT_TYPE_BY_EXTENSION[extension] ?? 'application/octet-stream'
+}
+
 /** Valida o arquivo antes de qualquer chamada de rede. */
 export function validateVideoFile(file: File): string | null {
   const typeOk =
@@ -111,8 +156,9 @@ export function uploadToPresignedUrl({
     const xhr = new XMLHttpRequest()
     xhr.open(method, url, true)
 
-    // Content-Type: usa o do arquivo, salvo se o backend exigir outro.
-    const finalHeaders = headers ?? { 'Content-Type': file.type || 'application/octet-stream' }
+    // Content-Type: mesmo valor usado no `contentType` do POST (ver
+    // `resolveContentType`) — divergir aqui quebra a assinatura da URL.
+    const finalHeaders = headers ?? { 'Content-Type': resolveContentType(file) }
     for (const [k, v] of Object.entries(finalHeaders)) xhr.setRequestHeader(k, v)
 
     const startedAt = performance.now()

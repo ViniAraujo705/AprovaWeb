@@ -22,7 +22,7 @@ import { useAuth } from '@/components/auth-provider'
 import { ApiError } from '@/lib/api'
 import { formatDuration, formatSentAt } from '@/lib/format'
 import { triggerDownload } from '@/lib/download'
-import { validateVideoFile, uploadToPresignedUrl, UploadError } from '@/lib/upload'
+import { validateVideoFile, uploadToPresignedUrl, UploadError, resolveContentType } from '@/lib/upload'
 import { isDemo } from '@/lib/demo'
 import { LoadingState, ErrorState } from '@/components/states'
 import { FadeIn, motion, AnimatePresence } from '@/components/motion'
@@ -614,7 +614,7 @@ function NewVersionButton({
       } else {
         const presigned = await videoService.getUploadUrl({
           fileName: file.name,
-          contentType: file.type || 'application/octet-stream',
+          contentType: resolveContentType(file),
         })
         if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
         if (!presigned.publicUrl)

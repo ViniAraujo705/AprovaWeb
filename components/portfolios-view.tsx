@@ -27,7 +27,7 @@ import { PORTFOLIO_TEMPLATE_OPTIONS } from '@/lib/portfolio-templates'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
-import { UploadError, uploadToPresignedUrl, validatePhotoFile } from '@/lib/upload'
+import { UploadError, uploadToPresignedUrl, validatePhotoFile, resolveContentType } from '@/lib/upload'
 import { isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
 import { StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
@@ -293,7 +293,7 @@ function PortfolioProfileCard({
       }
       const presigned = await portfolioProfileService.getPhotoUploadUrl({
         fileName: file.name,
-        contentType: file.type || 'application/octet-stream',
+        contentType: resolveContentType(file),
       })
       if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
       await uploadToPresignedUrl({ url: presigned.uploadUrl, file, headers: presigned.headers })
@@ -452,7 +452,7 @@ function PortfolioProfileEditModal({
       }
       const presigned = await portfolioProfileService.getCoverUploadUrl({
         fileName: file.name,
-        contentType: file.type || 'application/octet-stream',
+        contentType: resolveContentType(file),
       })
       if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
       await uploadToPresignedUrl({ url: presigned.uploadUrl, file, headers: presigned.headers })

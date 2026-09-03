@@ -20,7 +20,7 @@ import type { Client, Project, TeamMember } from '@/lib/types'
 import { useQuery } from '@/lib/use-query'
 import { Skeleton } from '@/components/states'
 import { ApiError } from '@/lib/api'
-import { UploadError, uploadToPresignedUrl, validateVideoFile } from '@/lib/upload'
+import { UploadError, uploadToPresignedUrl, validateVideoFile, resolveContentType } from '@/lib/upload'
 import { UPLOAD_ACCEPTED_LABEL } from '@/lib/config'
 import { DEMO_LINK, isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
@@ -385,7 +385,7 @@ export function UploadView() {
       try {
         const presigned = await videoService.getUploadUrl({
           fileName: item.file.name,
-          contentType: item.file.type || 'application/octet-stream',
+          contentType: resolveContentType(item.file),
         })
         if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
         if (!presigned.publicUrl)

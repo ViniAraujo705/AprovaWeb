@@ -17,7 +17,7 @@ import {
 import { authService, sessionService, userService } from '@/lib/services'
 import type { Session, User } from '@/lib/types'
 import { ApiError } from '@/lib/api'
-import { validateImageFile, uploadToPresignedUrl, UploadError } from '@/lib/upload'
+import { validateImageFile, uploadToPresignedUrl, UploadError, resolveContentType } from '@/lib/upload'
 import { isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/components/auth-provider'
@@ -126,7 +126,7 @@ function ProfileForm({ user }: { user: User }) {
 
       const presigned = await userService.getProfileUploadUrl({
         fileName: file.name,
-        contentType: file.type || 'application/octet-stream',
+        contentType: resolveContentType(file),
       })
       if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
 
@@ -536,7 +536,7 @@ function BrandingForm({ user }: { user: User }) {
       // 1) presigned URL
       const presigned = await userService.getBrandingUploadUrl({
         fileName: file.name,
-        contentType: file.type || 'application/octet-stream',
+        contentType: resolveContentType(file),
       })
       if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
 
