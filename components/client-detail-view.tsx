@@ -1390,7 +1390,8 @@ function ClientBrandingForm({
 }
 
 function ClientProjects({ clientId }: { clientId: string }) {
-  // Criar projeto é do owner — editor só vê a lista (dos projetos em que é membro).
+  // Editor cria projeto normalmente; a lista dele é só a dos projetos em que
+  // é membro, e é isso que o estado vazio diferencia.
   const isOwner = useAuth().user?.teamRole === 'owner'
   const router = useRouter()
   const projects = useQuery<Project[]>((signal) => projectService.list(clientId, signal), [clientId])
@@ -1422,7 +1423,7 @@ function ClientProjects({ clientId }: { clientId: string }) {
     <div>
       <div className="flex items-center justify-between">
         <h2 className="font-display text-2xl tracking-wide">PROJETOS</h2>
-        {isOwner && !creating && (
+        {!creating && (
           <button
             type="button"
             onClick={() => {
@@ -1437,7 +1438,7 @@ function ClientProjects({ clientId }: { clientId: string }) {
         )}
       </div>
 
-      {isOwner && creating && (
+      {creating && (
         <div className="mt-3 rounded-xl border border-border bg-card p-4">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-foreground">Novo projeto para este cliente</span>
@@ -1485,7 +1486,7 @@ function ClientProjects({ clientId }: { clientId: string }) {
             description={
               isOwner
                 ? 'Crie um projeto para este cliente para começar a enviar vídeos.'
-                : 'Peça para o responsável da agência te adicionar a um projeto deste cliente.'
+                : 'Crie um projeto para este cliente, ou peça pro responsável da agência te adicionar a um que já existe.'
             }
           />
         ) : (

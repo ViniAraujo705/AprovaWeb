@@ -271,9 +271,7 @@ export function ProjectsView() {
               {showArchived ? 'Ver ativos' : `Arquivados (${archivedCount})`}
             </button>
           )}
-          {/* Criar projeto (e cliente) é do owner: editor só trabalha nos
-              projetos em que foi colocado como membro. */}
-          {isOwner && !creatingProject && (
+          {!creatingProject && (
             <button
               type="button"
               onClick={openProjectForm}
@@ -285,7 +283,7 @@ export function ProjectsView() {
         </div>
       </div>
 
-      {isOwner && creatingProject && (
+      {creatingProject && (
         <div className="mt-4 rounded-xl border border-border bg-card p-4">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-foreground">Novo projeto</span>
@@ -356,24 +354,27 @@ export function ProjectsView() {
               className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
             />
             <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                {newClientName === null ? (
-                  <button
-                    type="button"
-                    onClick={() => setNewClientName('')}
-                    className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-                  >
-                    <Plus className="size-3" /> Novo cliente
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setNewClientName(null)}
-                    className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="size-3" /> Cancelar
-                  </button>
-                )}
+              {/* Criar cliente segue sendo do owner — o editor escolhe entre
+                  os que já existem. */}
+              <div className="flex min-h-5 items-center justify-between">
+                {isOwner &&
+                  (newClientName === null ? (
+                    <button
+                      type="button"
+                      onClick={() => setNewClientName('')}
+                      className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      <Plus className="size-3" /> Novo cliente
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setNewClientName(null)}
+                      className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="size-3" /> Cancelar
+                    </button>
+                  ))}
               </div>
               {newClientName === null ? (
                 <select
@@ -458,10 +459,10 @@ export function ProjectsView() {
             description={
               isOwner
                 ? 'Crie um projeto para um cliente, ou envie o primeiro vídeo direto.'
-                : 'Peça para o responsável da agência te adicionar a um projeto.'
+                : 'Crie um projeto para um cliente, ou peça pro responsável da agência te adicionar a um que já existe.'
             }
             action={
-              isOwner && (
+              (
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <button
                     type="button"
