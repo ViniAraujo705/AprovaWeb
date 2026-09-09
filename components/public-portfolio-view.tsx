@@ -8,6 +8,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { EmptyState } from '@/components/states'
 import { FadeIn, StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
 import { useBrandAccentStyle } from '@/lib/theme'
+import { publicUrl } from '@/lib/site'
 
 /**
  * Vitrine pública de um portfólio (rota /p/:link) — grade de vídeos em
@@ -26,7 +27,7 @@ export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPort
   const [shareCopied, setShareCopied] = useState(false)
 
   async function share() {
-    const url = `${window.location.origin}/p/${link}`
+    const url = publicUrl(`/p/${link}`)
     setSharing(true)
     try {
       if (navigator.share) {

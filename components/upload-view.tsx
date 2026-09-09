@@ -24,6 +24,7 @@ import { UploadError, uploadToPresignedUrl, validateVideoFile, resolveContentTyp
 import { UPLOAD_ACCEPTED_LABEL } from '@/lib/config'
 import { DEMO_LINK, isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
+import { publicUrl } from '@/lib/site'
 import { usePlanLimit } from '@/components/plan-limit-provider'
 import { useAuth } from '@/components/auth-provider'
 import { DateField } from '@/components/date-field'
@@ -475,7 +476,7 @@ export function UploadView() {
       }
       await createBatchDemand(title.trim() || 'Novo lote')
       await new Promise((r) => setTimeout(r, 300))
-      setGalleryLink(`${window.location.origin}/v/${DEMO_LINK}`)
+      setGalleryLink(publicUrl(`/v/${DEMO_LINK}`))
       setPhase('done')
       return
     }
@@ -492,13 +493,13 @@ export function UploadView() {
           const project = (projectsForClient.data ?? []).find((p) => p.id === projectId)
           projectName = project?.name ?? 'Projeto sem nome'
           const g = project?.publicLink
-          setGalleryLink(g ? `${window.location.origin}/g/${g}` : null)
+          setGalleryLink(g ? publicUrl(`/g/${g}`) : null)
         } else {
           const created = await projectService.create({ name: title.trim(), clientId })
           targetProjectId = created.id
           projectName = created.name
           setGalleryLink(
-            created.publicLink ? `${window.location.origin}/g/${created.publicLink}` : null,
+            created.publicLink ? publicUrl(`/g/${created.publicLink}`) : null,
           )
         }
         setBatchProjectId(targetProjectId)

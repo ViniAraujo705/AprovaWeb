@@ -32,6 +32,7 @@ import { ImageCropModal } from '@/components/image-crop-modal'
 import { validatePhotoFile, UploadError } from '@/lib/upload'
 import { uploadProjectPhoto } from '@/lib/project-photo'
 import { useAuth } from '@/components/auth-provider'
+import { publicUrl } from '@/lib/site'
 
 const ALL_CLIENTS = 'Todos os clientes'
 
@@ -560,7 +561,7 @@ function ProjectCard({
   async function copyGalleryLink() {
     if (!galleryPath) return
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}${galleryPath}`)
+      await navigator.clipboard.writeText(publicUrl(galleryPath))
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {

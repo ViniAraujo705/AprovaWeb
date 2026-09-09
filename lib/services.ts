@@ -9,6 +9,7 @@
 import { api, ApiError } from '@/lib/api'
 import { API_URL } from '@/lib/config'
 import { getToken } from '@/lib/auth'
+import { siteOrigin } from '@/lib/site'
 import {
   buildDemoReport,
   DEMO_TOKEN,
@@ -2795,7 +2796,7 @@ export const teamService = {
   async invite(email: string): Promise<TeamMember & { inviteUrl?: string | null }> {
     if (isDemo()) {
       const token = `demo-${Date.now()}`
-      const origin = typeof window !== 'undefined' ? window.location.origin : ''
+      const origin = siteOrigin()
       return delay(
         {
           id: `invite-${Date.now()}`,

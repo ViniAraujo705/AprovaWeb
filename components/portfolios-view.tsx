@@ -32,6 +32,7 @@ import { isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
 import { StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
 import { toast } from '@/lib/toast'
+import { publicUrl } from '@/lib/site'
 
 /** Pseudo-id da aba "Sem categoria" (portfólios com `categoryId: null`). */
 const UNCATEGORIZED = '__uncategorized__'
@@ -313,7 +314,7 @@ function PortfolioProfileCard({
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}${hubPath}`)
+      await navigator.clipboard.writeText(publicUrl(hubPath))
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
@@ -960,7 +961,7 @@ function PortfolioCard({ portfolio }: { portfolio: Portfolio }) {
     e.preventDefault()
     e.stopPropagation()
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/p/${portfolio.link}`)
+      await navigator.clipboard.writeText(publicUrl(`/p/${portfolio.link}`))
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {

@@ -33,6 +33,7 @@ import { UploadError, uploadToPresignedUrl, validatePhotoFile, validateVideoFile
 import { isDemo } from '@/lib/demo'
 import { AnimatePresence, motion, FadeIn } from '@/components/motion'
 import { toast } from '@/lib/toast'
+import { publicUrl } from '@/lib/site'
 import { cn } from '@/lib/utils'
 import { ImageCropModal } from '@/components/image-crop-modal'
 
@@ -88,7 +89,7 @@ function PortfolioDetailBody({
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}${publicPath}`)
+      await navigator.clipboard.writeText(publicUrl(publicPath))
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {

@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/states'
 import { FadeIn, StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
 import { useBrandAccentStyle } from '@/lib/theme'
 import { toast } from '@/lib/toast'
+import { publicUrl } from '@/lib/site'
 import { cn } from '@/lib/utils'
 
 const GALLERY_ONBOARDING_SEEN_KEY = 'aprova_gallery_onboarding_seen'
@@ -237,7 +238,7 @@ export function ProjectGalleryView({
 
   /** Compartilha o link da galeria inteira — resolve a reclamação de link feio/grande sem o cliente precisar copiar a URL na mão. */
   async function shareGallery() {
-    const url = `${window.location.origin}/g/${link}`
+    const url = publicUrl(`/g/${link}`)
     const title = gallery.projectName || 'Vídeos para aprovação'
     await shareOrCopy({ title, url }, url, setGallerySharing, setGalleryShareCopied)
   }
@@ -247,7 +248,7 @@ export function ProjectGalleryView({
     const items = gallery.videos.filter((v) => selected.has(v.link))
     if (items.length === 0) return
     const urls = items.map(
-      (v) => `${window.location.origin}/v/${v.link}?g=${encodeURIComponent(link)}`,
+      (v) => publicUrl(`/v/${v.link}?g=${encodeURIComponent(link)}`),
     )
     const title = gallery.projectName || 'Vídeos'
     await shareOrCopy(
