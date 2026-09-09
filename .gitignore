@@ -20,3 +20,6 @@ node_modules
 .claude/
 tsconfig.tsbuildinfo
 Captura de tela*.png
+
+# `.env*` acima ignora tudo; este é o template versionado.
+!.env.example
