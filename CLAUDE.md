@@ -23,6 +23,8 @@ npx tsc --noEmit # type-check — do this after any change, see caveat below
 
 ## Environment
 
+**Public links must never be built from `window.location.origin`.** The production domain is `checkprod.com.br`; the retired `vistoow.com.br` 308s to it (host-matched `redirects()` in `next.config.mjs`, path and query preserved). Because both domains resolved to the same deployment for a while, `window.location.origin` made every copied link inherit whichever domain the agency happened to be browsing — clients received links branded with the dead domain. Every share/copy affordance (`/g`, `/v`, `/p`, `/portfolio`) goes through `publicUrl()` in `lib/site.ts`, which resolves `NEXT_PUBLIC_SITE_URL` (set on Vercel, Production only) and falls back to the current origin solely in dev/preview. Links inside e-mails (invite, password reset, e-mail confirmation) come from the backend's own `FRONTEND_URL`, not from this repo.
+
 `NEXT_PUBLIC_API_URL` in `.env.local` (copy from `.env.example`) points at the NestJS backend (default `http://localhost:4000`). With no backend running, every authenticated screen correctly shows a connection-error state — that's expected, not a bug. To explore the UI without a backend, use "Entrar como demo" on `/login` (sets an `aprova_demo` localStorage flag), which routes all `lib/services.ts` calls to fixtures in `lib/demo.ts` instead of the network. The public route `/v/demo` also always works, demo flag or not.
 
 ## Architecture
