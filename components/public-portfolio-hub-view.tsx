@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ExternalLink, Film } from 'lucide-react'
-import type { PortfolioHubItem, PublicPortfolioHub } from '@/lib/types'
+import type { PortfolioHubItem, PublicPortfolioHub, PublicPortfolioHubCategory } from '@/lib/types'
 import { AgencyLogo } from '@/components/agency-logo'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { EmptyState } from '@/components/states'
@@ -280,7 +280,7 @@ function CategoryGrid({
   onSelect,
   layout,
 }: {
-  categories: { id: string; name: string; portfolios: PortfolioHubItem[] }[]
+  categories: PublicPortfolioHubCategory[]
   onSelect: (id: string) => void
   layout: PortfolioTemplateLayout
 }) {
@@ -288,7 +288,10 @@ function CategoryGrid({
     <FadeIn>
       <StaggerList className={cn('grid', layout.gridColsClass)}>
         {categories.map((c) => {
-          const cover = c.portfolios.find((p) => p.coverUrl)?.coverUrl ?? null
+          // Capa própria da aba primeiro; sem ela, cai na do primeiro álbum
+          // que tenha uma — o comportamento antigo, que fazia uma categoria
+          // com vários álbuns aparecer com a cara do primeiro deles.
+          const cover = c.coverUrl ?? c.portfolios.find((p) => p.coverUrl)?.coverUrl ?? null
           return (
             <motion.button
               key={c.id}

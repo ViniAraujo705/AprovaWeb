@@ -676,6 +676,7 @@ function mapPortfolioCategory(raw: Raw): PortfolioCategory {
     id: String(pick(raw, ['id', '_id'], '')),
     name: pick(raw, ['nome', 'name'], 'Sem título'),
     order: Number(pick(raw, ['ordem', 'order'], 0)) || 0,
+    coverUrl: pick<string | null>(raw, ['capaUrl', 'capa_url', 'coverUrl', 'cover_url'], null),
   }
 }
 
@@ -1955,10 +1956,33 @@ export const portfolioProfileService = {
     const res = await api.post<Raw>('/portfolio-categories', { nome: input.name })
     return mapPortfolioCategory(res)
   },
-  async updateCategory(id: string, input: { name: string }): Promise<PortfolioCategory> {
+  /** Renomeia e/ou troca a capa da categoria. `coverUrl: null` remove a capa (a vitrine volta a usar a do primeiro álbum). */
+  async updateCategory(
+    id: string,
+    input: { name?: string; coverUrl?: string | null },
+  ): Promise<PortfolioCategory> {
     if (isDemo()) return delay(demoUpdateCategory(id, input), 300)
-    const res = await api.patch<Raw>(`/portfolio-categories/${id}`, { nome: input.name })
+    const res = await api.patch<Raw>(`/portfolio-categories/${id}`, {
+      nome: input.name,
+      capaUrl: input.coverUrl,
+    })
     return mapPortfolioCategory(res)
+  },
+  /** Passo 1/2 do upload da capa da categoria (só imagem, mesmo padrão de `portfolioService.getCoverUploadUrl`). */
+  async getCategoryCoverUploadUrl(
+    categoryId: string,
+    input: { fileName: string; contentType: string },
+  ): Promise<{ uploadUrl: string; key: string; publicUrl: string | null; headers?: Record<string, string> }> {
+    const res = await api.post<Raw>(`/portfolio-categories/${categoryId}/cover-upload-url`, {
+      nomeArquivo: input.fileName,
+      contentType: input.contentType,
+    })
+    return {
+      uploadUrl: pick(res, ['uploadUrl'], ''),
+      key: pick(res, ['key'], ''),
+      publicUrl: pick<string | null>(res, ['publicUrl'], null),
+      headers: pick<Record<string, string> | undefined>(res, ['headers'], undefined),
+    }
   },
   /** Exclui a categoria — os álbuns associados ficam com `categoryId: null` ("Sem categoria"), não são apagados. */
   async removeCategory(id: string): Promise<void> {
@@ -2261,6 +2285,7 @@ export const publicService = {
       categories: asArray(pick(res, ['categorias', 'categories'], [])).map((c: Raw) => ({
         id: String(pick(c, ['id', '_id'], '')),
         name: pick(c, ['nome', 'name'], ''),
+        coverUrl: pick<string | null>(c, ['capaUrl', 'capa_url', 'coverUrl', 'cover_url'], null),
         portfolios: asArray(pick(c, ['portfolios', 'videos'], [])).map(mapPortfolioHubItem),
       })),
     }

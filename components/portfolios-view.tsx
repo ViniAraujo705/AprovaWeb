@@ -14,6 +14,7 @@ import {
   Check,
   Copy,
   ExternalLink,
+  ImageOff,
   ImagePlus,
   MoreVertical,
   Pencil,
@@ -24,6 +25,7 @@ import {
 import { portfolioProfileService, portfolioService } from '@/lib/services'
 import type { Portfolio, PortfolioCategory, PortfolioLink, PortfolioProfile, PortfolioTemplateId } from '@/lib/types'
 import { PORTFOLIO_TEMPLATE_OPTIONS } from '@/lib/portfolio-templates'
+import { ImageCropModal } from '@/components/image-crop-modal'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
@@ -244,6 +246,7 @@ export function PortfoliosView() {
           <>
             <CategoryTabs
               tabs={tabs}
+              categories={allCategories}
               active={activeTab}
               onSelect={setActiveTabState}
               onCategoriesChange={categories.setData}
@@ -664,11 +667,14 @@ function PortfolioProfileEditModal({
 
 function CategoryTabs({
   tabs,
+  categories,
   active,
   onSelect,
   onCategoriesChange,
 }: {
   tabs: { id: string; name: string }[]
+  /** As categorias reais por trás das abas — a pseudo-aba "Sem categoria" não tem uma. */
+  categories: PortfolioCategory[]
   active: string | null
   onSelect: (id: string) => void
   onCategoriesChange: (
@@ -712,9 +718,14 @@ function CategoryTabs({
           >
             {t.name}
           </button>
-          {t.id === active && t.id !== UNCATEGORIZED && (
-            <CategoryTabMenu categoryId={t.id} categoryName={t.name} onChange={onCategoriesChange} />
-          )}
+          {t.id === active &&
+            t.id !== UNCATEGORIZED &&
+            (() => {
+              const category = categories.find((c) => c.id === t.id)
+              return category ? (
+                <CategoryTabMenu category={category} onChange={onCategoriesChange} />
+              ) : null
+            })()}
         </div>
       ))}
 
@@ -763,19 +774,22 @@ function CategoryTabs({
 }
 
 /**
- * Menu "..." de ações da aba ativa (renomear/excluir). A aba fica dentro de
- * uma faixa com `overflow-x-auto` (rolagem horizontal em telas pequenas), o
- * que clipa qualquer overflow vertical de um filho `absolute` — mesmo
- * problema já resolvido em `notification-bell.tsx`: o painel é portado pro
- * `<body>` e posicionado via `getBoundingClientRect` do gatilho.
+ * Menu "..." de ações da aba ativa (capa própria / renomear / excluir). A aba
+ * fica dentro de uma faixa com `overflow-x-auto` (rolagem horizontal em telas
+ * pequenas), o que clipa qualquer overflow vertical de um filho `absolute` —
+ * mesmo problema já resolvido em `notification-bell.tsx`: o painel é portado
+ * pro `<body>` e posicionado via `getBoundingClientRect` do gatilho.
+ *
+ * O `<input type="file">` e o recorte ficam FORA do painel de propósito: o
+ * painel some no clique de fora, e o clique dentro do modal de recorte conta
+ * como clique de fora — se estivessem lá dentro, escolher o enquadramento
+ * desmontaria o próprio modal no meio do caminho.
  */
 function CategoryTabMenu({
-  categoryId,
-  categoryName,
+  category,
   onChange,
 }: {
-  categoryId: string
-  categoryName: string
+  category: PortfolioCategory
   onChange: (
     updater: PortfolioCategory[] | ((prev: PortfolioCategory[] | null) => PortfolioCategory[]),
   ) => void
@@ -784,11 +798,14 @@ function CategoryTabMenu({
   const [mounted, setMounted] = useState(false)
   const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({})
   const [renaming, setRenaming] = useState(false)
-  const [name, setName] = useState(categoryName)
+  const [name, setName] = useState(category.name)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [coverBusy, setCoverBusy] = useState(false)
+  const [coverCropFile, setCoverCropFile] = useState<File | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const coverInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => setMounted(true), [])
 
@@ -801,11 +818,11 @@ function CategoryTabMenu({
       setOpen(false)
       setRenaming(false)
       setConfirmingDelete(false)
-      setName(categoryName)
+      setName(category.name)
     }
     document.addEventListener('mousedown', onClickOutside)
     return () => document.removeEventListener('mousedown', onClickOutside)
-  }, [open, categoryName])
+  }, [open, category.name])
 
   useEffect(() => {
     if (!open) return
@@ -826,16 +843,16 @@ function CategoryTabMenu({
 
   async function save() {
     const trimmed = name.trim()
-    if (!trimmed || trimmed === categoryName) {
+    if (!trimmed || trimmed === category.name) {
       setRenaming(false)
       setOpen(false)
-      setName(categoryName)
+      setName(category.name)
       return
     }
     setBusy(true)
     try {
-      const updated = await portfolioProfileService.updateCategory(categoryId, { name: trimmed })
-      onChange((prev) => (prev ?? []).map((c) => (c.id === categoryId ? updated : c)))
+      const updated = await portfolioProfileService.updateCategory(category.id, { name: trimmed })
+      onChange((prev) => (prev ?? []).map((c) => (c.id === category.id ? updated : c)))
       setRenaming(false)
       setOpen(false)
     } catch (err) {
@@ -848,12 +865,67 @@ function CategoryTabMenu({
   async function remove() {
     setBusy(true)
     try {
-      await portfolioProfileService.removeCategory(categoryId)
-      onChange((prev) => (prev ?? []).filter((c) => c.id !== categoryId))
+      await portfolioProfileService.removeCategory(category.id)
+      onChange((prev) => (prev ?? []).filter((c) => c.id !== category.id))
       setOpen(false)
     } catch (err) {
       toast.error('Não foi possível excluir', err instanceof ApiError ? err.message : undefined)
       setBusy(false)
+    }
+  }
+
+  function onCoverFileSelected(file: File | undefined | null) {
+    if (!file) return
+    const invalid = validatePhotoFile(file)
+    if (invalid) {
+      toast.error('Imagem inválida', invalid)
+      return
+    }
+    setCoverCropFile(file)
+  }
+
+  /** Sobe a capa recortada e grava na categoria (mesmo fluxo presigned da capa de álbum). */
+  async function uploadCover(file: File) {
+    setCoverBusy(true)
+    try {
+      let coverUrl: string | null
+      if (isDemo()) {
+        coverUrl = await readAsDataUrl(file)
+      } else {
+        const presigned = await portfolioProfileService.getCategoryCoverUploadUrl(category.id, {
+          fileName: file.name,
+          contentType: resolveContentType(file),
+        })
+        if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
+        await uploadToPresignedUrl({ url: presigned.uploadUrl, file, headers: presigned.headers })
+        coverUrl = presigned.publicUrl
+      }
+      const updated = await portfolioProfileService.updateCategory(category.id, { coverUrl })
+      onChange((prev) => (prev ?? []).map((c) => (c.id === category.id ? updated : c)))
+      setOpen(false)
+      toast.success('Capa da categoria atualizada')
+    } catch (err) {
+      toast.error(
+        'Não foi possível enviar a capa',
+        err instanceof UploadError || err instanceof ApiError ? err.message : undefined,
+      )
+    } finally {
+      setCoverBusy(false)
+    }
+  }
+
+  /** Volta ao fallback: sem capa própria, o hub usa a capa do primeiro álbum da aba. */
+  async function removeCover() {
+    setCoverBusy(true)
+    try {
+      const updated = await portfolioProfileService.updateCategory(category.id, { coverUrl: null })
+      onChange((prev) => (prev ?? []).map((c) => (c.id === category.id ? updated : c)))
+      setOpen(false)
+      toast.success('Capa removida', 'A vitrine volta a usar a capa do primeiro álbum.')
+    } catch (err) {
+      toast.error('Não foi possível remover a capa', err instanceof ApiError ? err.message : undefined)
+    } finally {
+      setCoverBusy(false)
     }
   }
 
@@ -863,11 +935,41 @@ function CategoryTabMenu({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        aria-label={`Ações da categoria ${categoryName}`}
+        aria-label={`Ações da categoria ${category.name}`}
         className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
       >
         <MoreVertical className="size-3.5" />
       </button>
+
+      <input
+        ref={coverInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          onCoverFileSelected(e.target.files?.[0])
+          e.target.value = ''
+        }}
+      />
+
+      {mounted &&
+        coverCropFile &&
+        createPortal(
+          <ImageCropModal
+            file={coverCropFile}
+            aspect={1}
+            shape="rect"
+            title="Ajustar capa da categoria"
+            outputWidth={1080}
+            outputType="image/jpeg"
+            onCancel={() => setCoverCropFile(null)}
+            onConfirm={(cropped) => {
+              setCoverCropFile(null)
+              void uploadCover(cropped)
+            }}
+          />,
+          document.body,
+        )}
 
       {mounted &&
         createPortal(
@@ -880,12 +982,12 @@ function CategoryTabMenu({
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.15 }}
                 style={panelStyle}
-                className="fixed z-50 w-52 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-2xl"
+                className="fixed z-50 w-60 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-2xl"
               >
                 {confirmingDelete ? (
                   <div className="p-1.5">
                     <p className="px-1 pb-2 text-xs text-muted-foreground">
-                      Excluir &quot;{categoryName}&quot;? Os álbuns dela ficam sem categoria.
+                      Excluir &quot;{category.name}&quot;? Os álbuns dela ficam sem categoria.
                     </p>
                     <div className="flex gap-1.5">
                       <button
@@ -926,6 +1028,55 @@ function CategoryTabMenu({
                   </div>
                 ) : (
                   <>
+                    <button
+                      type="button"
+                      onClick={() => coverInputRef.current?.click()}
+                      disabled={coverBusy}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-sm text-foreground transition-colors hover:bg-secondary disabled:opacity-60"
+                    >
+                      <span className="relative size-9 shrink-0 overflow-hidden rounded-md bg-secondary">
+                        {category.coverUrl ? (
+                          <Image
+                            src={category.coverUrl}
+                            alt=""
+                            fill
+                            className="object-cover"
+                            sizes="36px"
+                            unoptimized
+                          />
+                        ) : (
+                          <span className="grid h-full w-full place-items-center text-muted-foreground/60">
+                            <ImagePlus className="size-3.5" />
+                          </span>
+                        )}
+                        {coverBusy && (
+                          <span className="absolute inset-0 grid place-items-center bg-black/50 text-white">
+                            <Loader2 className="size-3.5 animate-spin" />
+                          </span>
+                        )}
+                      </span>
+                      <span className="min-w-0 text-left">
+                        <span className="block truncate">
+                          {category.coverUrl ? 'Trocar capa da aba' : 'Definir capa da aba'}
+                        </span>
+                        {!category.coverUrl && (
+                          <span className="block truncate text-[11px] text-muted-foreground">
+                            Hoje usa a do 1º álbum
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                    {category.coverUrl && (
+                      <button
+                        type="button"
+                        onClick={removeCover}
+                        disabled={coverBusy}
+                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-secondary disabled:opacity-60"
+                      >
+                        <ImageOff className="size-3.5 text-muted-foreground" />
+                        Remover capa
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setRenaming(true)}

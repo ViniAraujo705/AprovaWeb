@@ -806,8 +806,10 @@ let portfolioIdSeq = 0
 let portfolioVideoIdSeq = 0
 
 export const demoPortfolioCategories: PortfolioCategory[] = [
-  { id: 'pfc-foto', name: 'Fotos', order: 0 },
-  { id: 'pfc-video', name: 'Vídeo', order: 1 },
+  // 'Vídeo' tem capa própria (é a aba com mais de um álbum, o caso que motivou
+  // a feature); 'Fotos' fica sem, exercitando o fallback da capa do 1º álbum.
+  { id: 'pfc-foto', name: 'Fotos', order: 0, coverUrl: null },
+  { id: 'pfc-video', name: 'Vídeo', order: 1, coverUrl: '/videos/reel-food.png' },
 ]
 
 export const demoPortfolioProfile: PortfolioProfile = {
@@ -1013,15 +1015,20 @@ export function demoCreateCategory(input: { name: string }): PortfolioCategory {
     id: `pfc-${++portfolioCategoryIdSeq}-${Date.now()}`,
     name: input.name,
     order: demoPortfolioCategories.length,
+    coverUrl: null,
   }
   demoPortfolioCategories.push(created)
   return created
 }
 
-export function demoUpdateCategory(id: string, input: { name: string }): PortfolioCategory {
+export function demoUpdateCategory(
+  id: string,
+  input: { name?: string; coverUrl?: string | null },
+): PortfolioCategory {
   const found = demoPortfolioCategories.find((c) => c.id === id)
   if (!found) throw new Error('Categoria não encontrada.')
-  found.name = input.name
+  if (input.name !== undefined) found.name = input.name
+  if (input.coverUrl !== undefined) found.coverUrl = input.coverUrl
   return found
 }
 
@@ -1073,6 +1080,7 @@ export function demoPublicPortfolioHub(): PublicPortfolioHub {
       .map((c) => ({
         id: c.id,
         name: c.name,
+        coverUrl: c.coverUrl,
         portfolios: demoPortfolios
           .filter((p) => p.categoryId === c.id && p.videos.length > 0)
           .map((p) => ({

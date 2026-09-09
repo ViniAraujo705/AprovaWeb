@@ -428,13 +428,22 @@ continua acessível pelo link direto dele.
 | `PATCH` | `/portfolio-profile` | `{ fotoUrl?, capaUrl?, bio?, links? }` | `PortfolioProfile` atualizado |
 | `GET` | `/portfolio-categories` | — | `PortfolioCategory[]`, ordenadas por `ordem` |
 | `POST` | `/portfolio-categories` | `{ nome }` | `PortfolioCategory` criada |
-| `PATCH` | `/portfolio-categories/:id` | `{ nome }` | `PortfolioCategory` atualizada |
+| `PATCH` | `/portfolio-categories/:id` | `{ nome?, capaUrl? }` | `PortfolioCategory` atualizada — `capaUrl: null` limpa a capa da aba |
 | `DELETE` | `/portfolio-categories/:id` | — | `{ "deleted": true }` — os álbuns associados viram `categoriaId: null`, **não são apagados** |
 | `PATCH` | `/portfolio-categories/order` | `{ categoryIds: ["uuid1", "uuid2", "..."] }` | `PortfolioCategory[]` com `ordem` recalculada pela posição no array |
 
 `PortfolioProfile`: `{ fotoUrl, capaUrl, bio, links: PortfolioLink[], linkHub }`
 — `linkHub` nunca é `null` (mesmo espírito do `linkPublico` de projeto).
-`PortfolioCategory`: `{ id, nome, ordem }`.
+`PortfolioCategory`: `{ id, nome, ordem, capaUrl }`.
+
+**[ PENDENTE NO BACKEND ]** `capaUrl` é a **capa própria da aba** no hub
+público. Sem ela, o card da categoria na vitrine cai no fallback histórico —
+a capa do primeiro álbum da aba —, e uma aba com vários álbuns acaba
+aparecendo com a cara do primeiro deles (uma aba "Marketing médico" com 3
+álbuns aparecia como "HDR Fotos"). O owner define a capa pelo menu "..." da
+aba em `/portfolios`; a imagem é enviada pelo upload abaixo e salva com
+`PATCH /portfolio-categories/:id { capaUrl }`. O frontend recorta em **1:1**
+antes de enviar (o card da aba na vitrine é quadrado).
 
 **[ PENDENTE NO BACKEND ]** `capaUrl`, `bio` e `links` são campos novos
 (pedido original de portfólio: "capa, bio ... e informações de contato").
@@ -455,6 +464,17 @@ Presigned URL pra foto de perfil — só imagem, mesmo contrato 2-passos de
 "confirmação" (diferente do upload de vídeo).
 
 Body: `{ "nomeArquivo": "foto.jpg", "contentType": "image/jpeg" }`
+`contentType` aceita `image/png`, `image/jpeg`, `image/webp`.
+
+Resposta `200`: `{ "uploadUrl": "...", "key": "...", "publicUrl": "...", "expiresIn": 600 }`
+
+### `POST /portfolio-categories/:id/cover-upload-url`
+**[ PENDENTE NO BACKEND ]** Presigned URL pra capa da categoria/aba — só
+imagem, mesmo contrato 2-passos de `/portfolios/:id/cover-upload-url`: o
+frontend faz `PUT <uploadUrl>` e depois salva com
+`PATCH /portfolio-categories/:id { capaUrl: publicUrl }`.
+
+Body: `{ "nomeArquivo": "capa.jpg", "contentType": "image/jpeg" }`
 `contentType` aceita `image/png`, `image/jpeg`, `image/webp`.
 
 Resposta `200`: `{ "uploadUrl": "...", "key": "...", "publicUrl": "...", "expiresIn": 600 }`
@@ -868,6 +888,7 @@ Resposta:
     {
       "id": "uuid",
       "nome": "Vídeo",
+      "capaUrl": "https://... ou null",
       "portfolios": [
         { "id": "uuid", "nome": "Reels para redes sociais", "descricao": "... ou null", "link": "64c7527a-...", "capaUrl": "https://... ou null" }
       ]
@@ -877,7 +898,10 @@ Resposta:
 ```
 Cada item de `portfolios[]` é só o resumo do álbum (sem `videos[]`) — o
 frontend usa `link` pra montar o card que leva pra `/p/:link` (a página do
-álbum já existente, sem nenhuma mudança de contrato ali). `capaUrl`, `bio` e
+álbum já existente, sem nenhuma mudança de contrato ali). O `capaUrl` **da
+categoria** (irmão de `nome`, não confundir com o `capaUrl` de cada álbum) é
+a capa da aba: quando vem `null`, o frontend cai no fallback da capa do
+primeiro álbum da aba. `capaUrl`, `bio` e
 `links` vêm direto de `PortfolioProfile` (ver [Portfólio: perfil e
 categorias](#portfólio-perfil-e-categorias-portfolio-profile-portfolio-categories))
 — `links` vazio (`[]`) quando o owner não cadastrou nenhum.
@@ -921,6 +945,7 @@ Autenticado — **somente role `admin`**.
 | `PATCH` | `/admin/users/:id/status` | `{ status: "ativo" \| "suspenso" }` | usuário atualizado |
 | `GET` | `/admin/metrics` | — | métricas gerais da plataforma |
 | `GET` | `/admin/videos/errors` | — | vídeos com `status = erro` |
+| `POST` | `/admin/videos/:id/reprocess` | — | regera thumbnail + `urlOtimizada` |
 
 `GET /admin/users` → cada item:
 ```json
@@ -940,6 +965,16 @@ upload vai direto pro R2)
 
 `GET /admin/videos/errors` → cada item inclui `project.account.users[0]`
 (o owner responsável, para contato).
+
+`POST /admin/videos/:id/reprocess` aceita também vídeos que já estão
+`statusProcessamento: "pronto"` (28/08), pra regerar o otimizado sem novo
+upload — é o caminho para aplicar o perfil de transcode novo (1080 no lado
+menor, H.264 High, CRF 20, AAC 192k, `+faststart`) no acervo antigo, que
+foi gerado no perfil velho (406×720 a ~0,4 Mbps em vídeo vertical).
+
+> **Só role `admin` da plataforma.** Um `owner` de agência recebe `403`,
+> então o app não tem como oferecer "reprocessar" pra quem tem o vídeo —
+> hoje isso depende de alguém com acesso admin.
 
 ---
 

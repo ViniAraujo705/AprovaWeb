@@ -513,6 +513,13 @@ export interface PortfolioCategory {
   id: string
   name: string
   order: number
+  /**
+   * Capa própria da categoria, exibida no card dela na vitrine do hub. `null` =
+   * o hub cai no fallback histórico (capa do primeiro álbum com capa), que é
+   * justamente o que confunde quem chega de fora: uma aba com 3 álbuns
+   * aparecia com a cara do primeiro deles em vez de representar a categoria.
+   */
+  coverUrl: string | null
 }
 
 /** Perfil da vitrine da agência: identidade + o link público do hub que reúne todos os álbuns (/portfolio/:hubLink). */
@@ -557,7 +564,15 @@ export interface PublicPortfolioHub {
   links: PortfolioLink[]
   branding: Branding | null
   templateId: PortfolioTemplateId | null
-  categories: { id: string; name: string; portfolios: PortfolioHubItem[] }[]
+  categories: PublicPortfolioHubCategory[]
+}
+
+/** Uma aba do hub público: a categoria + os álbuns dela. `coverUrl` é a capa própria da aba; quando `null`, a vitrine cai na capa do primeiro álbum. */
+export interface PublicPortfolioHubCategory {
+  id: string
+  name: string
+  coverUrl: string | null
+  portfolios: PortfolioHubItem[]
 }
 
 /** Cards de destaque do dashboard (GET /dashboard/insights). */
