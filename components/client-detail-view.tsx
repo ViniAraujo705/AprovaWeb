@@ -45,6 +45,7 @@ import type {
   CalendarActivity,
   TeamMember,
   Video,
+  VideoStatus,
 } from '@/lib/types'
 import { statusLabel } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
@@ -219,7 +220,7 @@ function ClientWorkspace({
       {tab === 'approvals' && (
         <div className="mt-6 space-y-6">
           <ClientMetrics projects={[]} videos={clientVideos} events={[]} compact />
-          <ClientVideos videos={[...pendingVideos, ...changesVideos, ...approvedVideos]} loading={projects.loading || videos.loading} error={projects.error ?? videos.error} approvalOnly />
+          <ClientVideos videos={[...changesVideos, ...pendingVideos, ...approvedVideos]} loading={projects.loading || videos.loading} error={projects.error ?? videos.error} approvalOnly />
         </div>
       )}
       {tab === 'calendar' && <ClientCalendar events={clientEvents} loading={events.loading} error={events.error} />}
@@ -243,11 +244,21 @@ function ClientMetrics({ projects, videos, events, compact = false }: { projects
 
 const statusStyle = { pendente: 'bg-secondary text-muted-foreground', aprovado: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400', ajuste: 'bg-amber-500/15 text-amber-600 dark:text-amber-400', erro: 'bg-destructive/15 text-destructive' }
 
+/**
+ * Ordem de exibição dos conteúdos do cliente: o que cobra ação da agência
+ * primeiro, o que já está resolvido por último — pedido de agência, que
+ * abria a aba e tinha que caçar os "Em ajuste" no meio dos aprovados.
+ * `erro` (falha de processamento) entra logo depois, também cobra ação.
+ */
+const statusPriority: Record<VideoStatus, number> = { ajuste: 0, erro: 1, pendente: 2, aprovado: 3 }
+
 function ClientVideos({ videos, loading, error, approvalOnly = false }: { videos: Video[]; loading: boolean; error: string | null; approvalOnly?: boolean }) {
   if (loading) return <div className="mt-6 grid gap-3">{Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-16 w-full" />)}</div>
   if (error) return <div className="mt-6"><ErrorState message={error} /></div>
+  // `sort` é estável: dentro do mesmo status a ordem que veio da API se mantém.
+  const ordered = [...videos].sort((a, b) => statusPriority[a.status] - statusPriority[b.status])
   if (videos.length === 0) return <div className="mt-6"><EmptyState icon={<FileVideo className="size-7" />} title={approvalOnly ? 'Nenhuma aprovação para acompanhar' : 'Nenhum conteúdo ainda'} description={approvalOnly ? 'Os conteúdos enviados ao cliente aparecerão aqui conforme avançarem no fluxo.' : 'Envie um vídeo dentro de um projeto para centralizá-lo aqui.'} /></div>
-  return <div className="mt-6 space-y-2">{videos.map((video) => <Link key={video.id} href={`/videos/${video.id}/revisao`} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"><FileVideo className="size-5 shrink-0 text-primary" /><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{video.title}</p><p className="mt-0.5 text-xs text-muted-foreground">{video.commentsCount} comentário{video.commentsCount === 1 ? '' : 's'}{video.deadline ? ` · Prazo: ${new Date(video.deadline).toLocaleDateString('pt-BR')}` : ''}</p></div><span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', statusStyle[video.status])}>{statusLabel[video.status]}</span></Link>)}</div>
+  return <div className="mt-6 space-y-2">{ordered.map((video) => <Link key={video.id} href={`/videos/${video.id}/revisao`} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"><FileVideo className="size-5 shrink-0 text-primary" /><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{video.title}</p><p className="mt-0.5 text-xs text-muted-foreground">{video.commentsCount} comentário{video.commentsCount === 1 ? '' : 's'}{video.deadline ? ` · Prazo: ${new Date(video.deadline).toLocaleDateString('pt-BR')}` : ''}</p></div><span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', statusStyle[video.status])}>{statusLabel[video.status]}</span></Link>)}</div>
 }
 
 function ClientCalendar({ events, loading, error }: { events: CalendarActivity[]; loading: boolean; error: string | null }) {
