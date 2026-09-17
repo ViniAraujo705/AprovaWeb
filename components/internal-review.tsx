@@ -15,7 +15,7 @@ import {
   History,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Comment, CommentThread, Video } from '@/lib/types'
+import type { Comment, CommentThread, PreviousVersionComment, Video } from '@/lib/types'
 import { clientChannelService, internalCommentService, videoService } from '@/lib/services'
 import { useQuery } from '@/lib/use-query'
 import { useAuth } from '@/components/auth-provider'
@@ -27,7 +27,7 @@ import { isDemo } from '@/lib/demo'
 import { LoadingState, ErrorState } from '@/components/states'
 import { FadeIn, motion, AnimatePresence } from '@/components/motion'
 import { VideoStage, type VideoStageHandle, type StageMarker } from '@/components/video-stage'
-import { RoleBadge } from '@/components/comment-items'
+import { PreviousVersionsSection, RoleBadge } from '@/components/comment-items'
 import { DeadlineBadge, DeadlineField } from '@/components/deadline-badge'
 import { VideoTitleField } from '@/components/video-title-field'
 import { toast } from '@/lib/toast'
@@ -36,6 +36,10 @@ interface InternalData {
   video: Video
   comments: Comment[]
   clientComments: Comment[]
+  /** Ajustes do cliente pedidos nas versões anteriores (só leitura). */
+  previousClientComments: PreviousVersionComment[]
+  /** Discussão interna das versões anteriores (só leitura). */
+  previousComments: PreviousVersionComment[]
 }
 
 /** Agrupa comentários em threads: raízes (parentId null) + suas respostas. */
@@ -73,12 +77,22 @@ export function InternalReview({ videoId }: { videoId: string }) {
 
   const { data, loading, error, refetch, setData } = useQuery<InternalData>(
     async (signal) => {
-      const [video, comments, clientChannel] = await Promise.all([
+      const [video, comments, clientChannel, previousComments] = await Promise.all([
         videoService.get(videoId, signal),
         internalCommentService.list(videoId, signal),
         clientChannelService.get(videoId, signal),
+        // Histórico das versões anteriores é acessório: se a rota falhar (ex.:
+        // backend ainda sem ela), a seção some em vez de derrubar a revisão
+        // inteira, que é o que interessa nesta tela.
+        internalCommentService.listPreviousVersions(videoId, signal).catch(() => []),
       ])
       return {
+        previousComments,
+        // O canal do cliente sempre resolve pra versão mais recente; abrindo a
+        // revisão de uma versão antiga, só o que veio ANTES dela é "anterior".
+        previousClientComments: clientChannel.previousVersionComments.filter(
+          (comment) => comment.authorRole === 'client' && comment.version < video.version,
+        ),
         video,
         comments,
         // Comentários e áudios do cliente são espelhados aqui automaticamente.
@@ -141,7 +155,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
     )
   }
 
-  const { video, comments, clientComments } = data
+  const { video, comments, clientComments, previousClientComments, previousComments } = data
   const isSuperseded = video.latestVersionId !== video.id
   const threads = buildThreads(comments)
   const markers: StageMarker[] = [...comments, ...clientComments]
@@ -244,7 +258,11 @@ export function InternalReview({ videoId }: { videoId: string }) {
               Sincronizados com o canal do cliente; ficam visíveis nos dois lugares.
             </p>
             {clientComments.length === 0 ? (
-              <p className="mt-3 text-sm text-muted-foreground">Nenhum ajuste enviado pelo cliente ainda.</p>
+              <p className="mt-3 text-sm text-muted-foreground">
+                {previousClientComments.length > 0
+                  ? 'Nenhum ajuste nesta versão ainda.'
+                  : 'Nenhum ajuste enviado pelo cliente ainda.'}
+              </p>
             ) : (
               <ul className="mt-3 flex flex-col gap-2">
                 {clientComments.map((comment) => (
@@ -254,6 +272,11 @@ export function InternalReview({ videoId }: { videoId: string }) {
                 ))}
               </ul>
             )}
+            <PreviousVersionsSection
+              comments={previousClientComments}
+              label="Ajustes das versões anteriores"
+              className="mt-3"
+            />
           </section>
 
           <InternalComposer
@@ -283,6 +306,11 @@ export function InternalReview({ videoId }: { videoId: string }) {
               ))}
             </ul>
           )}
+          <PreviousVersionsSection
+            comments={previousComments}
+            label="Discussão das versões anteriores"
+            className="mt-3"
+          />
         </div>
       </FadeIn>
     </div>

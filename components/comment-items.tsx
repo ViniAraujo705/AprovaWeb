@@ -6,9 +6,10 @@
  * (alinhada à direita, destaque em rosa e label "Resposta da agência").
  */
 import { useState } from 'react'
-import { CornerDownRight, Loader2, MoreVertical, Trash2 } from 'lucide-react'
+import { ChevronDown, CornerDownRight, History, Loader2, MoreVertical, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Comment, CommentAuthorRole } from '@/lib/types'
+import type { Comment, CommentAuthorRole, PreviousVersionComment } from '@/lib/types'
+import { isAgencyAuthor } from '@/lib/types'
 import { formatDuration } from '@/lib/format'
 import { motion } from '@/components/motion'
 
@@ -201,5 +202,81 @@ export function AgencyReplyItem({
         <p className="mt-0.5 text-right text-xs text-muted-foreground">{comment.author}</p>
       </div>
     </li>
+  )
+}
+
+/**
+ * Comentários das versões anteriores do vídeo: recolhidos por padrão, em tom
+ * apagado e só leitura. Continuam registrados (nada é apagado ao subir nova
+ * versão), mas não disputam atenção com os comentários da versão atual.
+ *
+ * O timestamp é só texto, não um botão de seek: ele se refere ao corte da
+ * versão antiga, e pular pra esse segundo no vídeo novo levaria a outro ponto.
+ * Pelo mesmo motivo estes comentários não entram nos marcadores da timeline.
+ */
+export function PreviousVersionsSection({
+  comments,
+  label = 'Versões anteriores',
+  className,
+}: {
+  comments: PreviousVersionComment[]
+  label?: string
+  className?: string
+}) {
+  const [open, setOpen] = useState(false)
+  if (comments.length === 0) return null
+
+  // Mais recente primeiro; dentro da versão, na ordem do vídeo.
+  const versions = [...new Set(comments.map((c) => c.version))].sort((a, b) => b - a)
+
+  return (
+    <div className={cn('rounded-xl border border-dashed border-border', className)}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
+      >
+        <History className="size-3.5 shrink-0" />
+        <span className="flex-1">
+          {label} ({comments.length})
+        </span>
+        <ChevronDown className={cn('size-3.5 shrink-0 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="flex flex-col gap-3 border-t border-dashed border-border px-3 pb-3 pt-2.5">
+          {versions.map((version) => (
+            <div key={version}>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Versão {version}
+              </p>
+              <ul className="mt-1.5 flex flex-col gap-2">
+                {comments
+                  .filter((c) => c.version === version)
+                  .sort((a, b) => a.timestamp - b.timestamp)
+                  .map((c) => (
+                    <li key={c.id} className="flex gap-2.5 rounded-lg bg-secondary/40 p-2.5 text-muted-foreground">
+                      <span className="h-fit shrink-0 rounded-md bg-secondary px-1.5 py-0.5 text-[11px] font-semibold tabular-nums">
+                        {formatDuration(c.timestamp)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-xs font-medium">{c.author}</span>
+                          {isAgencyAuthor(c.authorRole) && c.authorRole && <RoleBadge role={c.authorRole} />}
+                        </div>
+                        {c.text && <p className="mt-0.5 text-xs">{c.text}</p>}
+                        {c.audioUrl && (
+                          <audio controls src={c.audioUrl} className="mt-1.5 h-8 w-full max-w-full opacity-80" />
+                        )}
+                      </div>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

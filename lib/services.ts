@@ -32,6 +32,7 @@ import {
   demoDemands,
   demoInsights,
   demoInternalComments,
+  demoInternalPreviousVersionComments,
   demoMe,
   demoMemberSessions,
   demoMetrics,
@@ -96,6 +97,7 @@ import type {
   ClientFile,
   ClientFileCategory,
   Comment,
+  PreviousVersionComment,
   CommentAuthorRole,
   CrewMember,
   DashboardInsights,
@@ -489,6 +491,15 @@ function mapComment(raw: Raw): Comment {
     createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
     authorRole: normalizeCommentAuthorRole(raw),
     parentId: pick<string | null>(raw, ['parentId', 'parent_id'], null),
+  }
+}
+
+/** Comentário de uma versão anterior: o mesmo shape de `mapComment` + a versão de origem. */
+function mapPreviousVersionComment(raw: Raw): PreviousVersionComment {
+  const videoRaw = pick<Raw | null>(raw, ['video'], null)
+  return {
+    ...mapComment(raw),
+    version: Number(pick(raw, ['versao', 'version'], pick(videoRaw, ['versao', 'version'], 1))) || 1,
   }
 }
 
@@ -2015,6 +2026,9 @@ export const publicService = {
     return {
       video: mapVideo(res, { clientName: cliente?.name ?? null }),
       comments: asArray(pick(res, ['comments'], [])).map(mapComment),
+      previousVersionComments: asArray(
+        pick(res, ['comentariosVersoesAnteriores', 'previousVersionComments'], []),
+      ).map(mapPreviousVersionComment),
       ratings: asArray(pick(res, ['ratings'], [])).map(mapRating),
       ratingQuestions: asArray(pick(res, ['ratingQuestions', 'rating_questions'], []))
         .map(mapRatingQuestion)
@@ -2302,6 +2316,13 @@ export const internalCommentService = {
     return asArray(res).map(mapComment)
   },
 
+  /** Canal interno das versões anteriores deste vídeo (só leitura), mais recente primeiro. */
+  async listPreviousVersions(videoId: string, signal?: AbortSignal): Promise<PreviousVersionComment[]> {
+    if (isDemo()) return delay(demoInternalPreviousVersionComments(videoId))
+    const res = await api.get(`/videos/${videoId}/comments/internal/previous-versions`, { signal })
+    return asArray(res).map(mapPreviousVersionComment)
+  },
+
   /**
    * Publica um comentário interno. `parentId` transforma o envio numa
    * resposta dentro da thread.
@@ -2349,6 +2370,7 @@ export const clientChannelService = {
       return {
         video,
         comments: [],
+        previousVersionComments: [],
         ratings: [],
         ratingQuestions: [],
         overallRating: null,

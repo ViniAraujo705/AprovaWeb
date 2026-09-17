@@ -499,6 +499,7 @@ e **cliente** (resposta do owner ao comentário público do cliente).
 | Método | Rota | Role | Body | Descrição |
 |---|---|---|---|---|
 | `GET` | `/videos/:id/comments/internal` | `owner`, `editor` | — | Lista o canal interno |
+| `GET` | `/videos/:id/comments/internal/previous-versions` | `owner`, `editor` | — | Canal interno das versões **anteriores** deste vídeo (só leitura); cada item traz `versao`, mais recente primeiro |
 | `POST` | `/videos/:id/comments/internal` | `owner`, `editor` | `{ timestampVideo, texto, parentId? }` | Cria comentário interno (autor = usuário do token) |
 | `POST` | `/videos/:id/comments/client-reply` | `owner` apenas | `{ timestampVideo, texto, parentId? }` | Resposta do owner ao cliente, no canal cliente |
 
@@ -772,6 +773,9 @@ Resposta:
   "comments": [
     { "id": "...", "timestampVideo": 12, "texto": "...", "autorType": "cliente", "autorNome": "Fulano", "autorUser": null, "parentId": null, "criadoEm": "...", "isAgencyReply": false }
   ],
+  "comentariosVersoesAnteriores": [
+    { "id": "...", "timestampVideo": 6, "texto": "...", "autorType": "cliente", "autorNome": "Fulano", "autorUser": null, "parentId": null, "criadoEm": "...", "versao": 1, "isAgencyReply": false }
+  ],
   "ratings": [
     { "id": "...", "categoria": "iluminacao", "nota": 4, "criadoEm": "..." }
   ],
@@ -783,6 +787,10 @@ Resposta:
 
 - `comments` aqui é **só o canal cliente** (a conversa que o cliente vê
   com o owner). `isAgencyReply: true` marca as respostas do owner.
+- `comentariosVersoesAnteriores`: mesmo canal, das versões **anteriores** à
+  entregue, cada item com a `versao` de origem, mais recente primeiro. Nada é
+  apagado ao subir nova versão; as telas mostram estes recolhidos e só
+  leitura (o `timestampVideo` é do corte antigo). Vazio na v1.
 - `queue`: usado pela navegação estilo "Reels" (swipe entre vídeos do
   mesmo cliente). Contém **todos** os vídeos do cliente dono deste vídeo,
   **incluindo o vídeo atual**, ordenados por data de criação (crescente,

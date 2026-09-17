@@ -23,7 +23,7 @@ import { AgencyLogo } from '@/components/agency-logo'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ApprovedCelebration } from '@/components/approved-celebration'
 import { VideoStage, type VideoStageHandle, type StageMarker } from '@/components/video-stage'
-import { AgencyReplyItem, ClientCommentItem } from '@/components/comment-items'
+import { AgencyReplyItem, ClientCommentItem, PreviousVersionsSection } from '@/components/comment-items'
 import { VideoTitleField } from '@/components/video-title-field'
 import { AudioCommentRecorder } from '@/components/audio-comment-recorder'
 import { toast } from '@/lib/toast'
@@ -677,6 +677,11 @@ export function ClientReview({
                   )}
                 </ul>
               )}
+              <PreviousVersionsSection
+                comments={data.previousVersionComments}
+                label="Comentários das versões anteriores"
+                className="mt-3"
+              />
 
               {/* Ratings: uma linha por pergunta ativa da agência */}
               {data.ratingQuestions.length > 0 && (

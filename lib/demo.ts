@@ -20,6 +20,7 @@ import type {
   ClientFieldDefinition,
   ClientFile,
   Comment,
+  PreviousVersionComment,
   CrewMember,
   DashboardInsights,
   Demand,
@@ -310,7 +311,9 @@ export const demoVideos: Video[] = [
     isExample: true,
     deadline: futureIso(30), // prazo próximo (< 2 dias)
     editorId: 'm2',
-    version: 1,
+    // v2 pra /v/demo e a revisão demo mostrarem os ajustes pedidos na v1
+    // (ver demoPreviousVersionCommentsFor).
+    version: 2,
     videoPaiId: null,
     latestVersionId: 'rv-01',
   },
@@ -725,6 +728,19 @@ function demoCommentsFor(videoId: string): Comment[] {
   }
 }
 
+/**
+ * Comentários do canal do cliente feitos nas versões anteriores. Só o rv-01
+ * (v2) tem histórico: o pedido de ajuste da v1 e a resposta da agência.
+ */
+function demoPreviousVersionCommentsFor(videoId: string): PreviousVersionComment[] {
+  if (videoId !== 'rv-01') return []
+  return [
+    { id: 'pc1', author: 'Cliente', timestamp: 1, text: 'A logo está pequena demais na abertura, dá pra aumentar?', audioUrl: null, createdAt: iso(4320), authorRole: 'client', parentId: null, version: 1 },
+    { id: 'pc2', author: 'Cliente', timestamp: 6, text: 'Troca a trilha, essa está muito agitada pra marca.', audioUrl: null, createdAt: iso(4300), authorRole: 'client', parentId: null, version: 1 },
+    { id: 'pc3', author: 'Você (demo)', timestamp: 6, text: 'Combinado, trocamos por uma mais suave na próxima versão.', audioUrl: null, createdAt: iso(4200), authorRole: 'agency', parentId: null, version: 1 },
+  ]
+}
+
 /** Outros vídeos do mesmo cliente (o atual incluso), para a fila de swipe estilo Reels. */
 function demoQueueFor(clientName: string): QueueVideoItem[] {
   return demoVideos
@@ -758,6 +774,7 @@ export function demoPublicVideo(link: string = DEMO_LINK): PublicVideo {
   return {
     video,
     comments: demoCommentsFor(match.id),
+    previousVersionComments: demoPreviousVersionCommentsFor(match.id),
     ratings: [],
     ratingQuestions: demoRatingQuestions().filter((q) => q.active),
     overallRating: null,
@@ -1401,6 +1418,24 @@ export function demoInternalComments(_videoId: string): Comment[] {
       createdAt: iso(2),
       authorRole: 'owner',
       parentId: null,
+    },
+  ]
+}
+
+/** Canal interno das versões anteriores — só o rv-01 (v2) tem histórico. */
+export function demoInternalPreviousVersionComments(videoId: string): PreviousVersionComment[] {
+  if (videoId !== 'rv-01') return []
+  return [
+    {
+      id: 'ipc1',
+      author: 'Marina Alves',
+      timestamp: 6,
+      text: 'Cliente pediu trilha mais calma. Separei três opções na pasta do projeto.',
+      audioUrl: null,
+      createdAt: iso(4100),
+      authorRole: 'editor',
+      parentId: null,
+      version: 1,
     },
   ]
 }

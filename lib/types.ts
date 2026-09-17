@@ -319,6 +319,17 @@ export interface Comment {
   parentId: string | null
 }
 
+/**
+ * Comentário feito numa versão ANTERIOR do vídeo. Nada é apagado ao subir
+ * nova versão: cada versão é um vídeo novo e os comentários ficam presos à
+ * versão em que foram feitos. As telas mostram estes recolhidos e só leitura —
+ * o `timestamp` se refere ao corte antigo, então não vira marcador na timeline.
+ */
+export interface PreviousVersionComment extends Comment {
+  /** Versão (versao) em que o comentário foi feito. */
+  version: number
+}
+
 /** Um comentário raiz com suas respostas (thread), para o canal interno. */
 export interface CommentThread {
   comment: Comment
@@ -366,6 +377,8 @@ export interface Branding {
 export interface PublicVideo {
   video: Video
   comments: Comment[]
+  /** Comentários do canal do cliente feitos nas versões anteriores, mais recente primeiro. */
+  previousVersionComments: PreviousVersionComment[]
   ratings: Rating[]
   /** Perguntas de avaliação ativas da agência, na ordem de exibição. */
   ratingQuestions: RatingQuestion[]

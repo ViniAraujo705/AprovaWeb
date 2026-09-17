@@ -12,7 +12,7 @@ import { formatDuration } from '@/lib/format'
 import { LoadingState, ErrorState } from '@/components/states'
 import { FadeIn, motion, AnimatePresence } from '@/components/motion'
 import { VideoStage, type VideoStageHandle, type StageMarker } from '@/components/video-stage'
-import { AgencyReplyItem, DraggableClientCommentItem } from '@/components/comment-items'
+import { AgencyReplyItem, DraggableClientCommentItem, PreviousVersionsSection } from '@/components/comment-items'
 import { toast } from '@/lib/toast'
 import { playApproveSound } from '@/lib/sound'
 
@@ -189,6 +189,11 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
               )}
             </ul>
           )}
+          <PreviousVersionsSection
+            comments={data.previousVersionComments}
+            label="Conversa das versões anteriores"
+            className="mt-3"
+          />
         </div>
       </FadeIn>
     </div>
