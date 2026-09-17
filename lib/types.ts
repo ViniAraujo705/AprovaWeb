@@ -826,3 +826,27 @@ export interface GoogleDriveItem {
   iconLink: string | null
   webViewLink: string | null
 }
+
+/** Tipo de linha dentro de uma nota do CheckDay: item de checklist ou tópico de lista. */
+export type CheckDayItemKind = 'check' | 'bullet'
+
+export interface CheckDayItem {
+  id: string
+  text: string
+  checked: boolean
+  kind: CheckDayItemKind
+}
+
+/**
+ * Nota/checklist do CheckDay (GET /checkday/notes). É da CONTA, não do
+ * navegador: owner e editores da agência veem as mesmas notas, e é isso que
+ * faz o que foi escrito no notebook aparecer no celular.
+ */
+export interface CheckDayNote {
+  id: string
+  title: string
+  body: string
+  items: CheckDayItem[]
+  imageUrl: string | null
+  updatedAt: string | null
+}

@@ -31,6 +31,10 @@ import {
   demoDeletePortfolio,
   demoDemands,
   demoInsights,
+  demoCheckDayNotes,
+  demoCreateCheckDayNote,
+  demoUpdateCheckDayNote,
+  demoDeleteCheckDayNote,
   demoInternalComments,
   demoInternalPreviousVersionComments,
   demoMe,
@@ -96,6 +100,8 @@ import type {
   ClientFieldDefinition,
   ClientFile,
   ClientFileCategory,
+  CheckDayNote,
+  CheckDayItem,
   Comment,
   PreviousVersionComment,
   CommentAuthorRole,
@@ -2303,6 +2309,77 @@ export const publicService = {
         portfolios: asArray(pick(c, ['portfolios', 'videos'], [])).map(mapPortfolioHubItem),
       })),
     }
+  },
+}
+
+/* ------------------------------- checkday -------------------------------- */
+
+function mapCheckDayItem(raw: Raw): CheckDayItem {
+  const kind = String(pick(raw, ['kind', 'tipo'], 'check'))
+  return {
+    id: String(pick(raw, ['id', '_id'], cryptoId())),
+    text: pick(raw, ['text', 'texto'], ''),
+    checked: Boolean(pick(raw, ['checked', 'concluido'], false)),
+    kind: kind === 'bullet' ? 'bullet' : 'check',
+  }
+}
+
+function mapCheckDayNote(raw: Raw): CheckDayNote {
+  return {
+    id: String(pick(raw, ['id', '_id'], cryptoId())),
+    title: pick(raw, ['title', 'titulo'], ''),
+    body: pick<string | null>(raw, ['body', 'corpo', 'texto'], null) ?? '',
+    items: asArray(pick(raw, ['items', 'itens'], [])).map(mapCheckDayItem),
+    imageUrl: pick<string | null>(raw, ['imageUrl', 'imagemUrl', 'image_url'], null),
+    updatedAt: pick<string | null>(raw, ['updatedAt', 'atualizadoEm', 'atualizado_em'], null),
+  }
+}
+
+/**
+ * Notas do CheckDay. Ficam na CONTA (não no navegador): é o que faz a nota
+ * escrita no notebook aparecer no celular, e vice-versa.
+ */
+export const checkDayNoteService = {
+  async list(signal?: AbortSignal): Promise<CheckDayNote[]> {
+    if (isDemo()) return delay(demoCheckDayNotes())
+    const res = await api.get('/checkday/notes', { signal })
+    return asArray(res).map(mapCheckDayNote)
+  },
+
+  async create(input: {
+    title: string
+    body?: string
+    items?: CheckDayItem[]
+    imageUrl?: string | null
+  }): Promise<CheckDayNote> {
+    if (isDemo()) return delay(demoCreateCheckDayNote(input), 200)
+    const res = await api.post<Raw>('/checkday/notes', {
+      title: input.title,
+      body: input.body,
+      items: input.items,
+      // `IsUrl()` no backend rejeita null/"" — só manda quando há imagem.
+      imageUrl: input.imageUrl || undefined,
+    })
+    return mapCheckDayNote(res)
+  },
+
+  async update(
+    id: string,
+    input: { title?: string; body?: string; items?: CheckDayItem[]; imageUrl?: string | null },
+  ): Promise<CheckDayNote> {
+    if (isDemo()) return delay(demoUpdateCheckDayNote(id, input), 200)
+    const res = await api.patch<Raw>(`/checkday/notes/${id}`, {
+      title: input.title,
+      body: input.body,
+      items: input.items,
+      imageUrl: input.imageUrl,
+    })
+    return mapCheckDayNote(res)
+  },
+
+  async remove(id: string): Promise<void> {
+    if (isDemo()) return void (await delay(demoDeleteCheckDayNote(id), 200))
+    await api.delete(`/checkday/notes/${id}`)
   },
 }
 

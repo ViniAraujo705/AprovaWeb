@@ -19,6 +19,8 @@ import type {
   ClientActivity,
   ClientFieldDefinition,
   ClientFile,
+  CheckDayItem,
+  CheckDayNote,
   Comment,
   PreviousVersionComment,
   CrewMember,
@@ -1614,4 +1616,73 @@ export function buildDemoReport(projectId: string): string {
   ]
   const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
   return URL.createObjectURL(blob)
+}
+
+/* ------------------------------- checkday -------------------------------- */
+
+let checkDayNotes: CheckDayNote[] = [
+  {
+    id: 'cd-hoje',
+    title: 'Tarefas de hoje',
+    body: 'Prioridades para fechar antes do fim do dia.',
+    imageUrl: null,
+    updatedAt: iso(0),
+    items: [
+      { id: 'cd-1', text: 'Revisar briefing da campanha', checked: true, kind: 'check' },
+      { id: 'cd-2', text: 'Enviar ajustes do vídeo institucional', checked: true, kind: 'check' },
+      { id: 'cd-3', text: 'Organizar calendário do mês', checked: false, kind: 'check' },
+      { id: 'cd-4', text: 'Conferir notas fiscais pendentes', checked: false, kind: 'check' },
+    ],
+  },
+  {
+    id: 'cd-ideias',
+    title: 'Ideias de conteúdo',
+    body: 'Ganchos e referências para os próximos vídeos.',
+    imageUrl: null,
+    updatedAt: iso(6),
+    items: [
+      { id: 'cd-5', text: 'Bastidores da produção em formato curto', checked: false, kind: 'bullet' },
+      { id: 'cd-6', text: 'Antes e depois da edição', checked: false, kind: 'bullet' },
+    ],
+  },
+]
+
+export function demoCheckDayNotes(): CheckDayNote[] {
+  return [...checkDayNotes].sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
+}
+
+export function demoCreateCheckDayNote(input: {
+  title: string
+  body?: string
+  items?: CheckDayItem[]
+  imageUrl?: string | null
+}): CheckDayNote {
+  const created: CheckDayNote = {
+    id: `cd-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    title: input.title,
+    body: input.body ?? '',
+    items: input.items ?? [],
+    imageUrl: input.imageUrl ?? null,
+    updatedAt: new Date().toISOString(),
+  }
+  checkDayNotes = [created, ...checkDayNotes]
+  return created
+}
+
+export function demoUpdateCheckDayNote(
+  id: string,
+  input: { title?: string; body?: string; items?: CheckDayItem[]; imageUrl?: string | null },
+): CheckDayNote {
+  const found = checkDayNotes.find((note) => note.id === id)
+  if (!found) throw new Error('Nota não encontrada.')
+  if (input.title !== undefined) found.title = input.title
+  if (input.body !== undefined) found.body = input.body
+  if (input.items !== undefined) found.items = input.items
+  if (input.imageUrl !== undefined) found.imageUrl = input.imageUrl
+  found.updatedAt = new Date().toISOString()
+  return found
+}
+
+export function demoDeleteCheckDayNote(id: string): void {
+  checkDayNotes = checkDayNotes.filter((note) => note.id !== id)
 }
