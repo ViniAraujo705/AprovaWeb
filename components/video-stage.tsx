@@ -250,10 +250,12 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   // Vídeo otimizado ainda sendo preparado no backend: thumbnail + aviso sutil.
   const processing = video.processingStatus === 'processando'
   // O ARQUIVO ORIGINAL vem primeiro: é sobre ele que o cliente aprova ou pede
-  // ajuste, então ele precisa ver a mesma qualidade que a agência entregou. A
-  // cópia otimizada do backend hoje sai muito abaixo do original (medido em
-  // 28/08: 2160x3840 a ~25 Mbps virando 406x720 a ~0,4 Mbps), e foi
-  // exatamente disso que um cliente reclamou.
+  // ajuste, então ele precisa ver a mesma qualidade que a agência entregou.
+  //
+  // O preço é peso: um original chega a 2160x3840 a ~25 Mbps, e em internet
+  // fraca o buffer esvazia e o vídeo trava. Para isso o <video> pede
+  // `preload="auto"` (bufferiza à frente) e, se travar de novo e de novo,
+  // oferecemos a versão leve — sem trocar sozinho (ver `stalls` abaixo).
   //
   // O original ainda pode não tocar em algum aparelho (ex.: .MOV em HEVC do
   // iPhone, que o Chrome não decodifica), então o `onError` do <video> troca
@@ -277,11 +279,28 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   useEffect(() => {
     setOriginalFailed(false)
   }, [video.id])
+  // Travadas por falta de buffer (evento `waiting` no meio da reprodução —
+  // seek não conta, ali a espera é esperada). Uma travada isolada acontece em
+  // qualquer rede; a partir da segunda no mesmo arquivo, a internet não está
+  // dando conta do original e vale sugerir a versão leve.
+  const [stalls, setStalls] = useState(0)
+  function handleWaiting(e: React.SyntheticEvent<HTMLVideoElement>) {
+    const el = e.currentTarget
+    if (el.seeking || el.currentTime < 0.5) return
+    setStalls((n) => n + 1)
+  }
   const canChooseQuality = !!video.originalUrl && !!optimizedUrl
-  const showingOriginal = !originalFailed && quality === 'maxima' && !!video.originalUrl
+  // Sem otimizada não há o que escolher: o que toca é o original.
+  const showingOriginal =
+    !!video.originalUrl && (!optimizedUrl || (!originalFailed && quality === 'maxima'))
   const playbackUrl = showingOriginal
     ? video.originalUrl
     : (optimizedUrl ?? video.url ?? video.originalUrl)
+  // Zera a contagem a cada arquivo novo (outro vídeo ou troca de qualidade).
+  useEffect(() => {
+    setStalls(0)
+  }, [playbackUrl])
+  const suggestLight = stalls >= 2 && showingOriginal && canChooseQuality
 
   /** Original não decodificou neste aparelho: cai para a cópia otimizada. */
   function handlePlaybackError() {
@@ -637,6 +656,8 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                       src={playbackUrl}
                       poster={video.posterUrl || undefined}
                       playsInline
+                      preload="auto"
+                      onWaiting={handleWaiting}
                       onError={handlePlaybackError}
                       className={cn(
                         'h-full w-full',
@@ -882,7 +903,24 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
           vendo antes de aprovar ou pedir ajuste — e como trocar. Aparece só
           quando existem os dois arquivos (ou quando o original falhou).
         */}
-        {tab === 'player' && !waitingForFile && (canChooseQuality || originalFailed || processing) && (
+        {/*
+          Travando no original: oferece a versão leve, nas duas abas. Não troca
+          sozinho — o cliente aprova sobre o original, então baixar a qualidade
+          é decisão de quem assiste.
+        */}
+        {suggestLight && !waitingForFile && (
+          <p className="mt-2 px-4 text-xs text-foreground lg:px-0">
+            O vídeo está travando? Sua internet pode não estar dando conta da qualidade máxima.{' '}
+            <button
+              type="button"
+              onClick={toggleQuality}
+              className="font-medium underline underline-offset-2 hover:text-primary"
+            >
+              Ver versão leve
+            </button>
+          </p>
+        )}
+        {tab === 'player' && !waitingForFile && !suggestLight && (canChooseQuality || originalFailed || processing) && (
           <p className="mt-2 px-4 text-xs text-muted-foreground lg:px-0">
             {qualityMessage}
             {canChooseQuality && (
@@ -928,6 +966,8 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                   poster={video.posterUrl || undefined}
                   playsInline
                   autoPlay
+                  preload="auto"
+                  onWaiting={handleWaiting}
                   onError={handlePlaybackError}
                   className={cn('h-full w-full', reelsLandscape ? 'object-contain' : 'object-cover')}
                   onLoadedMetadata={(e) => {
