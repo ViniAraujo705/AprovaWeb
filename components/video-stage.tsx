@@ -101,6 +101,10 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   // Espelha `current` em ref: lido pelo <video> do modo tela cheia ao montar,
   // sem depender de closures desatualizadas dentro dos handlers de evento.
   const currentRef = useRef(0)
+  // Ao trocar o `src` o <video> recarrega do zero e pausado. O ponto é
+  // guardado ANTES da troca: no meio da recarga o elemento solta um
+  // `timeupdate` em 0 que zeraria `currentRef`, e o vídeo voltava pro começo.
+  const switchQualityRef = useRef<{ at: number; play: boolean } | null>(null)
   // Zera a ref já durante o PRÓPRIO render (não num useEffect) sempre que o
   // vídeo muda. Isso evita uma corrida real: o <video> novo lê `currentRef`
   // no handler `onLoadedMetadata` assim que carrega os metadados — se esse
@@ -112,6 +116,8 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   if (prevVideoIdRef.current !== video.id) {
     prevVideoIdRef.current = video.id
     currentRef.current = 0
+    // Troca de qualidade pendente era do vídeo anterior: não vale pra este.
+    switchQualityRef.current = null
   }
   // Id do vídeo dono da instância atual de `videoRef`. Necessário porque o
   // <video> que está SAINDO (crossfade do AnimatePresence) continua montado
@@ -255,7 +261,8 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   // O preço é peso: um original chega a 2160x3840 a ~25 Mbps, e em internet
   // fraca o buffer esvazia e o vídeo trava. Para isso o <video> pede
   // `preload="auto"` (bufferiza à frente) e, se travar de novo e de novo,
-  // oferecemos a versão leve — sem trocar sozinho (ver `stalls` abaixo).
+  // troca sozinho para a versão leve, avisando e com um toque para voltar
+  // (ver `autoLight` abaixo).
   //
   // O original ainda pode não tocar em algum aparelho (ex.: .MOV em HEVC do
   // iPhone, que o Chrome não decodifica), então o `onError` do <video> troca
@@ -289,10 +296,19 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
     if (el.seeking || el.currentTime < 0.5) return
     setStalls((n) => n + 1)
   }
+  // Troca automática para a versão leve depois da segunda travada no
+  // original. Antes só aparecia uma sugestão embaixo do player, que quase
+  // ninguém via com o vídeo engasgando — o cliente desistia achando que o
+  // vídeo estava quebrado. Não fica gravada no aparelho (é a rede de agora,
+  // não uma preferência) e vale para os próximos vídeos da mesma tela.
+  // Quem volta para "Máxima" na mão manda: daí em diante não troca mais.
+  const [autoLight, setAutoLight] = useState(false)
+  const [keepOriginal, setKeepOriginal] = useState(false)
+  const effectiveQuality = autoLight ? 'leve' : quality
   const canChooseQuality = !!video.originalUrl && !!optimizedUrl
   // Sem otimizada não há o que escolher: o que toca é o original.
   const showingOriginal =
-    !!video.originalUrl && (!optimizedUrl || (!originalFailed && quality === 'maxima'))
+    !!video.originalUrl && (!optimizedUrl || (!originalFailed && effectiveQuality === 'maxima'))
   const playbackUrl = showingOriginal
     ? video.originalUrl
     : (optimizedUrl ?? video.url ?? video.originalUrl)
@@ -300,7 +316,28 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   useEffect(() => {
     setStalls(0)
   }, [playbackUrl])
-  const suggestLight = stalls >= 2 && showingOriginal && canChooseQuality
+  useEffect(() => {
+    if (stalls < 2 || !showingOriginal || !canChooseQuality || keepOriginal) return
+    markQualitySwitch()
+    setAutoLight(true)
+  }, [stalls, showingOriginal, canChooseQuality, keepOriginal])
+
+  function markQualitySwitch() {
+    switchQualityRef.current = {
+      at: currentRef.current,
+      play: !(videoRef.current?.paused ?? true),
+    }
+  }
+
+  /** Chamado no `onLoadedMetadata`: retoma do ponto (e tocando) após trocar a qualidade. */
+  function resumeIfSwitched(el: HTMLVideoElement) {
+    const pending = switchQualityRef.current
+    if (!pending) return
+    switchQualityRef.current = null
+    el.currentTime = pending.at
+    updateCurrent(pending.at)
+    if (pending.play) el.play().catch(() => {})
+  }
 
   /** Original não decodificou neste aparelho: cai para a cópia otimizada. */
   function handlePlaybackError() {
@@ -308,7 +345,10 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   }
 
   function toggleQuality() {
-    const next = quality === 'maxima' ? 'leve' : 'maxima'
+    const next = effectiveQuality === 'maxima' ? 'leve' : 'maxima'
+    markQualitySwitch()
+    setAutoLight(false)
+    setKeepOriginal(next === 'maxima')
     setQuality(next)
     // Voltar para "máxima" na mão é um pedido explícito de tentar o original de
     // novo — pode ser outra rede/outro aparelho desde o erro anterior.
@@ -698,6 +738,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                         const { videoWidth, videoHeight } = e.currentTarget
                         if (videoWidth && videoHeight) setAspectRatio(videoWidth / videoHeight)
                         e.currentTarget.currentTime = currentRef.current
+                        resumeIfSwitched(e.currentTarget)
                       }}
                       onTimeUpdate={(e) => {
                         if (fromStaleVideo(renderedVideoId, e.currentTarget)) return
@@ -942,23 +983,23 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
           quando existem os dois arquivos (ou quando o original falhou).
         */}
         {/*
-          Travando no original: oferece a versão leve, nas duas abas. Não troca
-          sozinho — o cliente aprova sobre o original, então baixar a qualidade
-          é decisão de quem assiste.
+          Trocou sozinho para a versão leve (ver `autoLight`): avisa nas duas
+          abas, porque quem aprova precisa saber que não está vendo o original,
+          e oferece a volta com um toque.
         */}
-        {suggestLight && !waitingForFile && (
+        {autoLight && !showingOriginal && !waitingForFile && (
           <p className="mt-2 px-4 text-xs text-foreground lg:px-0">
-            O vídeo está travando? Sua internet pode não estar dando conta da qualidade máxima.{' '}
+            Sua internet não estava dando conta da qualidade máxima, então mudamos para a versão leve.{' '}
             <button
               type="button"
               onClick={toggleQuality}
               className="font-medium underline underline-offset-2 hover:text-primary"
             >
-              Ver versão leve
+              Voltar para qualidade máxima
             </button>
           </p>
         )}
-        {tab === 'player' && !waitingForFile && !suggestLight && (canChooseQuality || originalFailed || processing) && (
+        {tab === 'player' && !waitingForFile && !autoLight && (canChooseQuality || originalFailed || processing) && (
           <p className="mt-2 px-4 text-xs text-muted-foreground lg:px-0">
             {qualityMessage}
             {canChooseQuality && (
@@ -1012,6 +1053,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                     const d = e.currentTarget.duration
                     if (Number.isFinite(d)) setDuration(Math.round(d))
                     e.currentTarget.currentTime = currentRef.current
+                    resumeIfSwitched(e.currentTarget)
                   }}
                   onTimeUpdate={(e) => {
                     if (fromStaleVideo(renderedVideoId, e.currentTarget)) return
