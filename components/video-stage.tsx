@@ -255,14 +255,16 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   const total = duration || video.duration || 0
   // Vídeo otimizado ainda sendo preparado no backend: thumbnail + aviso sutil.
   const processing = video.processingStatus === 'processando'
-  // O ARQUIVO ORIGINAL vem primeiro: é sobre ele que o cliente aprova ou pede
-  // ajuste, então ele precisa ver a mesma qualidade que a agência entregou.
+  // A CÓPIA EM HD vem primeiro. Desde 28/08 o backend gera a otimizada em
+  // 1080p no lado menor, CRF 20 (`media.service.ts`) — numa tela de celular
+  // é indistinguível do original e 3–4× mais leve. O original (até
+  // 2160x3840 a ~25 Mbps) travava em 4G/Wi-Fi fraco; ele continua a um
+  // toque, e é o que vai no download.
   //
-  // O preço é peso: um original chega a 2160x3840 a ~25 Mbps, e em internet
-  // fraca o buffer esvazia e o vídeo trava. Para isso o <video> pede
-  // `preload="auto"` (bufferiza à frente) e, se travar de novo e de novo,
-  // troca sozinho para a versão leve, avisando e com um toque para voltar
-  // (ver `autoLight` abaixo).
+  // Vídeos anteriores a 28/08 (não reprocessados) ainda têm a otimizada antiga
+  // em 406x720, borrada: essa é detectada pela resolução real ao carregar
+  // (`lowResOptimized`) e aí o original volta a ser o padrão — com a troca
+  // automática para a leve se travar (ver `autoLight` abaixo).
   //
   // O original ainda pode não tocar em algum aparelho (ex.: .MOV em HEVC do
   // iPhone, que o Chrome não decodifica), então o `onError` do <video> troca
@@ -271,20 +273,23 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   // Só serve de fallback se for mesmo um arquivo diferente do original
   // (`mapVideo` faz `url` cair no original quando não há otimizada).
   const optimizedUrl = video.url && video.url !== video.originalUrl ? video.url : null
-  // Quem assiste escolhe: máxima (original) ou leve (otimizada, para internet
-  // ruim). Começa sempre em máxima; a escolha é lembrada neste aparelho.
-  const [quality, setQuality] = useState<'maxima' | 'leve'>('maxima')
+  // Escolha explícita de quem assiste (original ou otimizada), lembrada neste
+  // aparelho. `null` = automático: HD, ou original se a HD for a antiga.
+  const [quality, setQuality] = useState<'maxima' | 'leve' | null>(null)
+  const [lowResOptimized, setLowResOptimized] = useState(false)
   useEffect(() => {
     // Lido depois da montagem (e não no initializer) para o HTML do servidor e
     // o do cliente baterem na hidratação.
     try {
-      if (localStorage.getItem(QUALITY_STORAGE_KEY) === 'leve') setQuality('leve')
+      const stored = localStorage.getItem(QUALITY_STORAGE_KEY)
+      if (stored === 'leve' || stored === 'maxima') setQuality(stored)
     } catch {
       // aparelho sem storage (aba anônima, cookies bloqueados): segue em máxima
     }
   }, [])
   useEffect(() => {
     setOriginalFailed(false)
+    setLowResOptimized(false)
   }, [video.id])
   // Travadas por falta de buffer (evento `waiting` no meio da reprodução —
   // seek não conta, ali a espera é esperada). Uma travada isolada acontece em
@@ -304,7 +309,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   // Quem volta para "Máxima" na mão manda: daí em diante não troca mais.
   const [autoLight, setAutoLight] = useState(false)
   const [keepOriginal, setKeepOriginal] = useState(false)
-  const effectiveQuality = autoLight ? 'leve' : quality
+  const effectiveQuality = autoLight ? 'leve' : (quality ?? (lowResOptimized ? 'maxima' : 'leve'))
   const canChooseQuality = !!video.originalUrl && !!optimizedUrl
   // Sem otimizada não há o que escolher: o que toca é o original.
   const showingOriginal =
@@ -327,6 +332,18 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
       at: currentRef.current,
       play: !(videoRef.current?.paused ?? true),
     }
+  }
+
+  /**
+   * No automático, a otimizada que carregou com menos de 1000px no lado menor
+   * é a do transcode antigo (406x720): troca para o original, do mesmo ponto.
+   */
+  function checkOptimizedResolution(el: HTMLVideoElement) {
+    if (showingOriginal || quality !== null || lowResOptimized || !video.originalUrl) return
+    const { videoWidth, videoHeight } = el
+    if (!videoWidth || !videoHeight || Math.min(videoWidth, videoHeight) >= 1000) return
+    switchQualityRef.current = { at: el.currentTime, play: !el.paused }
+    setLowResOptimized(true)
   }
 
   /** Chamado no `onLoadedMetadata`: retoma do ponto (e tocando) após trocar a qualidade. */
@@ -368,12 +385,15 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
 
   /** Explica, em uma linha, qual arquivo está tocando e o que muda ao trocar. */
   const qualityMessage = originalFailed
-    ? 'Este aparelho não conseguiu abrir o arquivo original — você está vendo a versão leve, com menos qualidade.'
+    ? 'Este aparelho não conseguiu abrir o arquivo original — você está vendo a cópia otimizada.'
     : processing && showingOriginal
-      ? 'Você está vendo o arquivo original, em qualidade máxima. A versão leve, para internet lenta, ainda está sendo gerada.'
+      ? 'Você está vendo o arquivo original. A versão HD, mais leve, ainda está sendo gerada.'
       : showingOriginal
-        ? 'Qualidade máxima: arquivo original, do mesmo jeito que a agência entregou. Em internet lenta pode demorar mais para carregar.'
-        : 'Versão leve: carrega rápido em internet lenta, mas com menos qualidade que o arquivo original.'
+        ? 'Arquivo original, do jeito que a agência entregou. É mais pesado: em internet lenta pode travar.'
+        : lowResOptimized
+          ? 'Versão leve: carrega rápido em internet lenta, mas com menos qualidade que o arquivo original.'
+          : 'Qualidade HD (1080p): nítida e carrega rápido. O arquivo original da agência está a um toque.'
+  const lightLabel = lowResOptimized ? 'Leve' : 'HD'
 
   /**
    * O <video> que está SAINDO numa troca (crossfade/slide do AnimatePresence)
@@ -739,6 +759,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                         if (videoWidth && videoHeight) setAspectRatio(videoWidth / videoHeight)
                         e.currentTarget.currentTime = currentRef.current
                         resumeIfSwitched(e.currentTarget)
+                        checkOptimizedResolution(e.currentTarget)
                       }}
                       onTimeUpdate={(e) => {
                         if (fromStaleVideo(renderedVideoId, e.currentTarget)) return
@@ -861,14 +882,14 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                       onClick={toggleQuality}
                       aria-label={
                         showingOriginal
-                          ? 'Trocar para a versão leve do vídeo'
-                          : 'Trocar para a qualidade máxima do vídeo'
+                          ? 'Trocar para a versão mais leve do vídeo'
+                          : 'Trocar para o arquivo original do vídeo'
                       }
                       title={qualityMessage}
                       className="inline-flex min-h-8 items-center gap-1 rounded-full bg-black/50 px-2.5 text-xs font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/70"
                     >
                       <Settings2 className="size-3.5" />
-                      {showingOriginal ? 'Máxima' : 'Leve'}
+                      {showingOriginal ? 'Original' : lightLabel}
                     </button>
                   )}
                   <button
@@ -989,13 +1010,13 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
         */}
         {autoLight && !showingOriginal && !waitingForFile && (
           <p className="mt-2 px-4 text-xs text-foreground lg:px-0">
-            Sua internet não estava dando conta da qualidade máxima, então mudamos para a versão leve.{' '}
+            Sua internet não estava dando conta do arquivo original, então mudamos para uma versão mais leve.{' '}
             <button
               type="button"
               onClick={toggleQuality}
               className="font-medium underline underline-offset-2 hover:text-primary"
             >
-              Voltar para qualidade máxima
+              Voltar para o original
             </button>
           </p>
         )}
@@ -1010,7 +1031,11 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                   onClick={toggleQuality}
                   className="font-medium text-foreground underline underline-offset-2 hover:text-primary"
                 >
-                  {showingOriginal ? 'Ver versão leve' : 'Ver em qualidade máxima'}
+                  {showingOriginal
+                    ? lowResOptimized
+                      ? 'Ver versão leve'
+                      : 'Ver em HD'
+                    : 'Ver o original'}
                 </button>
               </>
             )}
@@ -1054,6 +1079,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                     if (Number.isFinite(d)) setDuration(Math.round(d))
                     e.currentTarget.currentTime = currentRef.current
                     resumeIfSwitched(e.currentTarget)
+                    checkOptimizedResolution(e.currentTarget)
                   }}
                   onTimeUpdate={(e) => {
                     if (fromStaleVideo(renderedVideoId, e.currentTarget)) return
