@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   Lock,
   MessageSquarePlus,
@@ -105,6 +106,18 @@ export function InternalReview({ videoId }: { videoId: string }) {
     { refetchOnFocus: !uploadingVersion, staleAfterMs: 5_000 },
   )
 
+  // Fila do projeto para "Vídeo anterior / Próximo vídeo": mesma lista e
+  // ordem da tela do projeto (só a versão mais recente de cada vídeo). É
+  // acessória — se falhar, a navegação some e a revisão segue normal.
+  const router = useRouter()
+  const projectId = data?.video.projectId ?? null
+  const queue = useQuery<Video[]>(
+    async (signal) =>
+      (await videoService.list(projectId!, signal)).filter((v) => v.latestVersionId === v.id),
+    [projectId],
+    { enabled: !!projectId },
+  )
+
   function seek(t: number) {
     stageRef.current?.seek(t)
   }
@@ -158,6 +171,11 @@ export function InternalReview({ videoId }: { videoId: string }) {
   const { video, comments, clientComments, previousClientComments, previousComments } = data
   const isSuperseded = video.latestVersionId !== video.id
   const threads = buildThreads(comments)
+  const queueItems = queue.data ?? []
+  // Versão antiga aberta por link direto: posiciona pela versão mais recente.
+  const queueIndex = queueItems.findIndex((v) => v.id === video.latestVersionId)
+  const prevInQueue = queueIndex > 0 ? queueItems[queueIndex - 1] : null
+  const nextInQueue = queueIndex >= 0 ? (queueItems[queueIndex + 1] ?? null) : null
   const markers: StageMarker[] = [...comments, ...clientComments]
     .filter((c) => !c.parentId)
     .map((c) => ({ id: c.id, timestamp: c.timestamp, label: c.text }))
@@ -247,7 +265,16 @@ export function InternalReview({ videoId }: { videoId: string }) {
       <FadeIn className="mt-6 lg:grid lg:grid-cols-[1fr_420px] lg:gap-6">
         {/* Player / timeline reaproveitados (sem botões de aprovação) */}
         <div className="lg:min-w-0">
-          <VideoStage ref={stageRef} video={video} markers={markers} onCurrentChange={setCurrent} />
+          <VideoStage
+            ref={stageRef}
+            video={video}
+            markers={markers}
+            onCurrentChange={setCurrent}
+            hasPrev={!!prevInQueue}
+            hasNext={!!nextInQueue}
+            onSwipePrev={() => prevInQueue && router.push(`/videos/${prevInQueue.id}/revisao`)}
+            onSwipeNext={() => nextInQueue && router.push(`/videos/${nextInQueue.id}/revisao`)}
+          />
         </div>
 
         {/* Thread de comentários internos */}

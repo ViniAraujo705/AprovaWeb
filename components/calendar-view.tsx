@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import Image from 'next/image'
 import {
   ChevronLeft,
   ChevronRight,
@@ -24,9 +25,26 @@ import {
   Flag,
   PartyPopper,
   ClipboardList,
+  CalendarCheck,
+  Check,
 } from 'lucide-react'
-import { calendarService, clientService, crewService, demandService, teamService } from '@/lib/services'
-import type { CalendarActivity, CalendarActivityType, Client, CrewMember, Demand, TeamMember } from '@/lib/types'
+import {
+  calendarService,
+  clientService,
+  crewService,
+  demandService,
+  googleCalendarService,
+  teamService,
+} from '@/lib/services'
+import type {
+  CalendarActivity,
+  CalendarActivityType,
+  Client,
+  CrewMember,
+  Demand,
+  GoogleDriveStatus,
+  TeamMember,
+} from '@/lib/types'
 import { CALENDAR_ACTIVITY_TYPES, CALENDAR_ACTIVITY_TYPE_LABEL } from '@/lib/calendar-format'
 import { WEEKDAYS, dateKey, buildMonthGrid } from '@/lib/format'
 import { useQuery } from '@/lib/use-query'
@@ -122,6 +140,24 @@ export function CalendarView() {
 
   const [modal, setModal] = useState<{ date: Date; event: CalendarActivity | null } | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
+  const [googleOpen, setGoogleOpen] = useState(false)
+  const googleStatus = useQuery((signal) => googleCalendarService.getStatus(signal), [])
+  const googleConnected = googleStatus.data?.connected ?? false
+
+  // Volta do OAuth do Google (`/calendario?google=conectado|erro`, ver
+  // GoogleCalendarController.callback): avisa o resultado e limpa a URL pra
+  // um F5 não repetir o toast.
+  useEffect(() => {
+    const result = new URLSearchParams(window.location.search).get('google')
+    if (!result) return
+    if (result === 'conectado') {
+      toast.success('Google Agenda conectado')
+      setGoogleOpen(true)
+    } else {
+      toast.error('Não foi possível conectar o Google Agenda. Tente novamente.')
+    }
+    window.history.replaceState(null, '', window.location.pathname)
+  }, [])
   const [visibleTypes, setVisibleTypes] = useState<Set<CalendarActivityType>>(
     () => new Set(CALENDAR_ACTIVITY_TYPES),
   )
@@ -188,6 +224,18 @@ export function CalendarView() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setGoogleOpen(true)}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70"
+          >
+            {googleConnected ? (
+              <CalendarCheck className="size-4 text-emerald-500" />
+            ) : (
+              <Image src="/icons/google-calendar.svg" alt="" width={16} height={16} />
+            )}
+            Google Agenda
+          </button>
           <button
             type="button"
             onClick={() => setExportOpen(true)}
@@ -362,6 +410,16 @@ export function CalendarView() {
             teamMembers={teamMembers.data ?? []}
             demands={demands.data ?? []}
             onCrewCreated={(created) => setCrewRoster((prev) => [...(prev ?? []), created])}
+            onCrewRemoved={(id) => {
+              setCrewRoster((prev) => (prev ?? []).filter((c) => c.id !== id))
+              // O backend tira a pessoa de toda atividade (cascade); espelha aqui
+              // sem refetch, pros chips da grade não mostrarem um nome que já saiu.
+              setData((prev) =>
+                (prev ?? []).map((ev) =>
+                  ev.crew.some((c) => c.id === id) ? { ...ev, crew: ev.crew.filter((c) => c.id !== id) } : ev,
+                ),
+              )
+            }}
             onClose={() => setModal(null)}
             onSaved={(saved) => {
               upsertLocal(saved)
@@ -371,6 +429,14 @@ export function CalendarView() {
               removeLocal(id)
               setModal(null)
             }}
+          />
+        )}
+        {googleOpen && (
+          <GoogleCalendarModal
+            status={googleStatus.data}
+            loading={googleStatus.loading}
+            onDisconnected={() => googleStatus.setData({ connected: false, email: null })}
+            onClose={() => setGoogleOpen(false)}
           />
         )}
         {exportOpen && (
@@ -631,6 +697,137 @@ function ExportModal({
   )
 }
 
+/**
+ * Sync pessoal com o Google Agenda (OAuth no backend, ver
+ * `googleCalendarService`). Cada pessoa conecta a própria conta Google; daí
+ * em diante as atividades em que ela está escalada — como responsável ou na
+ * equipe com conta vinculada — são criadas, editadas e apagadas lá sozinhas.
+ */
+function GoogleCalendarModal({
+  status,
+  loading,
+  onDisconnected,
+  onClose,
+}: {
+  status: GoogleDriveStatus | null
+  loading: boolean
+  onDisconnected: () => void
+  onClose: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const connected = status?.connected ?? false
+
+  async function connect() {
+    setBusy(true)
+    try {
+      const url = await googleCalendarService.getConnectUrl()
+      if (!url) throw new Error('Resposta de conexão do Google Agenda sem URL.')
+      window.location.href = url
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível iniciar a conexão com o Google Agenda.')
+      setBusy(false)
+    }
+  }
+
+  async function disconnect() {
+    setBusy(true)
+    try {
+      await googleCalendarService.disconnect()
+      onDisconnected()
+      toast.info('Google Agenda desconectado')
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível desconectar. Tente novamente.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+      <motion.div
+        className="absolute inset-0 bg-black/70"
+        onClick={onClose}
+        aria-hidden="true"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+      />
+      <motion.div
+        className="relative flex w-full max-w-md flex-col rounded-xl border border-border bg-card p-5"
+        initial={{ y: 8, scale: 0.98 }}
+        animate={{ y: 0, scale: 1 }}
+        exit={{ y: 8, scale: 0.98 }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-medium">
+            <Image src="/icons/google-calendar.svg" alt="" width={18} height={18} />
+            Google Agenda
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Conecte a sua conta Google e as atividades em que você estiver escalado (como responsável ou na equipe)
+          aparecem sozinhas na sua agenda — e acompanham as edições e exclusões feitas aqui.
+        </p>
+
+        {connected ? (
+          <p className="mt-4 flex items-start gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-foreground">
+            <Check className="mt-0.5 size-3.5 shrink-0 text-emerald-500" />
+            <span>
+              {status?.email ? `Conectado como ${status.email}.` : 'Conectado.'} Atividades criadas ou editadas a partir de
+              agora já vão para o Google Agenda.
+            </span>
+          </p>
+        ) : (
+          <p className="mt-4 text-xs text-muted-foreground">
+            Cada pessoa da equipe conecta a própria conta. Quem não está escalado numa atividade não a recebe.
+          </p>
+        )}
+
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-secondary text-sm font-medium text-foreground hover:bg-secondary/70"
+          >
+            Fechar
+          </button>
+          {connected ? (
+            <button
+              type="button"
+              onClick={disconnect}
+              disabled={busy}
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-secondary text-sm font-medium text-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+            >
+              {busy && <Loader2 className="size-4 animate-spin" />}
+              Desconectar
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={connect}
+              disabled={busy || loading}
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="size-4 animate-spin" /> : <CalendarCheck className="size-4" />}
+              Conectar
+            </button>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
 function toDateTimeLocalValue(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
@@ -852,6 +1049,7 @@ function EventModal({
   teamMembers,
   demands,
   onCrewCreated,
+  onCrewRemoved,
   onClose,
   onSaved,
   onDeleted,
@@ -863,6 +1061,7 @@ function EventModal({
   teamMembers: TeamMember[]
   demands: Demand[]
   onCrewCreated: (created: CrewMember) => void
+  onCrewRemoved: (id: string) => void
   onClose: () => void
   onSaved: (saved: CalendarActivity) => void
   onDeleted: (id: string) => void
@@ -891,6 +1090,10 @@ function EventModal({
   const [addingCrew, setAddingCrew] = useState(false)
   const addingCrewRef = useRef(false)
   const [addingMemberId, setAddingMemberId] = useState<string | null>(null)
+  // "Editar nomes": tocar num chip pede pra excluir em vez de escalar.
+  const [managingCrew, setManagingCrew] = useState(false)
+  const [crewToRemove, setCrewToRemove] = useState<CrewMember | null>(null)
+  const [removingCrew, setRemovingCrew] = useState(false)
   const [notes, setNotes] = useState(event?.notes ?? '')
   const [titleError, setTitleError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -914,6 +1117,22 @@ function EventModal({
         ? prev.filter((c) => c.id !== member.id)
         : [...prev, member],
     )
+  }
+
+  async function confirmRemoveCrew() {
+    if (!crewToRemove) return
+    setRemovingCrew(true)
+    try {
+      await crewService.remove(crewToRemove.id)
+      onCrewRemoved(crewToRemove.id)
+      setCrew((prev) => prev.filter((c) => c.id !== crewToRemove.id))
+      toast.success(`${crewToRemove.name} foi excluído(a) da lista`)
+      setCrewToRemove(null)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível excluir esse nome. Tente novamente.')
+    } finally {
+      setRemovingCrew(false)
+    }
   }
 
   async function addCrewMember() {
@@ -1169,7 +1388,22 @@ function EventModal({
           <span className="flex items-center gap-1 text-sm font-medium text-foreground">
             <UsersIcon className="size-3.5" /> Equipe{' '}
             <span className="font-normal text-muted-foreground">(opcional, quem vai)</span>
+            {crewRoster.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setManagingCrew((v) => !v)
+                  setCrewToRemove(null)
+                }}
+                className="ml-auto text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              >
+                {managingCrew ? 'Concluir' : 'Editar nomes'}
+              </button>
+            )}
           </span>
+          {managingCrew && (
+            <span className="text-xs text-muted-foreground">Toque num nome para excluí-lo da lista.</span>
+          )}
           <div className="flex flex-wrap gap-1.5">
             {chipList.length === 0 && (
               <span className="text-xs text-muted-foreground">
@@ -1181,6 +1415,26 @@ function EventModal({
               const allNames = chipList.map((c) => c.name)
               const label = shortName(m.name, allNames)
               const title = m.userId ? `${m.name} · Conta vinculada da equipe` : m.name
+              if (managingCrew) {
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setCrewToRemove(m)}
+                    aria-label={`Excluir ${m.name} da lista`}
+                    title={title}
+                    className={cn(
+                      'inline-flex min-h-8 items-center gap-1 rounded-full border px-3 text-xs font-medium transition-colors',
+                      crewToRemove?.id === m.id
+                        ? 'border-destructive bg-destructive/15 text-destructive'
+                        : 'border-border bg-secondary text-muted-foreground hover:border-destructive/50 hover:text-destructive',
+                    )}
+                  >
+                    {label}
+                    <X className="size-3" />
+                  </button>
+                )
+              }
               return (
                 <button
                   key={m.id}
@@ -1201,6 +1455,31 @@ function EventModal({
               )
             })}
           </div>
+          {managingCrew && crewToRemove && (
+            <div className="mt-1 flex flex-wrap items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-foreground">
+              <span className="min-w-0 flex-1">
+                Excluir <strong>{crewToRemove.name}</strong>? A pessoa sai da lista e de todas as atividades em que
+                estava.
+              </span>
+              <button
+                type="button"
+                onClick={() => setCrewToRemove(null)}
+                disabled={removingCrew}
+                className="inline-flex min-h-8 items-center rounded-lg bg-secondary px-2.5 font-medium hover:bg-secondary/70 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmRemoveCrew}
+                disabled={removingCrew}
+                className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-destructive px-2.5 font-medium text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {removingCrew ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+                Excluir
+              </button>
+            </div>
+          )}
           {event && crew.some((c) => c.userId) && (
             <button
               type="button"

@@ -9,7 +9,7 @@
  * Para desativar de vez, basta não usar o botão demo — nada aqui roda quando
  * a flag está desligada.
  */
-import { DEMO_FLAG_KEY, DEMO_GOOGLE_DRIVE_KEY, DEMO_PLAN_KEY } from '@/lib/config'
+import { DEMO_FLAG_KEY, DEMO_GOOGLE_CALENDAR_KEY, DEMO_GOOGLE_DRIVE_KEY, DEMO_PLAN_KEY } from '@/lib/config'
 import type {
   AdminMetrics,
   AdminUser,
@@ -90,6 +90,7 @@ export function clearDemoFlag() {
   window.localStorage.removeItem(DEMO_FLAG_KEY)
   window.localStorage.removeItem(DEMO_PLAN_KEY)
   window.localStorage.removeItem(DEMO_GOOGLE_DRIVE_KEY)
+  window.localStorage.removeItem(DEMO_GOOGLE_CALENDAR_KEY)
 }
 
 export const demoUser: User = {
@@ -1354,6 +1355,35 @@ export function demoSetGoogleDriveConnected(connected: boolean): void {
 export function demoGoogleDriveStatus(): GoogleDriveStatus {
   const connected = readDemoGoogleDriveConnected()
   return { connected, email: connected ? demoUser.email : null }
+}
+
+/** Conexão pessoal com o Google Agenda no demo — mesma ideia do Drive acima. */
+export function demoSetGoogleCalendarConnected(connected: boolean): void {
+  if (typeof window === 'undefined') return
+  try {
+    if (connected) window.localStorage.setItem(DEMO_GOOGLE_CALENDAR_KEY, '1')
+    else window.localStorage.removeItem(DEMO_GOOGLE_CALENDAR_KEY)
+  } catch {
+    // sem storage: o demo só não lembra a conexão
+  }
+}
+
+export function demoGoogleCalendarStatus(): GoogleDriveStatus {
+  let connected = false
+  try {
+    connected =
+      typeof window !== 'undefined' && window.localStorage.getItem(DEMO_GOOGLE_CALENDAR_KEY) === '1'
+  } catch {
+    connected = false
+  }
+  return { connected, email: connected ? demoUser.email : null }
+}
+
+/** Remove um nome do roster da equipe e de toda atividade em que ele estava. */
+export function demoRemoveCrewMember(id: string): void {
+  const idx = demoCrewRoster.findIndex((c) => c.id === id)
+  if (idx !== -1) demoCrewRoster.splice(idx, 1)
+  for (const ev of demoCalendarActivities) ev.crew = ev.crew.filter((c) => c.id !== id)
 }
 
 export const demoGoogleDriveItems: GoogleDriveItem[] = [

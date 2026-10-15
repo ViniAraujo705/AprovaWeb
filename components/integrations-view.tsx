@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'
 import { toast } from '@/lib/toast'
 import { FadeIn } from '@/components/motion'
 import { ApiError } from '@/lib/api'
-import { googleDriveService } from '@/lib/services'
+import { googleCalendarService, googleDriveService } from '@/lib/services'
 import { useQuery } from '@/lib/use-query'
 
 export function IntegrationsView() {
@@ -29,6 +29,7 @@ export function IntegrationsView() {
       <div className="mt-8 flex flex-col gap-4">
         <WhatsAppCard />
         <GoogleDriveCard />
+        <GoogleCalendarCard />
         <CanvaCard />
       </div>
     </div>
@@ -227,6 +228,53 @@ function GoogleDriveCard() {
           {status?.email
             ? `Conectado como ${status.email}. Suas pastas do Drive já podem ser vinculadas ao criar um projeto.`
             : 'Suas pastas do Drive já podem ser vinculadas ao criar um projeto.'}
+        </p>
+      )}
+    </IntegrationShell>
+  )
+}
+
+/**
+ * Conexão pessoal (cada membro conecta a própria conta) — o mesmo controle
+ * fica no Calendário, que é onde o editor chega (esta tela é owner-only) e
+ * pra onde o OAuth volta.
+ */
+function GoogleCalendarCard() {
+  const { data: status, loading, setData } = useQuery((signal) => googleCalendarService.getStatus(signal))
+  const [busy, setBusy] = useState(false)
+  const connected = status?.connected ?? false
+
+  async function toggle() {
+    setBusy(true)
+    try {
+      if (connected) {
+        await googleCalendarService.disconnect()
+        setData({ connected: false, email: null })
+        toast.info('Google Agenda desconectado')
+        setBusy(false)
+        return
+      }
+      const url = await googleCalendarService.getConnectUrl()
+      if (!url) throw new Error('Resposta de conexão do Google Agenda sem URL.')
+      window.location.href = url
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível falar com o Google Agenda.')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <IntegrationShell
+      icon={<Image src="/icons/google-calendar.svg" alt="" width={22} height={22} />}
+      name="Google Agenda"
+      description="As atividades do calendário em que você está escalado vão sozinhas para o seu Google Agenda."
+      badge={<StatusBadge connected={connected} />}
+      action={<ConnectButton connected={connected} busy={busy || loading} onClick={toggle} />}
+    >
+      {connected && status?.email && (
+        <p className="mt-4 flex items-center gap-1.5 border-t border-border pt-4 text-xs text-muted-foreground">
+          <Check className="size-3.5 shrink-0 text-emerald-400" />
+          Conectado como {status.email}. Cada pessoa da equipe conecta a própria conta.
         </p>
       )}
     </IntegrationShell>

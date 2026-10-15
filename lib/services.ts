@@ -67,6 +67,9 @@ import {
   demoGoogleDriveItems,
   demoGoogleDriveStatus,
   demoSetGoogleDriveConnected,
+  demoGoogleCalendarStatus,
+  demoSetGoogleCalendarConnected,
+  demoRemoveCrewMember,
   demoUpdateCategory,
   demoUpdateDemand,
   demoUpdateDemandStage,
@@ -3263,6 +3266,42 @@ export const googleDriveService = {
 }
 
 /**
+ * Conexão PESSOAL (owner ou editor) com o Google Agenda: o backend cria,
+ * edita e apaga no Google os eventos do calendário em que a pessoa está
+ * escalada (responsável ou equipe com conta vinculada). Sync de mão única,
+ * Check → Google. O callback do OAuth volta pra `/calendario?google=...`.
+ */
+export const googleCalendarService = {
+  async getStatus(signal?: AbortSignal): Promise<GoogleDriveStatus> {
+    if (isDemo()) return delay(demoGoogleCalendarStatus())
+    const res = await api.get<Raw>('/integrations/google-calendar/status', { signal })
+    return {
+      connected: Boolean(pick(res, ['connected', 'isConnected', 'active'], false)),
+      email: pick(res, ['googleEmail', 'email', 'accountEmail'], null),
+    }
+  },
+
+  /** URL de consentimento — navegar a janela inteira pra lá, como no Drive. */
+  async getConnectUrl(): Promise<string> {
+    if (isDemo()) {
+      demoSetGoogleCalendarConnected(true)
+      return delay('/calendario?google=conectado', 400)
+    }
+    const res = await api.get<Raw>('/integrations/google-calendar/connect')
+    return pick(res, ['url', 'authUrl', 'redirectUrl'], '')
+  },
+
+  /** Para o sync futuro; eventos já criados no Google continuam lá. */
+  async disconnect(): Promise<void> {
+    if (isDemo()) {
+      demoSetGoogleCalendarConnected(false)
+      return delay(undefined, 300)
+    }
+    await api.delete('/integrations/google-calendar/disconnect')
+  },
+}
+
+/**
  * Roster de equipe de gravação — nomes livres (freelancers, motorista, etc.)
  * sem precisar de conta/convite no Aprova. Endpoint `/crew` ainda não existe
  * no backend documentado em API.md, mesma situação de `/recording-events`.
@@ -3292,6 +3331,15 @@ export const crewService = {
     }
     const res = await api.post<Raw>('/crew', { nome: name, userId })
     return mapCrewMember(res)
+  },
+
+  /** Exclui o nome do roster — o backend também o tira de todas as atividades. */
+  async remove(id: string): Promise<void> {
+    if (isDemo()) {
+      demoRemoveCrewMember(id)
+      return delay(undefined, 200)
+    }
+    await api.delete(`/crew/${id}`)
   },
 }
 

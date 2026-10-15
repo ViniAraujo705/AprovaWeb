@@ -335,6 +335,22 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
         ? 'Qualidade máxima: arquivo original, do mesmo jeito que a agência entregou. Em internet lenta pode demorar mais para carregar.'
         : 'Versão leve: carrega rápido em internet lenta, mas com menos qualidade que o arquivo original.'
 
+  /**
+   * O <video> que está SAINDO numa troca (crossfade/slide do AnimatePresence)
+   * continua montado — e tocando — por ~320ms, com os handlers do render
+   * antigo. Sem esta checagem, o `timeupdate` dele gravava o tempo do vídeo
+   * anterior em `currentRef` depois do zero da troca, e o `onLoadedMetadata`
+   * do vídeo novo pulava pra esse ponto: quem pulava de vídeo caía no meio do
+   * próximo em vez de começar do zero. Eventos de um vídeo que já não é o
+   * atual são ignorados, e ele é silenciado/pausado na hora.
+   */
+  function fromStaleVideo(id: string, el: HTMLVideoElement) {
+    if (prevVideoIdRef.current === id) return false
+    el.muted = true
+    if (!el.paused) el.pause()
+    return true
+  }
+
   function updateCurrent(t: number) {
     setCurrent(t)
     currentRef.current = t
@@ -370,9 +386,19 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
     else togglePlay()
   }
 
-  /** Aba "Preview Reels": já entra tocando sozinho, igual ao feed do Instagram. */
+  /**
+   * Aba "Preview Reels": já entra tocando sozinho, igual ao feed do Instagram.
+   * No celular abre direto em tela cheia — sem o toque extra na prévia, que
+   * antes era o único jeito de chegar nela (e só quando havia fila). A saída
+   * é o "<" do canto, então vídeo único não prende ninguém. O efeito de
+   * `fullscreen` cuida do autoplay do <video> do portal.
+   */
   function switchToReels() {
     setTab('reels')
+    if (!isDesktop && playbackUrl && !waitingForFile) {
+      setFullscreen(true)
+      return
+    }
     autoplay(videoRef.current)
   }
 
@@ -526,6 +552,9 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
    * No Player (ou com reduced-motion) vira um fade simples, sem deslocamento.
    */
   const slideInReels = tab === 'reels' && !reduceMotion
+  // Capturado no render: o <video> que sai numa troca guarda os handlers deste
+  // render, então compara com o id atual em `fromStaleVideo`.
+  const renderedVideoId = video.id
   const slideVariants = {
     enter: (dir: 1 | -1) =>
       slideInReels ? { y: dir > 0 ? '100%' : '-100%', opacity: 1 } : { opacity: 0 },
@@ -670,9 +699,18 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                         if (videoWidth && videoHeight) setAspectRatio(videoWidth / videoHeight)
                         e.currentTarget.currentTime = currentRef.current
                       }}
-                      onTimeUpdate={(e) => updateCurrent(e.currentTarget.currentTime)}
-                      onPlay={() => setPlaying(true)}
-                      onPause={() => setPlaying(false)}
+                      onTimeUpdate={(e) => {
+                        if (fromStaleVideo(renderedVideoId, e.currentTarget)) return
+                        updateCurrent(e.currentTarget.currentTime)
+                      }}
+                      onPlay={(e) => {
+                        if (fromStaleVideo(renderedVideoId, e.currentTarget)) return
+                        setPlaying(true)
+                      }}
+                      onPause={(e) => {
+                        if (fromStaleVideo(renderedVideoId, e.currentTarget)) return
+                        setPlaying(false)
+                      }}
                       onClick={tab === 'reels' ? handleReelsTap : togglePlay}
                     />
                   ) : video.posterUrl ? (
@@ -975,9 +1013,18 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                     if (Number.isFinite(d)) setDuration(Math.round(d))
                     e.currentTarget.currentTime = currentRef.current
                   }}
-                  onTimeUpdate={(e) => updateCurrent(e.currentTarget.currentTime)}
-                  onPlay={() => setPlaying(true)}
-                  onPause={() => setPlaying(false)}
+                  onTimeUpdate={(e) => {
+                    if (fromStaleVideo(renderedVideoId, e.currentTarget)) return
+                    updateCurrent(e.currentTarget.currentTime)
+                  }}
+                  onPlay={(e) => {
+                    if (fromStaleVideo(renderedVideoId, e.currentTarget)) return
+                    setPlaying(true)
+                  }}
+                  onPause={(e) => {
+                    if (fromStaleVideo(renderedVideoId, e.currentTarget)) return
+                    setPlaying(false)
+                  }}
                   onClick={handleReelsTap}
                 />
               </motion.div>
