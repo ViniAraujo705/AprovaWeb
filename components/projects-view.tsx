@@ -17,6 +17,7 @@ import {
   ArchiveRestore,
   Search,
   ImagePlus,
+  HardDrive,
 } from 'lucide-react'
 import { clientService, projectService, videoService } from '@/lib/services'
 import type { Client, Project, Video } from '@/lib/types'
@@ -33,8 +34,16 @@ import { validatePhotoFile, UploadError } from '@/lib/upload'
 import { uploadProjectPhoto } from '@/lib/project-photo'
 import { useAuth } from '@/components/auth-provider'
 import { publicUrl } from '@/lib/site'
+import { DeadlineBadge } from '@/components/deadline-badge'
 
 const ALL_CLIENTS = 'Todos os clientes'
+// Filtro/grupo dos projetos sem cliente cadastrado.
+const AVULSOS = 'Avulsos'
+// Valor do <select> de cliente no form para "sem cliente".
+const NO_CLIENT = '__avulso__'
+
+type SortMode = 'prazo' | 'atividade'
+const SORT_STORAGE_KEY = 'check:projetos-ordem'
 
 function normalize(s: string): string {
   return s
@@ -61,6 +70,23 @@ export function ProjectsView() {
 
   const [client, setClient] = useState(ALL_CLIENTS)
   const [search, setSearch] = useState('')
+  // Padrão: o que vence primeiro no topo. A escolha fica no navegador.
+  const [sortMode, setSortMode] = useState<SortMode>('prazo')
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(SORT_STORAGE_KEY) === 'atividade') setSortMode('atividade')
+    } catch {
+      // sem storage: fica no padrão
+    }
+  }, [])
+  function changeSortMode(mode: SortMode) {
+    setSortMode(mode)
+    try {
+      localStorage.setItem(SORT_STORAGE_KEY, mode)
+    } catch {
+      // sem storage: vale só nesta visita
+    }
+  }
 
   // Arquivamento é só local (localStorage) — ver lib/archived-projects.ts.
   const [archivedIds, setArchivedIds] = useState<string[]>([])
@@ -80,6 +106,8 @@ export function ProjectsView() {
   const [projectName, setProjectName] = useState('')
   const [projectClientId, setProjectClientId] = useState('')
   const [newClientName, setNewClientName] = useState<string | null>(null)
+  // Projeto avulso: nome livre de quem recebe o link (opcional).
+  const [contactName, setContactName] = useState('')
   const [creatingClient, setCreatingClient] = useState(false)
   const [creatingBusy, setCreatingBusy] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -104,6 +132,7 @@ export function ProjectsView() {
     setCreatingProject(true)
     setProjectName('')
     setProjectClientId('')
+    setContactName('')
     setNewClientName(null)
     setCreateError(null)
     setPhoto(null)
@@ -133,13 +162,16 @@ export function ProjectsView() {
       return
     }
     if (!projectClientId) {
-      setCreateError('Selecione um cliente.')
+      setCreateError('Selecione um cliente ou "Sem cliente (projeto avulso)".')
       return
     }
+    const standalone = projectClientId === NO_CLIENT
     setCreatingBusy(true)
     setCreateError(null)
     try {
-      const created = await projectService.create({ name, clientId: projectClientId })
+      const created = await projectService.create(
+        standalone ? { name, contactName } : { name, clientId: projectClientId },
+      )
       // Foto é acessório: se o upload falhar, o projeto criado continua valendo
       // e o usuário tenta de novo pela tela do projeto, em vez de perder tudo.
       if (photoFile) {
@@ -152,7 +184,20 @@ export function ProjectsView() {
           )
         }
       }
-      toast.success('Projeto criado')
+      if (standalone && created.publicLink) {
+        // O ponto do avulso é mandar o link: já deixa copiado. Se o navegador
+        // recusar (perdeu o gesto do clique), o link está no topo do projeto.
+        const copied = await navigator.clipboard
+          .writeText(publicUrl(`/g/${created.publicLink}`))
+          .then(() => true)
+          .catch(() => false)
+        toast.success(
+          'Projeto avulso criado',
+          copied ? 'O link da galeria já foi copiado.' : 'Copie o link da galeria no topo do projeto.',
+        )
+      } else {
+        toast.success('Projeto criado')
+      }
       router.push(`/projetos/${created.id}`)
     } catch (err) {
       setCreateError(err instanceof ApiError ? err.message : 'Falha ao criar projeto.')
@@ -165,6 +210,43 @@ export function ProjectsView() {
     for (const v of videos.data ?? []) {
       if (!v.projectId) continue
       map.set(v.projectId, (map.get(v.projectId) ?? 0) + 1)
+    }
+    return map
+  }, [videos.data])
+
+  // Prazo de entrega do projeto = o mais próximo entre as entregas ainda não
+  // aprovadas (só a versão atual de cada vídeo). Aprovado não tem mais o que
+  // entregar, então não segura o projeto no topo.
+  const nextDeadlineByProject = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const v of videos.data ?? []) {
+      if (!v.projectId || !v.deadline || v.status === 'aprovado' || v.latestVersionId !== v.id) continue
+      const prev = map.get(v.projectId)
+      if (!prev || v.deadline < prev) map.set(v.projectId, v.deadline)
+    }
+    return map
+  }, [videos.data])
+
+  // Projeto cujos vídeos tiveram os arquivos apagados (armazenamento liberado).
+  const storageReleasedProjects = useMemo(() => {
+    const all = new Map<string, boolean>()
+    for (const v of videos.data ?? []) {
+      if (!v.projectId) continue
+      all.set(v.projectId, (all.get(v.projectId) ?? true) && !!v.fileRemovedAt)
+    }
+    return new Set([...all].filter(([, removed]) => removed).map(([id]) => id))
+  }, [videos.data])
+
+  // "Ordem de entrega": o projeto que recebeu vídeo mais recentemente sobe pro
+  // topo. Sem isso a lista seguia a criação do projeto, e um projeto antigo
+  // que ganhava vídeo novo ficava enterrado entre os já entregues. Projeto sem
+  // vídeo conta a própria criação como atividade, pra não afundar recém-criado.
+  const lastActivityByProject = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const v of videos.data ?? []) {
+      if (!v.projectId || !v.createdAt) continue
+      const prev = map.get(v.projectId)
+      if (!prev || v.createdAt > prev) map.set(v.projectId, v.createdAt)
     }
     return map
   }, [videos.data])
@@ -185,7 +267,8 @@ export function ProjectsView() {
   const clientNames = useMemo(() => {
     const set = new Set<string>()
     allProjects.forEach((p) => p.client?.name && set.add(p.client.name))
-    return [ALL_CLIENTS, ...Array.from(set).sort()]
+    const hasStandalone = allProjects.some((p) => !p.clientId)
+    return [ALL_CLIENTS, ...Array.from(set).sort(), ...(hasStandalone ? [AVULSOS] : [])]
   }, [allProjects])
 
   const archivedCount = allProjects.filter((p) => archivedIds.includes(p.id)).length
@@ -194,16 +277,40 @@ export function ProjectsView() {
   )
 
   const filtered = visibleProjects.filter(
-    (p) => client === ALL_CLIENTS || p.client?.name === client,
+    (p) =>
+      client === ALL_CLIENTS ||
+      (client === AVULSOS ? !p.clientId : p.client?.name === client),
   )
 
   const searched = useMemo(() => {
     const q = normalize(search.trim())
-    if (!q) return filtered
-    return filtered.filter(
-      (p) => normalize(p.name).includes(q) || normalize(p.client?.name ?? '').includes(q),
-    )
-  }, [filtered, search])
+    const matches = q
+      ? filtered.filter(
+          (p) =>
+            normalize(p.name).includes(q) ||
+            normalize(p.client?.name ?? '').includes(q) ||
+            normalize(p.contactName ?? '').includes(q),
+        )
+      : filtered
+    const activity = (p: Project) => {
+      const video = lastActivityByProject.get(p.id) ?? ''
+      const created = p.createdAt ?? ''
+      return video > created ? video : created
+    }
+    const byActivity = (a: Project, b: Project) => activity(b).localeCompare(activity(a))
+    // sort estável: empate (ou sem data nenhuma) mantém a ordem do back, por criação desc.
+    if (sortMode === 'atividade') return [...matches].sort(byActivity)
+    // Por prazo: quem vence primeiro (vencidos incluídos) no topo; projeto sem
+    // prazo pendente vem depois, na ordem de atividade.
+    return [...matches].sort((a, b) => {
+      const da = nextDeadlineByProject.get(a.id)
+      const db = nextDeadlineByProject.get(b.id)
+      if (da && db) return da.localeCompare(db)
+      if (da) return -1
+      if (db) return 1
+      return byActivity(a, b)
+    })
+  }, [filtered, search, lastActivityByProject, nextDeadlineByProject, sortMode])
 
   // Só agrupa por cliente quando o filtro está em "Todos os clientes" — com
   // um cliente específico selecionado a lista já é de um só cliente.
@@ -215,22 +322,28 @@ export function ProjectsView() {
       if (!map.has(key)) map.set(key, { client: p.client, clientId: key, projects: [] })
       map.get(key)!.projects.push(p)
     }
-    return Array.from(map.values()).sort((a, b) =>
-      (a.client?.name ?? 'Sem cliente').localeCompare(b.client?.name ?? 'Sem cliente', 'pt-BR'),
-    )
-  }, [searched, client])
+    const all = Array.from(map.values())
+    // Por prazo, o grupo do cliente com a entrega mais urgente sobe: `searched`
+    // já vem ordenado, e o Map guarda a ordem de inserção. Por atividade segue
+    // alfabético. Avulsos sempre por último no alfabético.
+    if (sortMode === 'prazo') return all
+    return all.sort((a, b) => {
+      if (!a.client !== !b.client) return a.client ? -1 : 1
+      return (a.client?.name ?? '').localeCompare(b.client?.name ?? '', 'pt-BR')
+    })
+  }, [searched, client, sortMode])
 
   return (
     <div className="flex flex-1 flex-col px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div className="xl:max-w-sm">
           <h1 className="font-display text-4xl tracking-wide sm:text-5xl">PROJETOS</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Cada projeto agrupa os vídeos de uma entrega — mande o link da galeria pro cliente ver
             todos de uma vez.
           </p>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {allProjects.length > 0 && (
             <>
               <div className="relative">
@@ -242,6 +355,17 @@ export function ProjectsView() {
                   className="min-h-11 w-56 rounded-lg border border-border bg-secondary py-2 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
                 />
               </div>
+              <label className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Ordem:</span>
+                <select
+                  value={sortMode}
+                  onChange={(e) => changeSortMode(e.target.value as SortMode)}
+                  className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+                >
+                  <option value="prazo">Prazo de entrega</option>
+                  <option value="atividade">Atividade recente</option>
+                </select>
+              </label>
               <label className="flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground">Cliente:</span>
                 <select
@@ -352,7 +476,7 @@ export function ProjectsView() {
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
               placeholder="Nome do projeto (ex: Reel lançamento batom)"
-              className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+              className="min-h-11 self-start rounded-lg sm:mt-[1.625rem] w-full border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
             />
             <div className="flex flex-col gap-1.5">
               {/* Criar cliente segue sendo do owner — o editor escolhe entre
@@ -387,6 +511,7 @@ export function ProjectsView() {
                   <option value="" disabled>
                     {clients.loading ? 'Carregando…' : 'Selecione o cliente'}
                   </option>
+                  <option value={NO_CLIENT}>Sem cliente (projeto avulso)</option>
                   {(clients.data ?? []).map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -411,9 +536,23 @@ export function ProjectsView() {
                   </button>
                 </div>
               )}
+              {projectClientId === NO_CLIENT && newClientName === null && (
+                <input
+                  value={contactName}
+                  onChange={(e) => setContactName(e.target.value)}
+                  maxLength={120}
+                  placeholder="Para quem é o link? (opcional)"
+                  className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                />
+              )}
             </div>
             </div>
           </div>
+          {projectClientId === NO_CLIENT && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Projeto avulso: sem cadastrar cliente. Ao criar, o link da galeria já sai copiado pra você mandar.
+            </p>
+          )}
           {photoCropFile && (
             <ImageCropModal
               file={photoCropFile}
@@ -500,13 +639,13 @@ export function ProjectsView() {
               <section key={g.clientId}>
                 <div className="mb-3 flex items-center gap-2.5">
                   <ClientAvatar
-                    name={g.client?.name ?? 'Sem cliente'}
+                    name={g.client?.name ?? AVULSOS}
                     photoUrl={g.client?.photoUrl}
                     seed={g.clientId}
                     size="sm"
                   />
                   <h2 className="text-sm font-semibold text-foreground">
-                    {g.client?.name ?? 'Sem cliente'}
+                    {g.client?.name ?? AVULSOS}
                   </h2>
                   <span className="text-xs text-muted-foreground">
                     {g.projects.length} {g.projects.length === 1 ? 'projeto' : 'projetos'}
@@ -518,6 +657,8 @@ export function ProjectsView() {
                       key={p.id}
                       project={p}
                       videoCount={countByProject.get(p.id) ?? 0}
+                      nextDeadline={nextDeadlineByProject.get(p.id) ?? null}
+                      storageReleased={storageReleasedProjects.has(p.id)}
                       archived={showArchived}
                       onUnarchive={() => handleUnarchive(p.id)}
                     />
@@ -533,6 +674,8 @@ export function ProjectsView() {
                 key={p.id}
                 project={p}
                 videoCount={countByProject.get(p.id) ?? 0}
+                nextDeadline={nextDeadlineByProject.get(p.id) ?? null}
+                storageReleased={storageReleasedProjects.has(p.id)}
                 archived={showArchived}
                 onUnarchive={() => handleUnarchive(p.id)}
               />
@@ -547,16 +690,25 @@ export function ProjectsView() {
 function ProjectCard({
   project,
   videoCount,
+  nextDeadline,
+  storageReleased,
   archived,
   onUnarchive,
 }: {
   project: Project
   videoCount: number
+  /** Prazo mais próximo entre as entregas ainda não aprovadas. */
+  nextDeadline: string | null
+  /** Arquivos de vídeo já apagados (armazenamento liberado). */
+  storageReleased: boolean
   archived: boolean
   onUnarchive: () => void
 }) {
   const [copied, setCopied] = useState(false)
   const galleryPath = project.publicLink ? `/g/${project.publicLink}` : null
+  const clientLabel = project.clientId
+    ? (project.client?.name ?? 'Cliente')
+    : `Avulso${project.contactName ? ` · ${project.contactName}` : ''}`
 
   async function copyGalleryLink() {
     if (!galleryPath) return
@@ -593,15 +745,15 @@ function ProjectCard({
             size="sm"
             fallback={
               <ClientAvatar
-                name={project.client?.name ?? 'Cliente'}
+                name={project.client?.name ?? project.contactName ?? AVULSOS}
                 photoUrl={project.client?.photoUrl}
                 seed={project.clientId}
               />
             }
           />
           <div className="min-w-0">
-            <p className="truncate text-xs text-muted-foreground" title={project.client?.name ?? 'Cliente'}>
-              {project.client?.name ?? 'Cliente'}
+            <p className="truncate text-xs text-muted-foreground" title={clientLabel}>
+              {clientLabel}
             </p>
             <h3 className="mt-0.5 truncate text-lg font-bold tracking-tight" title={project.name}>
               {project.name}
@@ -618,10 +770,19 @@ function ProjectCard({
         )}
       </div>
 
-      <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
-        <Film className="size-3.5" />
-        {videoCount} {videoCount === 1 ? 'vídeo' : 'vídeos'}
-      </span>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
+          <Film className="size-3.5" />
+          {videoCount} {videoCount === 1 ? 'vídeo' : 'vídeos'}
+        </span>
+        {nextDeadline && <DeadlineBadge deadline={nextDeadline} />}
+        {storageReleased && (
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
+            <HardDrive className="size-3.5" />
+            Arquivos removidos
+          </span>
+        )}
+      </div>
 
       <div className="mt-1 flex flex-wrap items-center gap-2">
         {galleryPath && (

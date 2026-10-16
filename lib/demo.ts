@@ -44,6 +44,7 @@ import type {
   Project,
   ProjectGallery,
   ProjectMember,
+  ProjectStorageSummary,
   PublicPortfolio,
   PublicPortfolioHub,
   PublicVideo,
@@ -155,7 +156,88 @@ export const demoProjects: Project[] = [
     photoUrl: null,
     members: [{ id: 'pm2', userId: 'm3', name: 'Rafael Souza', email: 'rafael@agencia.com' }],
   },
+  // p3: projeto avulso (sem cliente cadastrado), já todo aprovado — exercita
+  // o grupo "Avulsos" da lista e o "Liberar armazenamento".
+  {
+    id: 'p3',
+    name: 'Vídeo institucional',
+    clientId: '',
+    isExample: false,
+    publicLink: 'demo-projeto-avulso',
+    photoUrl: null,
+    members: [],
+    contactName: 'Carla (Studio Pilates)',
+  },
 ]
+
+let demoProjectSeq = 0
+
+/** Simula `POST /projects` (com ou sem cliente) — in-memory, não persiste entre reloads. */
+export function demoCreateProject(input: {
+  name: string
+  clientId?: string | null
+  contactName?: string | null
+}): Project {
+  demoProjectSeq += 1
+  const clientId = input.clientId || ''
+  const project: Project = {
+    id: `p-demo-${demoProjectSeq}`,
+    name: input.name,
+    clientId,
+    client: clientId ? demoClients.find((c) => c.id === clientId) : undefined,
+    isExample: false,
+    publicLink: `demo-projeto-novo-${demoProjectSeq}`,
+    photoUrl: null,
+    members: [],
+    createdAt: new Date().toISOString(),
+    contactName: clientId ? null : input.contactName?.trim() || null,
+  }
+  demoProjects.push(project)
+  return project
+}
+
+/** Mesma regra do back: ponta de cada cadeia aprovada, e algo ainda a apagar. */
+function demoReleasePlan(projectId: string) {
+  const videos = demoVideosForProject(projectId)
+  const parents = new Set(videos.map((v) => v.videoPaiId).filter(Boolean))
+  const latest = videos.filter((v) => !parents.has(v.id))
+  const pending = videos.filter((v) => !v.fileRemovedAt)
+  const reason =
+    latest.length === 0
+      ? 'O projeto ainda não tem vídeos'
+      : latest.some((v) => v.status !== 'aprovado')
+        ? 'Só dá para liberar quando todos os vídeos estiverem aprovados'
+        : pending.length === 0
+          ? 'O armazenamento deste projeto já foi liberado'
+          : null
+  return { videos, pending, reason }
+}
+
+export function demoProjectStorageSummary(projectId: string): ProjectStorageSummary {
+  const { videos, pending, reason } = demoReleasePlan(projectId)
+  const releasedAt = videos.map((v) => v.fileRemovedAt).filter((d): d is string => !!d).sort().pop() ?? null
+  return {
+    releasable: reason === null,
+    reason,
+    videos: pending.length,
+    files: pending.length * 2,
+    // ~180 MB por vídeo (original 4K + cópia HD), só pra a confirmação ter número.
+    bytes: pending.length * 180 * 1024 * 1024,
+    releasedAt,
+  }
+}
+
+export function demoReleaseProjectStorage(projectId: string): { bytes: number; videos: number; releasedAt: string } {
+  const { pending, reason } = demoReleasePlan(projectId)
+  if (reason) throw new Error(reason)
+  const releasedAt = new Date().toISOString()
+  for (const v of pending) {
+    v.fileRemovedAt = releasedAt
+    v.url = null
+    v.originalUrl = null
+  }
+  return { bytes: pending.length * 180 * 1024 * 1024, videos: pending.length, releasedAt }
+}
 
 /**
  * Edita um projeto de exemplo in-memory (nome/cliente/foto) — mesma ideia de
@@ -415,6 +497,30 @@ export const demoVideos: Video[] = [
     version: 1,
     videoPaiId: null,
     latestVersionId: 'rv-05',
+  },
+  {
+    id: 'rv-06',
+    title: 'Institucional Studio Pilates',
+    type: 'Vídeo',
+    status: 'aprovado',
+    duration: 58,
+    url: DEMO_SAMPLE_URL,
+    originalUrl: DEMO_SAMPLE_URL,
+    posterUrl: '/videos/reel-food.png',
+    publicLink: `${DEMO_LINK}-rv-06`,
+    clientName: '',
+    projectId: 'p3',
+    commentsCount: 0,
+    lastCommentAt: null,
+    createdAt: iso(120),
+    processingStatus: 'pronto',
+    productionStage: 'entregue',
+    isExample: false,
+    deadline: null,
+    editorId: null,
+    version: 1,
+    videoPaiId: null,
+    latestVersionId: 'rv-06',
   },
 ]
 
@@ -766,8 +872,8 @@ export function demoPublicVideo(link: string = DEMO_LINK): PublicVideo {
   const video: Video = {
     ...match,
     duration: 10,
-    url: DEMO_SAMPLE_URL,
-    originalUrl: DEMO_SAMPLE_URL,
+    url: match.fileRemovedAt ? null : DEMO_SAMPLE_URL,
+    originalUrl: match.fileRemovedAt ? null : DEMO_SAMPLE_URL,
     deadline: null, // prazo é interno à agência — nunca exposto na tela pública
   }
   const project = demoProjects.find((p) => p.id === match.projectId)
@@ -803,6 +909,7 @@ export function demoProjectGallery(link: string): ProjectGallery {
     processingStatus: v.processingStatus,
     version: v.version,
     createdAt: v.createdAt,
+    fileRemovedAt: v.fileRemovedAt ?? null,
   }))
   // Mesma regra da galeria pública real: um vídeo substituído por uma nova
   // versão (videoPaiId de outro item aponta pra ele) não deve aparecer.
@@ -811,7 +918,7 @@ export function demoProjectGallery(link: string): ProjectGallery {
   const videos = allVideos.filter((v) => !supersededIds.has(v.id))
   return {
     projectName: project.name,
-    clientName: project.client?.name ?? '',
+    clientName: project.client?.name ?? project.contactName ?? '',
     // A agência demo nunca tem branding configurado nestes fixtures; se o
     // cliente do projeto tiver marca própria (ex: c1/Bela Cosméticos), ela
     // aparece aqui — mesma regra de sobreposição de `resolveBranding`.

@@ -208,6 +208,27 @@ export interface Project {
   photoUrl: string | null
   /** Editores com acesso a este projeto. Só vem em `GET /projects/:id`. */
   members?: ProjectMember[]
+  /** criadoEm do projeto — desempate da ordem por entrega quando ainda não há vídeo. */
+  createdAt?: string | null
+  /**
+   * Projeto avulso (sem cliente cadastrado, `clientId` vazio): nome livre de
+   * quem recebe o link, se a agência informou. Sempre `null` com cliente.
+   */
+  contactName?: string | null
+}
+
+/**
+ * O que "liberar armazenamento" apagaria de um projeto (`GET /projects/:id/storage`).
+ * `releasable` só é true com todas as entregas aprovadas; senão `reason` explica.
+ */
+export interface ProjectStorageSummary {
+  releasable: boolean
+  reason: string | null
+  videos: number
+  files: number
+  bytes: number
+  /** Quando os arquivos foram apagados, se já foram. */
+  releasedAt: string | null
 }
 
 /** Editor atribuído a um projeto (`GET /projects/:id`, `POST/DELETE /projects/:id/members/:memberId`). */
@@ -294,6 +315,12 @@ export interface Video {
    * em lib/services.ts.
    */
   latestVersionId: string
+  /**
+   * Quando o arquivo foi apagado ao liberar o armazenamento do projeto
+   * aprovado. Com isto preenchido `url`/`originalUrl` vêm nulos: comentários,
+   * notas e histórico continuam, só não há mais o que tocar ou baixar.
+   */
+  fileRemovedAt?: string | null
 }
 
 /**
@@ -422,6 +449,8 @@ export interface GalleryVideoItem {
   processingStatus: VideoProcessingStatus
   version: number
   createdAt: string | null
+  /** Arquivo apagado ao liberar o armazenamento do projeto (ver `Video.fileRemovedAt`). */
+  fileRemovedAt?: string | null
 }
 
 /** Galeria pública de um projeto: um link só para todos os vídeos da entrega. */

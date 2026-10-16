@@ -19,6 +19,9 @@ import {
   demoAddUploadedPortfolioVideo,
   demoAssignProjectMember,
   demoUpdateProject,
+  demoCreateProject,
+  demoProjectStorageSummary,
+  demoReleaseProjectStorage,
   demoClientActivityPage,
   demoClientChannel,
   demoClientFields,
@@ -136,6 +139,7 @@ import type {
   ProjectGallery,
   PublicProjectDownload,
   ProjectMember,
+  ProjectStorageSummary,
   PublicPortfolio,
   PublicPortfolioHub,
   PublicVideo,
@@ -317,6 +321,19 @@ function mapProject(raw: Raw): Project {
     publicLink: pick<string | null>(raw, ['linkPublico', 'link_publico', 'publicLink'], null),
     photoUrl: pick<string | null>(raw, ['fotoUrl', 'foto_url', 'photoUrl', 'imagemUrl'], null),
     members: membersRaw ? membersRaw.map(mapProjectMember) : undefined,
+    createdAt: pick<string | null>(raw, ['criadoEm', 'createdAt', 'created_at'], null),
+    contactName: pick<string | null>(raw, ['contatoAvulso', 'contato_avulso', 'contactName'], null),
+  }
+}
+
+function mapProjectStorageSummary(raw: Raw): ProjectStorageSummary {
+  return {
+    releasable: Boolean(pick(raw, ['liberavel', 'releasable'], false)),
+    reason: pick<string | null>(raw, ['motivo', 'reason'], null),
+    videos: Number(pick(raw, ['videos'], 0)) || 0,
+    files: Number(pick(raw, ['arquivos', 'files'], 0)) || 0,
+    bytes: Number(pick(raw, ['bytes'], 0)) || 0,
+    releasedAt: pick<string | null>(raw, ['liberadoEm', 'releasedAt'], null),
   }
 }
 
@@ -386,7 +403,10 @@ function mapVideo(raw: Raw, extra?: { clientName?: string | null }): Video {
   const clientRaw = pick<Raw | null>(raw, ['client', 'cliente'], projectRaw?.client ?? null)
   const countRaw = pick<Raw | null>(raw, ['_count'], null)
   const videoPaiRaw = pick<Raw | null>(raw, ['videoPai', 'video_pai'], null)
-  const originalUrl = pick<string | null>(raw, ['urlStorage', 'url_storage'], null)
+  const fileRemovedAt = pick<string | null>(raw, ['arquivoRemovidoEm', 'arquivo_removido_em', 'fileRemovedAt'], null)
+  // Arquivo apagado (armazenamento liberado): a URL continua no banco, mas
+  // aponta pro nada — zera aqui pra nenhuma tela tentar tocar ou baixar.
+  const originalUrl = fileRemovedAt ? null : pick<string | null>(raw, ['urlStorage', 'url_storage'], null)
   // O backend novo devolve a lista `editorIds`; a interface atual ainda
   // trabalha com um único responsável, então usa o primeiro para manter a UI
   // compatível durante a migração para múltiplas pessoas responsáveis.
@@ -405,8 +425,9 @@ function mapVideo(raw: Raw, extra?: { clientName?: string | null }): Video {
     duration:
       Number(pick(raw, ['duracaoSegundos', 'duracao_segundos', 'duration', 'duracao', 'durationSeconds'], 0)) ||
       0,
-    url: pick<string | null>(raw, ['urlOtimizada', 'url_otimizada'], null) ?? originalUrl,
+    url: fileRemovedAt ? null : (pick<string | null>(raw, ['urlOtimizada', 'url_otimizada'], null) ?? originalUrl),
     originalUrl,
+    fileRemovedAt,
     posterUrl: pick<string | null>(raw, ['thumbnailUrl', 'thumbnail_url', 'posterUrl', 'poster'], null),
     // `linkPublicoEfetivo` (backend, 28/08) é o link ESTÁVEL da cadeia: o que o
     // cliente recebeu na v1 e continua valendo depois de cada nova versão — o
@@ -626,6 +647,7 @@ function mapGalleryVideoItem(raw: Raw): GalleryVideoItem {
     ),
     version: Number(pick(raw, ['versao', 'version'], 1)) || 1,
     createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
+    fileRemovedAt: pick<string | null>(raw, ['arquivoRemovidoEm', 'arquivo_removido_em', 'fileRemovedAt'], null),
   }
 }
 
@@ -1594,9 +1616,37 @@ export const projectService = {
     const res = await api.get<Raw>(`/projects/${id}`, { signal })
     return mapProject(res)
   },
-  async create(input: { name: string; clientId: string }): Promise<Project> {
-    const res = await api.post<Raw>('/projects', { nome: input.name, clientId: input.clientId })
+  /**
+   * Sem `clientId` cria um projeto avulso: o link da galeria funciona igual,
+   * sem cadastrar cliente. `contactName` é o nome livre de quem recebe.
+   */
+  async create(input: { name: string; clientId?: string | null; contactName?: string | null }): Promise<Project> {
+    if (isDemo()) return delay(demoCreateProject(input), 300)
+    const res = await api.post<Raw>('/projects', {
+      nome: input.name,
+      clientId: input.clientId || null,
+      contatoAvulso: input.clientId ? null : input.contactName?.trim() || null,
+    })
     return mapProject(res)
+  },
+  /** O que "liberar armazenamento" apagaria — alimenta a confirmação antes da exclusão. */
+  async storageSummary(id: string, signal?: AbortSignal): Promise<ProjectStorageSummary> {
+    if (isDemo()) return delay(demoProjectStorageSummary(id))
+    const res = await api.get<Raw>(`/projects/${id}/storage`, { signal })
+    return mapProjectStorageSummary(res)
+  },
+  /**
+   * Apaga DEFINITIVAMENTE os arquivos de vídeo (todas as versões) de um projeto
+   * com tudo aprovado. Comentários, notas, histórico e relatórios ficam. Só owner.
+   */
+  async releaseStorage(id: string): Promise<{ bytes: number; videos: number; releasedAt: string }> {
+    if (isDemo()) return delay(demoReleaseProjectStorage(id), 600)
+    const res = await api.post<Raw>(`/projects/${id}/release-storage`, {})
+    return {
+      bytes: Number(pick(res, ['bytes'], 0)) || 0,
+      videos: Number(pick(res, ['videos'], 0)) || 0,
+      releasedAt: pick(res, ['liberadoEm', 'releasedAt'], new Date().toISOString()),
+    }
   },
   async update(
     id: string,

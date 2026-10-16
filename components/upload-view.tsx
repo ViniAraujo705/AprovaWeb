@@ -168,6 +168,9 @@ function VideoThumbnail({ item, onPreview }: { item: PendingFile; onPreview: () 
   )
 }
 
+// Valor do <select> de cliente para projeto avulso (sem cliente cadastrado).
+const NO_CLIENT = '__avulso__'
+
 export function UploadView() {
   // Criar CLIENTE é coisa de owner (o editor nem vê o atalho); criar projeto
   // não, senão um editor sem nenhum projeto atribuído fica sem conseguir subir
@@ -209,8 +212,13 @@ export function UploadView() {
   // Cliente/projeto são configurados uma vez só e valem pro lote inteiro.
   const [projectMode, setProjectMode] = useState<'novo' | 'existente'>('novo')
   const [projectId, setProjectId] = useState('')
+  // `clientId` real (vazio no avulso) — é o que vai pro back.
+  const realClientId = clientId === NO_CLIENT ? '' : clientId
   const projectsForClient = useQuery<Project[]>(
-    (signal) => projectService.list(clientId, signal),
+    async (signal) =>
+      clientId === NO_CLIENT
+        ? (await projectService.list(undefined, signal)).filter((p) => !p.clientId)
+        : projectService.list(clientId, signal),
     [clientId],
     { enabled: projectMode === 'existente' && !!clientId },
   )
@@ -230,7 +238,7 @@ export function UploadView() {
       .get(prefillProjectId)
       .then((project) => {
         if (cancelled) return
-        setClientId(project.clientId)
+        setClientId(project.clientId || NO_CLIENT)
         setProjectMode('existente')
         setProjectId(project.id)
         setPrefilledProject(project)
@@ -451,7 +459,7 @@ export function UploadView() {
     const created = await demandService.create({
       title: `Entrega de vídeos — ${projectName}`,
       kind: 'demanda',
-      clientId,
+      clientId: realClientId || null,
       responsibleId: editorId || null,
       deadline: deadline ? new Date(`${deadline}T00:00:00`).toISOString() : null,
     })
@@ -495,7 +503,7 @@ export function UploadView() {
           const g = project?.publicLink
           setGalleryLink(g ? publicUrl(`/g/${g}`) : null)
         } else {
-          const created = await projectService.create({ name: title.trim(), clientId })
+          const created = await projectService.create({ name: title.trim(), clientId: realClientId || null })
           targetProjectId = created.id
           projectName = created.name
           setGalleryLink(
@@ -880,6 +888,7 @@ export function UploadView() {
                       <option value="" disabled>
                         {clients.loading ? 'Carregando…' : 'Selecione o cliente'}
                       </option>
+                      <option value={NO_CLIENT}>Sem cliente (projeto avulso)</option>
                       {(clients.data ?? []).map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.name}

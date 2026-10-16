@@ -24,6 +24,7 @@ import {
   ArchiveRestore,
   UploadCloud,
   ImagePlus,
+  HardDrive,
 } from 'lucide-react'
 import {
   projectService,
@@ -52,6 +53,8 @@ import { ImageCropModal } from '@/components/image-crop-modal'
 import { UploadError, validatePhotoFile } from '@/lib/upload'
 import { uploadProjectPhoto } from '@/lib/project-photo'
 import { publicUrl } from '@/lib/site'
+import { AnimatePresence } from '@/components/motion'
+import { ReleaseStorageModal, formatBytes } from '@/components/release-storage-modal'
 
 export function ProjectDetailView({ id }: { id: string }) {
   const router = useRouter()
@@ -187,7 +190,7 @@ export function ProjectDetailView({ id }: { id: string }) {
   const [bulkDownloadProgress, setBulkDownloadProgress] = useState<{ current: number; total: number } | null>(null)
   const [bulkDownloadResult, setBulkDownloadResult] = useState<{ downloaded: number; total: number } | null>(null)
   const [bulkError, setBulkError] = useState<string | null>(null)
-  const downloadableVideos = currentVideos.filter((v) => !!v.url || !!v.publicLink)
+  const downloadableVideos = currentVideos.filter((v) => !v.fileRemovedAt && (!!v.url || !!v.publicLink))
 
   function toggleSelected(videoId: string) {
     setSelected((prev) => {
@@ -219,6 +222,31 @@ export function ProjectDetailView({ id }: { id: string }) {
   }, [id])
 
   const hasVideos = currentVideos.length > 0
+
+  // Liberar armazenamento: só aparece com todas as entregas aprovadas, e o
+  // back confere de novo (a lista aqui pode estar paginada). Depois de
+  // liberado, o projeto vira só histórico: sem arquivo pra tocar ou baixar.
+  const allApproved = hasVideos && currentVideos.every((v) => v.status === 'aprovado')
+  const storageReleasedAt = hasVideos && currentVideos.every((v) => !!v.fileRemovedAt)
+    ? currentVideos.map((v) => v.fileRemovedAt as string).sort().pop() ?? null
+    : null
+  const [releasingStorage, setReleasingStorage] = useState(false)
+
+  function handleStorageReleased(result: { bytes: number; videos: number; releasedAt: string }) {
+    setReleasingStorage(false)
+    setSelected(new Set())
+    videos.setData((prev) => {
+      const state = prev ?? { items: [], hasMore: false }
+      return {
+        ...state,
+        items: state.items.map((v) => ({ ...v, fileRemovedAt: result.releasedAt, url: null, originalUrl: null })),
+      }
+    })
+    toast.success(
+      'Armazenamento liberado',
+      `${formatBytes(result.bytes)} apagados. Comentários, avaliações e relatório continuam aqui.`,
+    )
+  }
 
   /** Só chamada quando o projeto não tem vídeo — aí sim é seguro excluir de verdade. */
   async function removeProject() {
@@ -400,7 +428,9 @@ export function ProjectDetailView({ id }: { id: string }) {
             )}
           <div className="min-w-0">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              {project.data?.client?.name ?? 'Projeto'}
+              {project.data && !project.data.clientId
+                ? `Avulso${project.data.contactName ? ` · ${project.data.contactName}` : ''}`
+                : (project.data?.client?.name ?? 'Projeto')}
             </p>
             <div className="mt-1 flex min-w-0 items-center gap-3">
               <h1
@@ -550,6 +580,49 @@ export function ProjectDetailView({ id }: { id: string }) {
         </div>
       )}
 
+      {storageReleasedAt ? (
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-border bg-card p-3 text-sm">
+          <HardDrive className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <p className="text-muted-foreground">
+            <span className="font-medium text-foreground">
+              Arquivos removidos em {new Date(storageReleasedAt).toLocaleDateString('pt-BR')}.
+            </span>{' '}
+            Comentários, avaliações, histórico e relatório continuam disponíveis.
+          </p>
+        </div>
+      ) : (
+        isOwner &&
+        allApproved && (
+          <div className="mt-4 flex flex-col gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 items-start gap-3 text-sm">
+              <HardDrive className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+              <p className="text-muted-foreground">
+                <span className="font-medium text-foreground">Projeto todo aprovado.</span> Dá para apagar os
+                arquivos de vídeo e liberar espaço, mantendo comentários, avaliações e relatório.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReleasingStorage(true)}
+              className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-secondary px-3 text-xs font-medium text-foreground transition-colors hover:border-destructive/50 hover:text-destructive sm:ml-auto"
+            >
+              <Trash2 className="size-3.5" />
+              Liberar armazenamento
+            </button>
+          </div>
+        )
+      )}
+      <AnimatePresence>
+        {releasingStorage && project.data && (
+          <ReleaseStorageModal
+            projectId={id}
+            projectName={project.data.name}
+            onReleased={handleStorageReleased}
+            onClose={() => setReleasingStorage(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {isOwner && project.data && (
         <div className="mt-4">
           <ProjectMembersField
@@ -691,7 +764,7 @@ export function ProjectDetailView({ id }: { id: string }) {
                         <Film className="size-5" />
                       </span>
                     )}
-                    {(v.url || v.publicLink) && (
+                    {!v.fileRemovedAt && (v.url || v.publicLink) && (
                       <input
                         type="checkbox"
                         aria-label={`Selecionar ${v.title} para baixar`}
@@ -710,6 +783,11 @@ export function ProjectDetailView({ id }: { id: string }) {
                         {v.type}
                       </span>
                       <StatusBadge status={v.status} />
+                      {v.fileRemovedAt && (
+                        <span className="inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          <HardDrive className="size-3" /> Arquivo removido
+                        </span>
+                      )}
                       {v.version > 1 && (
                         <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
                           v{v.version}

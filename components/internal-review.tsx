@@ -234,7 +234,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <DownloadOriginalButton videoId={videoId} />
+            {!video.fileRemovedAt && <DownloadOriginalButton videoId={videoId} />}
             {!isSuperseded && (
               <NewVersionButton
                 videoId={videoId}

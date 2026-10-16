@@ -795,6 +795,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
 
               {/* Indicador sutil de "preparando vídeo" (status_processamento) */}
               {waitingForFile && <ProcessingOverlay />}
+              {video.fileRemovedAt && <FileRemovedOverlay removedAt={video.fileRemovedAt} />}
 
               {/* Chrome do Reels (aparece só nessa aba, com fade) */}
               <AnimatePresence>
@@ -908,7 +909,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
               )}
 
               {/* Botão de play — só no player */}
-              {tab === 'player' && !waitingForFile && (
+              {tab === 'player' && !waitingForFile && !video.fileRemovedAt && (
                 <button
                   type="button"
                   onClick={togglePlay}
@@ -1275,6 +1276,21 @@ function RailIcon({ icon: Icon, label }: { icon: typeof Heart; label: string }) 
 }
 
 /** Indicador sutil enquanto o vídeo otimizado é preparado no backend. */
+/** Arquivo apagado ao liberar o armazenamento do projeto aprovado: sobra a capa. */
+function FileRemovedOverlay({ removedAt }: { removedAt: string }) {
+  return (
+    <div className="absolute inset-0 z-20 grid place-items-center bg-black/60 p-4">
+      <div className="flex flex-col items-center gap-1 rounded-xl bg-background/90 px-4 py-3 text-center">
+        <p className="text-sm font-medium text-foreground">Arquivo removido</p>
+        <p className="max-w-[16rem] text-xs text-muted-foreground">
+          Este vídeo foi aprovado e o arquivo saiu do armazenamento em{' '}
+          {new Date(removedAt).toLocaleDateString('pt-BR')}. Comentários e avaliações continuam aqui.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function ProcessingOverlay() {
   return (
     <div className="absolute inset-0 grid place-items-center bg-black/50 backdrop-blur-[2px]">

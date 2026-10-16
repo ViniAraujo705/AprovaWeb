@@ -72,7 +72,12 @@ export function ProjectGalleryView({
     }
   }
 
+  // Vídeo cujo arquivo a agência já apagou (armazenamento liberado) não tem
+  // o que baixar — fica fora da seleção.
+  const selectableVideos = gallery.videos.filter((v) => !v.fileRemovedAt)
+
   function toggleSelected(videoLink: string) {
+    if (!selectableVideos.some((v) => v.link === videoLink)) return
     setSelected((prev) => {
       const next = new Set(prev)
       if (next.has(videoLink)) next.delete(videoLink)
@@ -83,11 +88,11 @@ export function ProjectGalleryView({
 
   function toggleSelectAll() {
     setSelected((prev) =>
-      prev.size === gallery.videos.length ? new Set() : new Set(gallery.videos.map((v) => v.link)),
+      prev.size === selectableVideos.length ? new Set() : new Set(selectableVideos.map((v) => v.link)),
     )
   }
 
-  const approvedVideos = gallery.videos.filter((v) => v.status === 'aprovado')
+  const approvedVideos = selectableVideos.filter((v) => v.status === 'aprovado')
   function selectApproved() {
     setSelected(new Set(approvedVideos.map((v) => v.link)))
   }
@@ -385,7 +390,7 @@ export function ProjectGalleryView({
                 <input
                   type="checkbox"
                   className="size-4 accent-primary"
-                  checked={selected.size > 0 && selected.size === gallery.videos.length}
+                  checked={selected.size > 0 && selected.size === selectableVideos.length}
                   onChange={toggleSelectAll}
                 />
                 Selecionar todos
@@ -508,13 +513,19 @@ export function ProjectGalleryView({
                         <Loader2 className="size-6 animate-spin text-white" />
                       </div>
                     )}
-                    <input
-                      type="checkbox"
-                      aria-label={`Selecionar ${v.title} para baixar`}
-                      checked={selected.has(v.link)}
-                      onChange={() => toggleSelected(v.link)}
-                      className="absolute right-2 top-2 z-[2] size-4 cursor-pointer accent-primary"
-                    />
+                    {v.fileRemovedAt ? (
+                      <span className="absolute right-2 top-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                        Arquivo removido
+                      </span>
+                    ) : (
+                      <input
+                        type="checkbox"
+                        aria-label={`Selecionar ${v.title} para baixar`}
+                        checked={selected.has(v.link)}
+                        onChange={() => toggleSelected(v.link)}
+                        className="absolute right-2 top-2 z-[2] size-4 cursor-pointer accent-primary"
+                      />
+                    )}
                     <div className="absolute left-2 top-2">
                       <StatusBadge status={v.status} />
                     </div>
