@@ -1,8 +1,8 @@
 'use client'
 
 /**
- * Página de notificações (/notificacoes) — histórico completo de ações do
- * cliente (comentário, aprovação, ajuste solicitado, avaliação), com o
+ * Página de notificações (/notificacoes) — histórico completo (ações do
+ * cliente, prazos, novas demandas, vídeos parados esperando o cliente), com o
  * mesmo conteúdo do sino (`NotificationBell`) mas sem o limite de altura
  * do dropdown e com filtro de não lidas.
  */
@@ -16,12 +16,14 @@ import { useQuery } from '@/lib/use-query'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { cn } from '@/lib/utils'
 import {
-  NOTIFICATION_TYPE_LABEL,
   NOTIFICATION_TYPE_ICON,
+  describeNotification,
   notificationTimeAgo,
 } from '@/lib/notification-format'
+import { useAuth } from '@/components/auth-provider'
 
 export function NotificationsView() {
+  const isOwner = useAuth().user?.teamRole === 'owner'
   const [unreadOnly, setUnreadOnly] = useState(false)
   const { data, loading, error, refetch, setData } = useQuery<AppNotification[]>(
     (signal) => notificationService.list(unreadOnly || undefined, signal),
@@ -96,15 +98,13 @@ export function NotificationsView() {
           <EmptyState
             icon={<Bell className="size-7" />}
             title={unreadOnly ? 'Nenhuma notificação não lida' : 'Nenhuma notificação ainda'}
-            description="Quando um cliente comentar, aprovar ou avaliar um vídeo, você vê aqui."
+            description="Ações do cliente, prazos, novas demandas e pendências aparecem aqui."
           />
         ) : (
           <ul className="flex flex-col gap-2">
             {items.map((n) => {
               const Icon = NOTIFICATION_TYPE_ICON[n.type]
-              const href = n.video ? `/videos/${n.video.id}/canal-cliente` : '/calendario'
-              const title = n.video ? n.video.clientName || 'Cliente' : n.event?.clientName || 'Cliente'
-              const subtitle = n.video ? n.video.projectName || n.video.title : n.event?.title || ''
+              const { subject, text, context: subtitle, href } = describeNotification(n, isOwner)
               return (
                 <li key={n.id}>
                   <Link
@@ -135,7 +135,7 @@ export function NotificationsView() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-foreground">
-                        <span className="font-medium">{title}</span> {NOTIFICATION_TYPE_LABEL[n.type]}
+                        <span className="font-medium">{subject}</span> {text}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
                       <p className="mt-1 text-[11px] text-muted-foreground">

@@ -11,10 +11,12 @@ import { useQuery } from '@/lib/use-query'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from '@/components/motion'
 import {
-  NOTIFICATION_TYPE_LABEL as TYPE_LABEL,
   NOTIFICATION_TYPE_ICON as TYPE_ICON,
+  describeNotification,
   notificationTimeAgo as timeAgo,
 } from '@/lib/notification-format'
+import { useAuth } from '@/components/auth-provider'
+import { NOTIFICATIONS_CHANGED_EVENT } from '@/components/notification-popups'
 
 // Sem WebSocket/SSE no backend hoje — só polling simples.
 const POLL_MS = 45_000
@@ -23,8 +25,7 @@ const POLL_MS = 45_000
 const PANEL_GAP = 8
 
 /**
- * Sininho de notificações (ações do cliente: comentário, aprovação, ajuste,
- * avaliação). Usado tanto no header mobile quanto no rodapé do sidebar
+ * Sininho de notificações (ações do cliente, prazos, demandas e pendências). Usado tanto no header mobile quanto no rodapé do sidebar
  * desktop do `AgencyShell`.
  */
 export function NotificationBell({
@@ -35,6 +36,7 @@ export function NotificationBell({
   className?: string
   direction?: 'down' | 'up'
 }) {
+  const isOwner = useAuth().user?.teamRole === 'owner'
   const [open, setOpen] = useState(false)
   // Só true depois do mount no cliente — evita chamar `document.body` durante SSR.
   const [mounted, setMounted] = useState(false)
@@ -57,6 +59,18 @@ export function NotificationBell({
       if (open) list.refetch()
     }, POLL_MS)
     return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  // Pop-up de notificação nova (ou lida pelo pop-up): atualiza o contador
+  // na hora, sem esperar o próximo ciclo do polling.
+  useEffect(() => {
+    function onChanged() {
+      unread.refetch()
+      if (open) list.refetch()
+    }
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, onChanged)
+    return () => window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, onChanged)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
@@ -187,11 +201,7 @@ export function NotificationBell({
                     <ul>
                       {items.map((n) => {
                         const Icon = TYPE_ICON[n.type]
-                        const href = n.video ? `/videos/${n.video.id}/canal-cliente` : '/calendario'
-                        const title = n.video
-                          ? n.video.clientName || 'Cliente'
-                          : n.event?.clientName || 'Cliente'
-                        const subtitle = n.video ? n.video.projectName || n.video.title : n.event?.title || ''
+                        const { subject, text, context: subtitle, href } = describeNotification(n, isOwner)
                         return (
                           <li key={n.id}>
                             <Link
@@ -223,7 +233,7 @@ export function NotificationBell({
                               </div>
                               <div className="min-w-0 flex-1">
                                 <p className="text-foreground">
-                                  <span className="font-medium">{title}</span> {TYPE_LABEL[n.type]}
+                                  <span className="font-medium">{subject}</span> {text}
                                 </p>
                                 <p className="truncate text-xs text-muted-foreground" title={subtitle}>
                                   {subtitle}

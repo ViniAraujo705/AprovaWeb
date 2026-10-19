@@ -761,6 +761,10 @@ export type NotificationType =
   | 'aprovacao_cliente'
   | 'ajuste_solicitado'
   | 'avaliacao_cliente'
+  | 'prazo_proximo'
+  | 'prazo_vencido'
+  | 'nova_demanda'
+  | 'aguardando_cliente'
   | 'lembrete_gravacao'
 
 /**
@@ -789,6 +793,49 @@ export interface AppNotification {
     startAt: string
     clientName: string | null
   } | null
+  /** Card do Kanban em `nova_demanda` e nos avisos de prazo de demanda. */
+  demand: {
+    id: string
+    title: string
+    deadline: string | null
+    clientName: string | null
+  } | null
+}
+
+/** Preferências de e-mail das notificações (GET/PATCH /notifications/preferences). */
+export interface NotificationPreferences {
+  /** Resumo diário às 8h com o que ainda não foi lido. */
+  dailyDigest: boolean
+  /** Aprovação do cliente e prazo vencido chegam por e-mail na hora. */
+  immediate: boolean
+  /** Tipos que não vão para o e-mail de jeito nenhum (continuam no sininho). */
+  mutedTypes: NotificationType[]
+}
+
+/* ---------------------------- relatório de avaliações ---------------------- */
+
+/** Uma nota dada pelo cliente (GET /reports/ratings). Sobrevive à exclusão do vídeo/projeto/cliente. */
+export interface RatingRecord {
+  id: string
+  score: number
+  createdAt: string
+  /** `null` = nota geral dada na aprovação. */
+  questionId: string | null
+  videoId: string | null
+  projectId: string | null
+  clientId: string | null
+  videoTitle: string
+  version: number | null
+  posterUrl: string | null
+  projectName: string
+  clientName: string
+  /** Vídeo (ou o projeto/cliente dele) já foi excluído — sem link pra abrir. */
+  deleted: boolean
+}
+
+export interface RatingsReport {
+  questions: { id: string; text: string; order: number; active: boolean }[]
+  ratings: RatingRecord[]
 }
 
 /* ------------------------------ calendário ---------------------------------- */

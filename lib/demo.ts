@@ -11,6 +11,9 @@
  */
 import { DEMO_FLAG_KEY, DEMO_GOOGLE_CALENDAR_KEY, DEMO_GOOGLE_DRIVE_KEY, DEMO_PLAN_KEY } from '@/lib/config'
 import type {
+  NotificationPreferences,
+  RatingRecord,
+  RatingsReport,
   AdminMetrics,
   AdminUser,
   AppNotification,
@@ -755,6 +758,7 @@ function buildDemoNotification(
       clientName: video.clientName,
     },
     event: null,
+    demand: null,
   }
 }
 
@@ -773,11 +777,40 @@ function buildDemoRecordingReminder(id: string, eventId: string, hoursAgo: numbe
       startAt: event.startAt,
       clientName: event.clientName,
     },
+    demand: null,
+  }
+}
+
+/** Aviso de demanda do Kanban (nova demanda / prazo de demanda). */
+function buildDemoDemandNotification(
+  id: string,
+  type: AppNotification['type'],
+  demandId: string,
+  hoursAgo: number,
+  read: boolean,
+): AppNotification {
+  const demand = demoDemands.find((d) => d.id === demandId)!
+  return {
+    id,
+    type,
+    read,
+    createdAt: iso(hoursAgo),
+    video: null,
+    event: null,
+    demand: {
+      id: demand.id,
+      title: demand.title,
+      deadline: demand.deadline,
+      clientName: demoClients.find((c) => c.id === demand.clientId)?.name ?? null,
+    },
   }
 }
 
 export const demoNotifications: AppNotification[] = [
   buildDemoRecordingReminder('n0', 'ev-1', 0.5, false),
+  buildDemoNotification('n-prazo', 'prazo_proximo', 'rv-02', 0.8, false),
+  buildDemoDemandNotification('n-demanda', 'nova_demanda', 'd1', 3, false),
+  buildDemoNotification('n-aguardando', 'aguardando_cliente', 'rv-01', 8, true),
   buildDemoNotification('n1', 'comentario_cliente', 'rv-01', 1, false),
   buildDemoNotification('n2', 'ajuste_solicitado', 'rv-02', 6, false),
   buildDemoNotification('n3', 'avaliacao_cliente', 'rv-01', 20, false),
@@ -786,6 +819,28 @@ export const demoNotifications: AppNotification[] = [
 ]
 
 let demoNotifyIdSeq = 0
+
+// Simula uma notificação chegando com o app aberto (pop-up): a primeira
+// consulta marca o relógio e, ~20s depois, entra uma aprovação nova.
+let demoIncomingStartedAt: number | null = null
+let demoIncomingDelivered = false
+export function demoTickIncomingNotification(): void {
+  if (demoIncomingDelivered) return
+  if (demoIncomingStartedAt === null) {
+    demoIncomingStartedAt = Date.now()
+    return
+  }
+  if (Date.now() - demoIncomingStartedAt < 20_000) return
+  demoIncomingDelivered = true
+  demoNotifications.unshift(buildDemoNotification(`n-live-${Date.now()}`, 'aprovacao_cliente', 'rv-01', 0, false))
+}
+
+/** Preferências de e-mail (Configurações → Notificações), mutáveis in-memory. */
+export const demoNotificationPreferences: NotificationPreferences = {
+  dailyDigest: true,
+  immediate: true,
+  mutedTypes: [],
+}
 
 /**
  * Notifica os integrantes vinculados a uma conta real (`CrewMember.userId`)
@@ -803,6 +858,81 @@ export function demoNotifyCrew(activityId: string, memberIds: string[]): { notif
     )
   }
   return { notified: linked.length }
+}
+
+/**
+ * Histórico de notas para a aba "Avaliações" de /relatorios: ~6 meses de
+ * notas determinísticas (mesmo resultado a cada carga), incluindo um projeto
+ * já excluídos (ex.: "Campanha de Natal") pra mostrar que o histórico fica.
+ */
+export function demoRatingsReport(range: { from?: string; to?: string }): RatingsReport {
+  const questions = demoRatingQuestions().map((q) => ({ id: q.id, text: q.text, order: q.order, active: q.active }))
+  const deliveries: {
+    videoId: string | null
+    videoTitle: string
+    projectId: string | null
+    projectName: string
+    clientId: string | null
+    clientName: string
+    base: number
+  }[] = [
+    { videoId: 'rv-05', videoTitle: 'Bastidores hambúrguer artesanal', projectId: 'p2', projectName: 'Combo do mês', clientId: 'c2', clientName: 'Burger House', base: 3 },
+    { videoId: 'rv-03', videoTitle: 'Editorial coleção inverno', projectId: null, projectName: 'Coleção inverno', clientId: 'c3', clientName: 'Studio Moda', base: 4 },
+    { videoId: 'rv-06', videoTitle: 'Institucional Studio Pilates', projectId: 'p3', projectName: 'Vídeo institucional', clientId: null, clientName: 'Carla (Studio Pilates)', base: 5 },
+    { videoId: null, videoTitle: 'Lançamento linha verão', projectId: null, projectName: 'Campanha de verão', clientId: 'c1', clientName: 'Bela Cosméticos', base: 5 },
+    { videoId: null, videoTitle: 'Tutorial de maquiagem', projectId: null, projectName: 'Campanha de verão', clientId: 'c1', clientName: 'Bela Cosméticos', base: 4 },
+    { videoId: null, videoTitle: 'Teaser combo duplo', projectId: null, projectName: 'Combo de inverno', clientId: 'c2', clientName: 'Burger House', base: 3 },
+    { videoId: null, videoTitle: 'Bastidores do desfile', projectId: null, projectName: 'Campanha de Natal', clientId: 'c3', clientName: 'Studio Moda', base: 2 },
+    { videoId: null, videoTitle: 'Menu de outono', projectId: null, projectName: 'Cardápio novo', clientId: 'c4', clientName: 'Café Aurora', base: 4 },
+  ]
+  const ratings: RatingRecord[] = []
+  let seed = 7
+  const rand = () => {
+    seed = (seed * 9301 + 49297) % 233280
+    return seed / 233280
+  }
+  for (let month = 0; month < 6; month++) {
+    deliveries.forEach((d, i) => {
+      // Vídeo que ainda existe é avaliado uma vez só (no mês mais recente);
+      // os já excluídos viram uma entrega por mês, cada uma com seu título.
+      if (d.videoId && month > 0) return
+      if (!d.videoId && (i + month) % 3 === 0 && month > 0) return
+      const daysAgo = month * 30 + Math.floor(rand() * 25) + 1
+      const createdAt = new Date(Date.now() - daysAgo * 24 * 3600_000).toISOString()
+      const video = d.videoId ? demoVideos.find((v) => v.id === d.videoId) : undefined
+      const title = video?.title ?? (month === 0 ? d.videoTitle : `${d.videoTitle} — parte ${month + 1}`)
+      for (const q of [null, ...questions.filter((qq) => qq.active || month > 2)]) {
+        const drift = rand() < 0.25 ? -1 : rand() > 0.85 ? 1 : 0
+        const score = Math.min(5, Math.max(1, d.base + drift - (month === 0 && d.base <= 3 ? 1 : 0)))
+        ratings.push({
+          id: `rt-${month}-${i}-${q?.id ?? 'geral'}`,
+          score,
+          createdAt,
+          questionId: q?.id ?? null,
+          videoId: d.videoId,
+          projectId: d.projectId,
+          clientId: d.clientId,
+          videoTitle: title,
+          version: d.videoId ? 1 : null,
+          posterUrl: video?.posterUrl ?? null,
+          projectName: d.projectName,
+          clientName: d.clientName,
+          deleted: d.videoId === null,
+        })
+      }
+    })
+  }
+  const from = range.from ? new Date(range.from).getTime() : -Infinity
+  const to = range.to ? new Date(range.to).getTime() : Infinity
+  return {
+    questions,
+    ratings: ratings
+      .filter((r) => {
+        const t = new Date(r.createdAt).getTime()
+        return t >= from && t <= to
+      })
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+  }
 }
 
 /** Perguntas de avaliação da conta (para /configuracoes/perguntas e a tela do cliente). */

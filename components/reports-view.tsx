@@ -16,7 +16,7 @@
  * atual (atrasados/em aberto não têm como ser reconstruídos no passado sem
  * um histórico versionado no backend).
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   FileBarChart,
@@ -39,6 +39,7 @@ import { useQuery } from '@/lib/use-query'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
 import { cn } from '@/lib/utils'
+import { RatingsReportView } from '@/components/ratings-report'
 
 type Period = '30' | '90' | '180' | 'all'
 
@@ -106,7 +107,64 @@ function downloadCsv(content: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
+type ReportTab = 'produtividade' | 'avaliacoes'
+
+const REPORT_TABS: { value: ReportTab; label: string }[] = [
+  { value: 'produtividade', label: 'Produtividade' },
+  { value: 'avaliacoes', label: 'Avaliações' },
+]
+
 export function ReportsView() {
+  const [tab, setTab] = useState<ReportTab>('produtividade')
+
+  // `?aba=avaliacoes` abre direto na aba de avaliações (link de outras telas).
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('aba') === 'avaliacoes') setTab('avaliacoes')
+  }, [])
+
+  function changeTab(next: ReportTab) {
+    setTab(next)
+    const url = new URL(window.location.href)
+    if (next === 'avaliacoes') url.searchParams.set('aba', 'avaliacoes')
+    else url.searchParams.delete('aba')
+    window.history.replaceState(window.history.state, '', url)
+  }
+
+  return (
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">RELATÓRIOS</h1>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {tab === 'produtividade'
+          ? 'Produtividade, prazos e volume de trabalho da operação.'
+          : 'Notas que os clientes deram às entregas — inclusive de projetos já excluídos.'}
+      </p>
+
+      <div role="tablist" aria-label="Tipo de relatório" className="mt-5 flex gap-1 border-b border-border print:hidden">
+        {REPORT_TABS.map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.value}
+            onClick={() => changeTab(t.value)}
+            className={cn(
+              '-mb-px min-h-11 border-b-2 px-3 text-sm font-medium transition-colors',
+              tab === t.value
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'produtividade' ? <ProductivityReport /> : <RatingsReportView />}
+    </div>
+  )
+}
+
+function ProductivityReport() {
   const [period, setPeriod] = useState<Period>('90')
   const [overdueListOpen, setOverdueListOpen] = useState(false)
 
@@ -257,14 +315,8 @@ export function ReportsView() {
   }
 
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-4xl tracking-wide sm:text-5xl">RELATÓRIOS</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Produtividade, prazos e volume de trabalho da operação.
-          </p>
-        </div>
+    <>
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
         <div className="flex flex-wrap items-center gap-2 print:hidden">
           <button
             type="button"
@@ -502,7 +554,7 @@ export function ReportsView() {
           )}
         </>
       )}
-    </div>
+    </>
   )
 }
 

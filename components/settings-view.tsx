@@ -13,9 +13,11 @@ import {
   Mail,
   Lock,
   Monitor,
+  BellRing,
 } from 'lucide-react'
-import { authService, sessionService, userService } from '@/lib/services'
-import type { Session, User } from '@/lib/types'
+import { authService, notificationService, sessionService, userService } from '@/lib/services'
+import type { NotificationPreferences, NotificationType, Session, User } from '@/lib/types'
+import { IMMEDIATE_EMAIL_TYPES, NOTIFICATION_TYPE_NAME } from '@/lib/notification-format'
 import { ApiError } from '@/lib/api'
 import { validateImageFile, uploadToPresignedUrl, UploadError, resolveContentType } from '@/lib/upload'
 import { isDemo } from '@/lib/demo'
@@ -58,6 +60,7 @@ export function SettingsView() {
           <ProfileForm user={user} />
           <SecurityForm user={user} />
           <SessionsSection />
+          <NotificationPreferencesSection />
           {/* Branding é exclusivo do owner — gate inline, não na rota, pois
               editores também acessam esta tela para editar o próprio perfil. */}
           {user.teamRole === 'owner' && <BrandingForm user={user} />}
@@ -453,6 +456,160 @@ function SessionsSection() {
             </>
           )}
         </div>
+      </div>
+    </FadeIn>
+  )
+}
+
+const EMAIL_TYPE_ORDER: NotificationType[] = [
+  'aprovacao_cliente',
+  'prazo_vencido',
+  'prazo_proximo',
+  'ajuste_solicitado',
+  'comentario_cliente',
+  'avaliacao_cliente',
+  'nova_demanda',
+  'aguardando_cliente',
+  'lembrete_gravacao',
+]
+
+function Switch({
+  checked,
+  onChange,
+  label,
+  description,
+}: {
+  checked: boolean
+  onChange: (value: boolean) => void
+  label: string
+  description: string
+}) {
+  return (
+    <label className="flex cursor-pointer items-start justify-between gap-4 py-3">
+      <span>
+        <span className="block text-sm font-medium text-foreground">{label}</span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">{description}</span>
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        className={cn(
+          'relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors',
+          checked ? 'bg-primary' : 'bg-secondary ring-1 ring-inset ring-border',
+        )}
+      >
+        <span
+          className={cn(
+            'absolute left-0.5 top-0.5 size-5 rounded-full bg-white shadow transition-transform',
+            checked && 'translate-x-5',
+          )}
+        />
+      </button>
+    </label>
+  )
+}
+
+/**
+ * Preferências de e-mail das notificações. O sininho e o pop-up continuam
+ * mostrando tudo; isto só decide o que também vai para a caixa de e-mail.
+ * Salva a cada mudança (sem botão "Salvar").
+ */
+function NotificationPreferencesSection() {
+  const { data, loading, error, refetch, setData } = useQuery<NotificationPreferences>(
+    (signal) => notificationService.preferences(signal),
+    [],
+  )
+
+  async function save(patch: Partial<NotificationPreferences>) {
+    if (!data) return
+    const previous = data
+    setData({ ...data, ...patch })
+    try {
+      setData(await notificationService.updatePreferences(patch))
+    } catch (err) {
+      setData(previous)
+      toast.error('Não foi possível salvar', err instanceof ApiError ? err.message : undefined)
+    }
+  }
+
+  function toggleType(type: NotificationType, enabled: boolean) {
+    if (!data) return
+    const muted = new Set(data.mutedTypes)
+    if (enabled) muted.delete(type)
+    else muted.add(type)
+    save({ mutedTypes: [...muted] })
+  }
+
+  const anyEmail = !!data && (data.dailyDigest || data.immediate)
+
+  return (
+    <FadeIn className="mt-8" y={6}>
+      <div id="notificacoes" className="scroll-mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <BellRing className="size-4 text-primary" />
+          Notificações por e-mail
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          O sininho e os avisos na tela continuam mostrando tudo. Aqui você escolhe o que também chega no seu e-mail.
+        </p>
+
+        {loading ? (
+          <div className="mt-4 space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        ) : error || !data ? (
+          <ErrorState message={error ?? 'Não foi possível carregar.'} onRetry={refetch} className="py-8" />
+        ) : (
+          <>
+            <div className="mt-2 divide-y divide-border">
+              <Switch
+                checked={data.dailyDigest}
+                onChange={(v) => save({ dailyDigest: v })}
+                label="Resumo diário às 8h"
+                description="Um e-mail por dia com o que você ainda não viu no Check."
+              />
+              <Switch
+                checked={data.immediate}
+                onChange={(v) => save({ immediate: v })}
+                label="Avisar na hora o que é urgente"
+                description="Aprovação do cliente e prazo vencido chegam no momento em que acontecem."
+              />
+            </div>
+
+            <div className={cn('mt-4 transition-opacity', !anyEmail && 'pointer-events-none opacity-50')}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">O que vai por e-mail</p>
+              <div className="mt-2 grid gap-x-4 sm:grid-cols-2">
+                {EMAIL_TYPE_ORDER.map((type) => (
+                  <label key={type} className="flex cursor-pointer items-center gap-2.5 py-1.5 text-sm text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={!data.mutedTypes.includes(type)}
+                      onChange={(e) => toggleType(type, e.target.checked)}
+                      disabled={!anyEmail}
+                      className="size-4 shrink-0 accent-primary"
+                    />
+                    <span>
+                      {NOTIFICATION_TYPE_NAME[type]}
+                      {IMMEDIATE_EMAIL_TYPES.includes(type) && data.immediate && (
+                        <span className="ml-1.5 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                          na hora
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {!anyEmail && (
+                <p className="mt-2 text-xs text-muted-foreground">Os dois e-mails estão desligados — nada vai para a sua caixa.</p>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </FadeIn>
   )

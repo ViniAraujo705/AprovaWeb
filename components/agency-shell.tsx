@@ -37,6 +37,7 @@ import { BackButton } from '@/components/back-button'
 import { useAuth } from '@/components/auth-provider'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { NotificationBell } from '@/components/notification-bell'
+import { NotificationPopups } from '@/components/notification-popups'
 import { AccountSwitcher } from '@/components/account-switcher'
 import { AgencyLogo } from '@/components/agency-logo'
 import { teamRoleLabel, type Role, type TeamRole } from '@/lib/types'
@@ -490,6 +491,7 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
         )}
         {children}
       </main>
+      <NotificationPopups />
     </div>
   )
 }

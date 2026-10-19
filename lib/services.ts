@@ -22,6 +22,9 @@ import {
   demoCreateProject,
   demoProjectStorageSummary,
   demoReleaseProjectStorage,
+  demoNotificationPreferences,
+  demoTickIncomingNotification,
+  demoRatingsReport,
   demoClientActivityPage,
   demoClientChannel,
   demoClientFields,
@@ -95,6 +98,8 @@ import type {
   AdminMetrics,
   AdminUser,
   AppNotification,
+  NotificationPreferences,
+  RatingsReport,
   AuthResponse,
   Branding,
   CalendarActivity,
@@ -794,6 +799,10 @@ function normalizeNotificationType(raw: unknown): NotificationType {
     s === 'aprovacao_cliente' ||
     s === 'ajuste_solicitado' ||
     s === 'avaliacao_cliente' ||
+    s === 'prazo_proximo' ||
+    s === 'prazo_vencido' ||
+    s === 'nova_demanda' ||
+    s === 'aguardando_cliente' ||
     s === 'lembrete_gravacao'
   )
     return s
@@ -823,6 +832,7 @@ function mapNotification(raw: Raw): AppNotification {
   // `lembrete_gravacao` não tem vídeo — referencia um evento da escala
   // (`/recording-events`) em vez disso.
   const eventRaw = pick<Raw | null>(raw, ['event', 'evento', 'recordingEvent'], null)
+  const demandRaw = pick<Raw | null>(raw, ['demanda', 'demand'], null)
 
   return {
     id: String(pick(raw, ['id', '_id'], cryptoId())),
@@ -847,6 +857,24 @@ function mapNotification(raw: Raw): AppNotification {
           clientName: pick<string | null>(eventRaw, ['clientName', 'cliente_nome', 'clienteNome'], null),
         }
       : null,
+    demand: demandRaw
+      ? {
+          id: String(pick(demandRaw, ['id', '_id'], '')),
+          title: pick(demandRaw, ['titulo', 'title'], 'Demanda'),
+          deadline: pick<string | null>(demandRaw, ['prazo', 'deadline'], null),
+          clientName: pick<string | null>(demandRaw, ['clienteNome', 'clientName'], null),
+        }
+      : null,
+  }
+}
+
+function mapNotificationPreferences(raw: Raw): NotificationPreferences {
+  return {
+    dailyDigest: Boolean(pick(raw, ['emailResumoDiario', 'dailyDigest'], true)),
+    immediate: Boolean(pick(raw, ['emailImediato', 'immediate'], true)),
+    mutedTypes: asArray<unknown>(pick(raw, ['emailTiposDesligados', 'mutedTypes'], [])).map(
+      normalizeNotificationType,
+    ),
   }
 }
 
@@ -2599,8 +2627,10 @@ export const dashboardService = {
 export const notificationService = {
   /** `unreadOnly` mapeia pro query param `naoLidas` — sem ele, o backend traz lidas + não lidas. */
   async list(unreadOnly?: boolean, signal?: AbortSignal): Promise<AppNotification[]> {
-    if (isDemo())
-      return delay(unreadOnly ? demoNotifications.filter((n) => !n.read) : demoNotifications)
+    if (isDemo()) {
+      demoTickIncomingNotification()
+      return delay(unreadOnly ? demoNotifications.filter((n) => !n.read) : [...demoNotifications])
+    }
     const res = await api.get('/notifications', {
       query: { naoLidas: unreadOnly || undefined },
       signal,
@@ -2612,7 +2642,10 @@ export const notificationService = {
    * formatos pra não quebrar se isso for ajustado depois.
    */
   async unreadCount(signal?: AbortSignal): Promise<number> {
-    if (isDemo()) return delay(demoNotifications.filter((n) => !n.read).length)
+    if (isDemo()) {
+      demoTickIncomingNotification()
+      return delay(demoNotifications.filter((n) => !n.read).length)
+    }
     const res = await api.get<unknown>('/notifications/unread-count', { signal })
     if (typeof res === 'number') return res
     return Number(pick(res as Raw, ['count'], 0)) || 0
@@ -2631,6 +2664,22 @@ export const notificationService = {
       return
     }
     await api.patch('/notifications/read-all')
+  },
+  async preferences(signal?: AbortSignal): Promise<NotificationPreferences> {
+    if (isDemo()) return delay({ ...demoNotificationPreferences })
+    return mapNotificationPreferences(await api.get<Raw>('/notifications/preferences', { signal }))
+  },
+  async updatePreferences(input: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
+    if (isDemo()) {
+      Object.assign(demoNotificationPreferences, input)
+      return delay({ ...demoNotificationPreferences }, 250)
+    }
+    const res = await api.patch<Raw>('/notifications/preferences', {
+      emailResumoDiario: input.dailyDigest,
+      emailImediato: input.immediate,
+      emailTiposDesligados: input.mutedTypes,
+    })
+    return mapNotificationPreferences(res)
   },
 }
 
@@ -2768,6 +2817,37 @@ export const sessionService = {
 /* ------------------------------- relatório ------------------------------- */
 
 export const reportService = {
+  /** Histórico de notas dos clientes — inclui vídeos/projetos já excluídos. */
+  async ratings(range: { from?: string; to?: string }, signal?: AbortSignal): Promise<RatingsReport> {
+    if (isDemo()) return delay(demoRatingsReport(range))
+    const res = await api.get<Raw>('/reports/ratings', {
+      query: { de: range.from, ate: range.to },
+      signal,
+    })
+    return {
+      questions: asArray<Raw>(pick(res, ['perguntas', 'questions'], [])).map((q) => ({
+        id: String(pick(q, ['id'], '')),
+        text: pick(q, ['texto', 'text'], ''),
+        order: Number(pick(q, ['ordem', 'order'], 0)) || 0,
+        active: Boolean(pick(q, ['ativo', 'active'], true)),
+      })),
+      ratings: asArray<Raw>(pick(res, ['avaliacoes', 'ratings'], [])).map((r) => ({
+        id: String(pick(r, ['id'], cryptoId())),
+        score: Number(pick(r, ['nota', 'score'], 0)) || 0,
+        createdAt: pick(r, ['criadoEm', 'createdAt'], ''),
+        questionId: pick<string | null>(r, ['ratingQuestionId', 'questionId'], null),
+        videoId: pick<string | null>(r, ['videoId'], null),
+        projectId: pick<string | null>(r, ['projectId'], null),
+        clientId: pick<string | null>(r, ['clienteId', 'clientId'], null),
+        videoTitle: pick(r, ['videoNome', 'videoTitle'], 'Vídeo'),
+        version: pick<number | null>(r, ['versao', 'version'], null),
+        posterUrl: pick<string | null>(r, ['thumbnailUrl', 'posterUrl'], null),
+        projectName: pick(r, ['projetoNome', 'projectName'], ''),
+        clientName: pick(r, ['clienteNome', 'clientName'], ''),
+        deleted: Boolean(pick(r, ['excluido', 'deleted'], false)),
+      })),
+    }
+  },
   /** Relatório do projeto em PDF — o backend devolve o binário direto (não JSON). */
   async getProjectReport(
     projectId: string,
