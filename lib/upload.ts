@@ -7,8 +7,12 @@
 import { UPLOAD_ACCEPTED_TYPES, UPLOAD_MAX_BYTES } from '@/lib/config'
 
 export class UploadError extends Error {
-  constructor(message: string) {
+  /** Falha de conexão (caiu ou travou), que vale tentar de novo sozinho. */
+  readonly retryable: boolean
+
+  constructor(message: string, retryable = false) {
     super(message)
+    this.retryable = retryable
     this.name = 'UploadError'
   }
 }
@@ -135,6 +139,9 @@ export interface UploadProgressInfo {
   etaSeconds: number | null
 }
 
+/** Tempo sem nenhum byte enviado até considerar o envio travado. */
+const STALL_MS = 45_000
+
 interface UploadOptions {
   url: string
   file: File
@@ -162,7 +169,21 @@ export function uploadToPresignedUrl({
     for (const [k, v] of Object.entries(finalHeaders)) xhr.setRequestHeader(k, v)
 
     const startedAt = performance.now()
+    // No celular o envio para em silêncio quando a tela bloqueia ou a pessoa
+    // troca de app: o XHR não dá erro, a barra só congela. Sem progresso por
+    // STALL_MS, aborta e rejeita como falha de rede, pra quem chamou poder
+    // tentar de novo em vez de ficar parado pra sempre.
+    let lastActivity = performance.now()
+    let stalled = false
+    const watchdog = window.setInterval(() => {
+      if (performance.now() - lastActivity < STALL_MS) return
+      stalled = true
+      xhr.abort()
+    }, 5000)
+    const stopWatchdog = () => window.clearInterval(watchdog)
+
     xhr.upload.onprogress = (e) => {
+      lastActivity = performance.now()
       if (e.lengthComputable && onProgress) {
         const elapsedSeconds = (performance.now() - startedAt) / 1000
         // Velocidade média desde o início — mais estável que instantânea entre
@@ -180,15 +201,23 @@ export function uploadToPresignedUrl({
     }
 
     xhr.onload = () => {
+      stopWatchdog()
       if (xhr.status >= 200 && xhr.status < 300) resolve()
       else reject(new UploadError(`Falha no upload (HTTP ${xhr.status}).`))
     }
-    xhr.onerror = () =>
-      reject(new UploadError('Falha de rede durante o upload. Tente novamente.'))
-    xhr.onabort = () => reject(new DOMException('Upload cancelado', 'AbortError'))
+    xhr.onerror = () => {
+      stopWatchdog()
+      reject(new UploadError('Falha de rede durante o upload. Tente novamente.', true))
+    }
+    xhr.onabort = () => {
+      stopWatchdog()
+      if (stalled) reject(new UploadError('O envio parou de avançar. Tente novamente.', true))
+      else reject(new DOMException('Upload cancelado', 'AbortError'))
+    }
 
     if (signal) {
       if (signal.aborted) {
+        stopWatchdog()
         xhr.abort()
         return
       }
@@ -196,5 +225,18 @@ export function uploadToPresignedUrl({
     }
 
     xhr.send(file)
+  })
+}
+
+/** Resolve quando a aba volta a ficar visível (ou na hora, se já está). */
+export function waitUntilVisible(): Promise<void> {
+  if (typeof document === 'undefined' || document.visibilityState === 'visible') return Promise.resolve()
+  return new Promise((resolve) => {
+    const onChange = () => {
+      if (document.visibilityState !== 'visible') return
+      document.removeEventListener('visibilitychange', onChange)
+      resolve()
+    }
+    document.addEventListener('visibilitychange', onChange)
   })
 }

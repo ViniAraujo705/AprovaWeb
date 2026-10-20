@@ -20,7 +20,7 @@ import type { Client, Project, TeamMember } from '@/lib/types'
 import { useQuery } from '@/lib/use-query'
 import { Skeleton } from '@/components/states'
 import { ApiError } from '@/lib/api'
-import { UploadError, uploadToPresignedUrl, validateVideoFile, resolveContentType } from '@/lib/upload'
+import { UploadError, uploadToPresignedUrl, validateVideoFile, resolveContentType, waitUntilVisible } from '@/lib/upload'
 import { UPLOAD_ACCEPTED_LABEL } from '@/lib/config'
 import { DEMO_LINK, isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
@@ -30,6 +30,9 @@ import { useAuth } from '@/components/auth-provider'
 import { DateField } from '@/components/date-field'
 
 type ItemStatus = 'pending' | 'uploading' | 'done' | 'error'
+
+/** Tentativas por arquivo quando a conexão cai ou trava no meio do envio. */
+const MAX_UPLOAD_ATTEMPTS = 4
 
 interface PendingFile {
   id: string
@@ -42,6 +45,8 @@ interface PendingFile {
   /** Velocidade média (bytes/s) e ETA do envio em andamento — só enquanto `status === 'uploading'`. */
   speedBps?: number
   etaSeconds?: number | null
+  /** A conexão caiu no meio e o arquivo vai recomeçar assim que a tela voltar. */
+  reconnecting?: boolean
   /** Miniatura local extraída do vídeo antes do upload. */
   thumbnailUrl: string | null
   thumbnailLoading: boolean
@@ -297,9 +302,13 @@ export function UploadView() {
   // e o próprio click() do input pode falhar em abrir o seletor silenciosamente
   // (ex.: gesto de clique "consumido" logo após fechar o menu lateral). Sem uma
   // saída de emergência esse estado trava pra sempre — só um reload resolvia.
+  // O teto é longo porque o iPhone prepara cada vídeo escolhido (converte e,
+  // se preciso, baixa do iCloud) antes de entregar à página; com vários
+  // vídeos isso passa fácil de 15s, e soltar o estado antes fazia parecer que
+  // a seleção tinha se perdido. O "Cancelar" segue disponível o tempo todo.
   useEffect(() => {
     if (!selecting) return
-    const timeout = setTimeout(() => setSelecting(false), 15000)
+    const timeout = setTimeout(() => setSelecting(false), 180_000)
     return () => clearTimeout(timeout)
   }, [selecting])
 
@@ -396,7 +405,7 @@ export function UploadView() {
   async function uploadPending(targetProjectId: string) {
     const pending = items.filter((i) => i.status === 'pending' || i.status === 'error')
     for (const item of pending) {
-      updateItem(item.id, { status: 'uploading', progress: 0, error: undefined })
+      updateItem(item.id, { status: 'uploading', progress: 0, error: undefined, reconnecting: false })
       try {
         const presigned = await videoService.getUploadUrl({
           fileName: item.file.name,
@@ -406,17 +415,31 @@ export function UploadView() {
         if (!presigned.publicUrl)
           throw new UploadError('Servidor não retornou a URL pública do arquivo.')
 
-        await uploadToPresignedUrl({
-          url: presigned.uploadUrl,
-          file: item.file,
-          headers: presigned.headers,
-          onProgress: (p, info) =>
-            updateItem(item.id, {
-              progress: p,
-              speedBps: info.bytesPerSecond,
-              etaSeconds: info.etaSeconds,
-            }),
-        })
+        // A conexão do celular cai quando a tela bloqueia ou a pessoa troca de
+        // app; em vez de largar o vídeo com erro, espera a tela voltar e
+        // recomeça esse arquivo sozinho algumas vezes.
+        for (let attempt = 1; ; attempt++) {
+          try {
+            await uploadToPresignedUrl({
+              url: presigned.uploadUrl,
+              file: item.file,
+              headers: presigned.headers,
+              onProgress: (p, info) =>
+                updateItem(item.id, {
+                  progress: p,
+                  speedBps: info.bytesPerSecond,
+                  etaSeconds: info.etaSeconds,
+                  reconnecting: false,
+                }),
+            })
+            break
+          } catch (err) {
+            if (!(err instanceof UploadError) || !err.retryable || attempt >= MAX_UPLOAD_ATTEMPTS) throw err
+            updateItem(item.id, { progress: 0, speedBps: undefined, etaSeconds: null, reconnecting: true })
+            await waitUntilVisible()
+            await new Promise((r) => setTimeout(r, 1500))
+          }
+        }
 
         const created = await videoService.create({
           projectId: targetProjectId,
@@ -446,7 +469,7 @@ export function UploadView() {
               : err instanceof DOMException && err.name === 'AbortError'
                 ? 'Upload cancelado.'
                 : 'Falha inesperada no envio.'
-        updateItem(item.id, { status: 'error', error: message })
+        updateItem(item.id, { status: 'error', error: message, reconnecting: false })
         // Teto mensal de vídeos atingido: não adianta tentar os arquivos
         // seguintes do mesmo lote, o limite não muda entre um e outro.
         if (handlePlanLimitError(err)) break
@@ -570,6 +593,30 @@ export function UploadView() {
   }
 
   const busy = phase === 'submitting'
+
+  // Mantém a tela do celular ligada durante o envio: com a tela bloqueada o
+  // navegador congela a aba e o upload para no meio. O sistema solta a trava
+  // quando a aba some, então ela é pedida de novo quando a aba volta.
+  useEffect(() => {
+    if (!busy || typeof navigator === 'undefined' || !('wakeLock' in navigator)) return
+    let lock: WakeLockSentinel | null = null
+    let cancelled = false
+    const request = async () => {
+      if (document.visibilityState !== 'visible') return
+      try {
+        const next = await navigator.wakeLock.request('screen')
+        if (cancelled) void next.release()
+        else lock = next
+      } catch {}
+    }
+    void request()
+    document.addEventListener('visibilitychange', request)
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', request)
+      void lock?.release().catch(() => {})
+    }
+  }, [busy])
   const doneCount = items.filter((i) => i.status === 'done').length
   const errorCount = items.filter((i) => i.status === 'error').length
   const uploadingItem = items.find((i) => i.status === 'uploading')
@@ -725,7 +772,8 @@ export function UploadView() {
                 </span>
                 <p className="mt-3 font-display text-2xl tracking-wide">PROCESSANDO SELEÇÃO…</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Isso pode levar alguns segundos com vídeos grandes ou salvos no iCloud.
+                  No celular, o aparelho prepara cada vídeo antes de liberar — com vários ou
+                  vídeos longos pode levar mais de um minuto. Aguarde nesta tela.
                 </p>
                 <button
                   type="button"
@@ -798,7 +846,11 @@ export function UploadView() {
                             style={{ width: `${item.progress}%` }}
                           />
                         </div>
-                        {!!item.speedBps && (
+                        {item.reconnecting ? (
+                          <p className="mt-1 text-xs text-amber-500">
+                            Conexão caiu — recomeçando este vídeo…
+                          </p>
+                        ) : !!item.speedBps && (
                           <p className="mt-1 text-xs text-muted-foreground">
                             {formatSpeed(item.speedBps)}
                             {item.etaSeconds != null && ` · ${formatEta(item.etaSeconds)}`}
@@ -1079,6 +1131,11 @@ export function UploadView() {
                 <Info className="mt-0.5 size-3.5 shrink-0" />
                 Pode navegar para outras páginas enquanto isso — o envio continua em segundo
                 plano. Só evite fechar esta aba ou o navegador antes de terminar.
+              </p>
+              <p className="mt-1.5 flex items-start gap-1.5 text-xs text-muted-foreground sm:hidden">
+                <Info className="mt-0.5 size-3.5 shrink-0" />
+                No celular, fique com o navegador aberto na tela: se trocar de app ou a tela
+                bloquear, o envio pausa e recomeça sozinho quando você voltar.
               </p>
             </div>
           )}
