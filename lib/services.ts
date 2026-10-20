@@ -1249,7 +1249,7 @@ export const videoService = {
     const video = await videoService.get(id)
     const url = video.originalUrl ?? video.url
     if (!url) throw new ApiError('Arquivo original indisponível.', 404)
-    return { url, filename: video.title || `video-${id}-original.mp4` }
+    return { url, filename: video.title || `video-${id}-original` }
   },
 
   /** Exclui o vídeo (só o owner deve chamar). */

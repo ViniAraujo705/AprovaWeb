@@ -11,6 +11,34 @@ function clickDownloadLink(href: string, filename?: string, openInNewTab = false
   a.remove()
 }
 
+const KNOWN_EXTENSION = /\.(mp4|mov|m4v|webm|mkv|avi|jpe?g|png|webp|gif|svg|pdf|zip|csv|txt)$/i
+
+const MIME_EXTENSION: Record<string, string> = {
+  'video/mp4': 'mp4',
+  'video/quicktime': 'mov',
+  'video/webm': 'webm',
+  'video/x-m4v': 'm4v',
+  'video/x-matroska': 'mkv',
+}
+
+/**
+ * Garante que o nome salvo tenha extensão. Sem ela o arquivo baixa como
+ * "dr.italo - olhar cansado" e nem o celular nem o WhatsApp conseguem abrir
+ * (o sistema lê ".italo - olhar cansado" como extensão). A extensão vem do
+ * tipo do arquivo baixado, depois do caminho da URL e, por fim, mp4.
+ */
+function withExtension(filename: string, url: string, mime?: string) {
+  const name = filename.trim()
+  if (KNOWN_EXTENSION.test(name)) return name
+  const fromMime = mime ? MIME_EXTENSION[mime.split(';')[0].trim().toLowerCase()] : undefined
+  let fromUrl: string | undefined
+  try {
+    const match = new URL(url, window.location.href).pathname.match(/\.([a-z0-9]{2,4})$/i)
+    if (match && KNOWN_EXTENSION.test(`.${match[1]}`)) fromUrl = match[1].toLowerCase()
+  } catch {}
+  return `${name || 'video'}.${fromMime ?? fromUrl ?? 'mp4'}`
+}
+
 /**
  * Dispara o download de um arquivo a partir de uma URL.
  *
@@ -37,9 +65,9 @@ export async function triggerDownload(url: string, filename?: string) {
     if (!res.ok) throw new Error(String(res.status))
     const blob = await res.blob()
     const blobUrl = URL.createObjectURL(blob)
-    clickDownloadLink(blobUrl, filename)
+    clickDownloadLink(blobUrl, filename ? withExtension(filename, url, blob.type) : undefined)
     setTimeout(() => URL.revokeObjectURL(blobUrl), 4000)
   } catch {
-    clickDownloadLink(url, filename, true)
+    clickDownloadLink(url, filename ? withExtension(filename, url) : undefined, true)
   }
 }

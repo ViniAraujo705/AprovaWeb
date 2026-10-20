@@ -329,7 +329,7 @@ export function ProjectDetailView({ id }: { id: string }) {
             failed++
             continue
           }
-          await triggerDownload(url, `${v.title || 'video'}.mp4`)
+          await triggerDownload(url, v.title || 'video')
           await new Promise((resolve) => setTimeout(resolve, 400))
         } catch {
           failed++
