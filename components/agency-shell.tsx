@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import {
   LayoutDashboard,
+  Film,
   Briefcase,
   IdCard,
   BarChart3,
@@ -82,6 +83,7 @@ const navModules: NavModule[] = [
     icon: Briefcase,
     items: [
       { href: '/kanban', label: 'Kanban', icon: Kanban },
+      { href: '/videos', label: 'Vídeos', icon: Film, teamRole: 'owner' },
       { href: '/upload', label: 'Enviar vídeo', icon: Upload },
       { href: '/projetos', label: 'Projetos', icon: FolderOpen },
       { href: '/calendario', label: 'Calendário', icon: CalendarDays },

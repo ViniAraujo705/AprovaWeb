@@ -123,6 +123,7 @@ export function ClientReview({
   })
   // Nota geral (1-5), separada das perguntas — alimenta o desempenho do editor.
   const [overallRating, setOverallRating] = useState(initial.overallRating ?? 0)
+  const [testimonial, setTestimonial] = useState('')
 
   const [decision, setDecision] = useState<VideoStatus | null>(decisionFromStatus(video.status))
   const [decisionBusy, setDecisionBusy] = useState<VideoStatus | null>(null)
@@ -331,7 +332,7 @@ export function ClientReview({
       playedApprovedForRef.current = activeLink
     }
     try {
-      if (kind === 'aprovado') await publicService.approve(activeLink, overallRating || undefined)
+      if (kind === 'aprovado') await publicService.approve(activeLink, overallRating || undefined, testimonial)
       else await publicService.requestChanges(activeLink)
       setDecision(kind)
     } catch (err) {
@@ -713,6 +714,22 @@ export function ClientReview({
                 <div className="mt-3 flex justify-center">
                   <Stars value={overallRating} onChange={setOverallRating} size="lg" />
                 </div>
+              </div>
+
+              {/* Recado opcional: vai junto da aprovação e aparece pra agência */}
+              <div className="mt-4">
+                <label htmlFor="recado-equipe" className="text-sm font-medium">
+                  Quer deixar um recado pra equipe? <span className="font-normal text-muted-foreground">(opcional)</span>
+                </label>
+                <textarea
+                  id="recado-equipe"
+                  value={testimonial}
+                  onChange={(e) => setTestimonial(e.target.value.slice(0, 1000))}
+                  rows={3}
+                  placeholder="Ex.: Adoramos o resultado, a equipe foi super ágil!"
+                  className="mt-1.5 w-full resize-none rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Enviado junto com a aprovação.</p>
               </div>
             </>
           )}

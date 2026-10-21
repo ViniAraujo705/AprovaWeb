@@ -433,6 +433,7 @@ function mapVideo(raw: Raw, extra?: { clientName?: string | null }): Video {
     url: fileRemovedAt ? null : (pick<string | null>(raw, ['urlOtimizada', 'url_otimizada'], null) ?? originalUrl),
     originalUrl,
     fileRemovedAt,
+    approvedAt: pick<string | null>(raw, ['aprovadoEm', 'aprovado_em', 'approvedAt'], null),
     posterUrl: pick<string | null>(raw, ['thumbnailUrl', 'thumbnail_url', 'posterUrl', 'poster'], null),
     // `linkPublicoEfetivo` (backend, 28/08) é o link ESTÁVEL da cadeia: o que o
     // cliente recebeu na v1 e continua valendo depois de cada nova versão — o
@@ -2241,12 +2242,17 @@ export const publicService = {
     return mapRating(res)
   },
 
-  /** Aprova o vídeo. `overallRating` (nota geral, 1-5) alimenta o desempenho do editor. */
-  async approve(link: string, overallRating?: number): Promise<void> {
+  /**
+   * Aprova o vídeo. `overallRating` (nota geral, 1-5) alimenta o desempenho do
+   * editor; `testimonial` é o recado opcional do cliente pra equipe, que
+   * aparece no card "Feedback dos clientes" do dashboard.
+   */
+  async approve(link: string, overallRating?: number, testimonial?: string): Promise<void> {
     if (isDemoVideoLink(link)) return void (await delay(null, 300))
+    const depoimento = testimonial?.trim()
     await api.post(
       `/public/videos/${encodeURIComponent(link)}/approve`,
-      { notaGeral: overallRating },
+      { notaGeral: overallRating, ...(depoimento ? { depoimento } : {}) },
       { auth: false },
     )
   },
@@ -2845,6 +2851,7 @@ export const reportService = {
         projectName: pick(r, ['projetoNome', 'projectName'], ''),
         clientName: pick(r, ['clienteNome', 'clientName'], ''),
         deleted: Boolean(pick(r, ['excluido', 'deleted'], false)),
+        comment: pick<string | null>(r, ['comentario', 'depoimento', 'comment'], null) || null,
       })),
     }
   },

@@ -865,6 +865,14 @@ export function demoNotifyCrew(activityId: string, memberIds: string[]): { notif
  * notas determinísticas (mesmo resultado a cada carga), incluindo um projeto
  * já excluídos (ex.: "Campanha de Natal") pra mostrar que o histórico fica.
  */
+const DEMO_TESTIMONIALS = [
+  'A equipe foi muito ágil e o resultado superou nossas expectativas.',
+  'Entregaram antes do prazo e acertaram o tom da marca de primeira.',
+  null,
+  'Adoramos a edição, os seguidores comentaram muito.',
+  null,
+]
+
 export function demoRatingsReport(range: { from?: string; to?: string }): RatingsReport {
   const questions = demoRatingQuestions().map((q) => ({ id: q.id, text: q.text, order: q.order, active: q.active }))
   const deliveries: {
@@ -918,6 +926,7 @@ export function demoRatingsReport(range: { from?: string; to?: string }): Rating
           projectName: d.projectName,
           clientName: d.clientName,
           deleted: d.videoId === null,
+          comment: q === null && score >= 4 ? DEMO_TESTIMONIALS[(i + month) % DEMO_TESTIMONIALS.length] : null,
         })
       }
     })

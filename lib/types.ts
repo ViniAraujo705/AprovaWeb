@@ -321,6 +321,8 @@ export interface Video {
    * notas e histórico continuam, só não há mais o que tocar ou baixar.
    */
   fileRemovedAt?: string | null
+  /** Quando o cliente aprovou (`aprovadoEm`); conta como entrega no dashboard. */
+  approvedAt?: string | null
 }
 
 /**
@@ -831,6 +833,8 @@ export interface RatingRecord {
   clientName: string
   /** Vídeo (ou o projeto/cliente dele) já foi excluído — sem link pra abrir. */
   deleted: boolean
+  /** Recado do cliente ao aprovar; só existe na nota geral (`questionId` nulo). */
+  comment: string | null
 }
 
 export interface RatingsReport {
