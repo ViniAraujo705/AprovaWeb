@@ -84,7 +84,11 @@ export function ClientDetailView({ id }: { id: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:py-10">
+    // `w-full` é obrigatório: o <main> da casca é flex-col, e margem auto num
+    // item flex desliga o stretch — sem largura definida o wrapper encolhe pro
+    // conteúdo, e o trilho `min-w-max` das abas o alargava além da tela no
+    // celular (página cortada à direita e a faixa de abas sem rolar).
+    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:py-10">
       {client.loading ? (
         <Skeleton className="h-12 w-64" />
       ) : client.error ? (
