@@ -136,8 +136,9 @@ export function PortfoliosView() {
     <div className="flex flex-1 flex-col px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-4xl tracking-wide sm:text-5xl">Portfólios</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="eyebrow">Vitrines da agência</p>
+          <h1 className="mt-3 font-display text-4xl leading-[1.05] sm:text-5xl">Portfólios</h1>
+          <p className="mt-3 max-w-2xl text-base text-muted-foreground">
             Monte vitrines de vídeos e fotos em destaque e compartilhe como link público, sem
             dados de cliente.
           </p>
@@ -146,7 +147,7 @@ export function PortfoliosView() {
           <button
             type="button"
             onClick={() => openForm()}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90"
           >
             <Plus className="size-4" /> Novo portfólio
           </button>
@@ -158,7 +159,7 @@ export function PortfoliosView() {
       )}
 
       {creating && (
-        <div className="mt-4 rounded-xl border border-border bg-card p-4">
+        <div className="mt-4 rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-foreground">Novo portfólio</span>
             <button
@@ -236,7 +237,7 @@ export function PortfoliosView() {
               <button
                 type="button"
                 onClick={() => openForm()}
-                className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+                className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90"
               >
                 Novo portfólio
               </button>
@@ -517,7 +518,7 @@ function PortfolioProfileEditModal({
         transition={{ duration: 0.2 }}
       />
       <motion.div
-        className="relative flex max-h-[85vh] w-full max-w-md flex-col overflow-y-auto rounded-xl border border-border bg-card p-5"
+        className="relative flex max-h-[85vh] w-full max-w-md flex-col overflow-y-auto rounded-2xl border border-border bg-card p-5"
         onClick={(e) => e.stopPropagation()}
         initial={{ y: 8, scale: 0.98 }}
         animate={{ y: 0, scale: 1 }}

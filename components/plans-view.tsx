@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, Building2, Check, CreditCard, Loader2, PanelTop, Sparkles } from 'lucide-react'
+import { AlertTriangle, Check, CreditCard, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FadeIn, AnimatePresence, motion } from '@/components/motion'
 import { usePlanLimit } from '@/components/plan-limit-provider'
@@ -32,13 +32,6 @@ const annualSavingsPct = (() => {
   if (!pro.monthly || pro.annualMonthly === null) return null
   return Math.round((1 - pro.annualMonthly / pro.monthly) * 100)
 })()
-
-const PLAN_ICONS: Record<PlanId, typeof CreditCard> = {
-  portfolio: PanelTop,
-  free: CreditCard,
-  pro: Sparkles,
-  agencia: Building2,
-}
 
 function describeCheckoutError(err: unknown): string {
   return err instanceof ApiError
@@ -74,172 +67,163 @@ export function PlansView() {
   const pendingPlanPricing = PLAN_PRICING.find((p) => p.id === pendingPlan) ?? null
 
   return (
-    <div className="mx-auto w-full max-w-[1900px] px-5 py-5 sm:px-8 sm:py-8 xl:px-10 xl:py-10">
-      <div className="inline-flex rounded-full bg-secondary p-1 text-sm sm:text-base">
-        <button
-          type="button"
-          onClick={() => setBilling('monthly')}
-          className={cn(
-            'rounded-full px-5 py-2.5 font-semibold transition-colors',
-            billing === 'monthly'
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          mensal
-        </button>
-        <button
-          type="button"
-          onClick={() => setBilling('annual')}
-          className={cn(
-            'flex items-center gap-1.5 rounded-full px-5 py-2.5 font-semibold transition-colors',
-            billing === 'annual'
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          anual
-          {annualSavingsPct !== null && (
-            <span
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+      {/* Seção de planos no padrão da apresentação de marca: fundo verde
+          profundo, cards com contorno e o Pro em lima como destaque. */}
+      <section className="rounded-3xl bg-deep px-5 py-8 text-deep-foreground sm:px-10 sm:py-12">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Planos</p>
+            <h1 className="mt-4 max-w-2xl font-display text-4xl leading-[1.05] sm:text-5xl">
+              Comece grátis. Cresça quando o volume pedir.
+            </h1>
+          </div>
+          <div className="inline-flex shrink-0 self-start rounded-full border border-white/15 p-1 text-sm lg:self-auto">
+            <button
+              type="button"
+              onClick={() => setBilling('monthly')}
               className={cn(
-                'rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
-                billing === 'annual'
-                  ? 'bg-white/20 text-primary-foreground'
-                  : 'bg-emerald-500/15 text-emerald-600',
+                'rounded-full px-5 py-2.5 font-semibold transition-colors',
+                billing === 'monthly' ? 'bg-primary text-primary-foreground' : 'text-deep-muted hover:text-deep-foreground',
               )}
             >
-              -{annualSavingsPct}%
-            </span>
-          )}
-        </button>
-      </div>
+              Mensal
+            </button>
+            <button
+              type="button"
+              onClick={() => setBilling('annual')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-full px-5 py-2.5 font-semibold transition-colors',
+                billing === 'annual' ? 'bg-primary text-primary-foreground' : 'text-deep-muted hover:text-deep-foreground',
+              )}
+            >
+              Anual
+              {annualSavingsPct !== null && (
+                <span
+                  className={cn(
+                    'rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+                    billing === 'annual' ? 'bg-deep text-primary' : 'bg-primary/15 text-primary',
+                  )}
+                >
+                  -{annualSavingsPct}%
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
 
-      <div className="mt-8 grid items-stretch gap-5 sm:grid-cols-2 md:grid-cols-4 lg:gap-7">
-        {PLAN_PRICING.map((plan) => {
-          const isCurrent = planStatus?.plan === plan.id
-          const highlighted = plan.id === 'pro'
-          const Icon = PLAN_ICONS[plan.id]
-          const isFree = plan.monthly === 0
-          const price =
-            billing === 'annual' && plan.annualMonthly !== null
-              ? formatBRL(plan.annualMonthly)
-              : formatBRL(plan.monthly)
+        <div className="mt-10 grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {PLAN_PRICING.map((plan) => {
+            const isCurrent = planStatus?.plan === plan.id
+            const highlighted = plan.id === 'pro'
+            const isFree = plan.monthly === 0
+            const price =
+              billing === 'annual' && plan.annualMonthly !== null
+                ? formatBRL(plan.annualMonthly)
+                : formatBRL(plan.monthly)
+            const outlineBtn =
+              'border border-deep-foreground/70 text-deep-foreground hover:bg-white/5'
+            const featuredBtn = 'bg-deep text-deep-foreground hover:opacity-90'
 
-          return (
-            <FadeIn key={plan.id} y={6}>
-              <div className="relative h-full">
-                {highlighted && (
-                  <span className="absolute -top-4 left-1/2 z-10 -translate-x-1/2 rounded-full bg-emerald-600 px-5 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-sm">
-                    mais popular
-                  </span>
-                )}
-
+            return (
+              <FadeIn key={plan.id} y={6}>
                 <div
                   className={cn(
-                    'group relative flex min-h-[480px] h-full flex-col overflow-hidden rounded-3xl border p-5 transition-transform duration-300 ease-out hover:z-10 hover:-translate-y-1 lg:p-6',
-                    highlighted
-                      ? 'border-plan-featured bg-plan-featured text-plan-featured-foreground shadow-2xl shadow-black/20'
-                      : 'border-border bg-card hover:border-foreground/20 hover:shadow-xl',
+                    'flex h-full flex-col rounded-3xl p-6 transition-transform duration-300 ease-out hover:-translate-y-1',
+                    highlighted ? 'bg-primary text-primary-foreground' : 'border border-white/10 text-deep-foreground',
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className={cn('flex items-center gap-2.5 text-lg font-bold tracking-tight lg:text-xl', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
-                      <span className={cn('grid size-10 place-items-center rounded-xl', highlighted ? 'bg-white/10' : 'bg-secondary')}>
-                        <Icon className={cn('size-4.5', highlighted ? 'text-plan-featured-muted' : 'text-muted-foreground')} />
+                    <p className="font-display text-xl">{plan.name}</p>
+                    {isCurrent ? (
+                      <span
+                        className={cn(
+                          'shrink-0 rounded-full px-3 py-1 text-xs font-semibold',
+                          highlighted ? 'bg-deep text-primary' : 'bg-white/10 text-deep-foreground',
+                        )}
+                      >
+                        Plano atual
                       </span>
-                      {plan.name}
-                    </div>
-                    {isCurrent && (
-                      <span className={cn('shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold', highlighted ? 'bg-white/10 text-plan-featured-muted' : 'bg-secondary text-muted-foreground')}>
-                        plano atual
-                      </span>
+                    ) : (
+                      highlighted && (
+                        <span className="shrink-0 rounded-full bg-deep px-3 py-1 text-xs font-semibold text-primary">
+                          Mais escolhido
+                        </span>
+                      )
                     )}
                   </div>
 
-                  <p className={cn('mt-4 max-w-[18rem] text-sm leading-5 lg:text-base lg:leading-6', highlighted ? 'text-plan-featured-muted' : 'text-muted-foreground')}>
-                    {plan.description}
-                  </p>
-
-                  <div className="mt-9 flex items-baseline gap-1 lg:mt-12">
-                    {isFree ? (
-                      <span className={cn('text-4xl font-bold tracking-tight lg:text-5xl', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
-                        grátis
-                      </span>
-                    ) : (
-                      <>
-                        <span className={cn('text-4xl font-bold tracking-tight lg:text-5xl', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
-                          {price}
-                        </span>
-                        <span className={cn('text-base font-medium', highlighted ? 'text-plan-featured-muted' : 'text-muted-foreground')}>/mês</span>
-                      </>
+                  <div className="mt-6 flex items-baseline gap-1">
+                    <span className="font-display text-5xl leading-none">{isFree ? formatBRL(0) : price}</span>
+                    {!isFree && (
+                      <span className={cn('text-base', highlighted ? 'text-primary-foreground/70' : 'text-deep-muted')}>/mês</span>
                     )}
                   </div>
                   {billing === 'annual' && plan.annualTotal !== null && (
-                    <p className={cn('mt-1 text-xs', highlighted ? 'text-plan-featured-muted' : 'text-muted-foreground')}>
+                    <p className={cn('mt-1.5 text-xs', highlighted ? 'text-primary-foreground/70' : 'text-deep-muted')}>
                       {formatBRL(plan.annualTotal)}/ano cobrados de uma vez
                     </p>
                   )}
+
+                  <p className={cn('mt-4 text-sm leading-6', highlighted ? 'text-primary-foreground/80' : 'text-deep-muted')}>
+                    {plan.description}
+                  </p>
 
                   {isCurrent ? (
                     <button
                       type="button"
                       disabled
                       className={cn(
-                        'mt-5 inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-bold disabled:cursor-not-allowed lg:mt-6',
-                        highlighted
-                          ? 'bg-white/10 text-plan-featured-muted'
-                          : 'bg-secondary text-muted-foreground',
+                        'mt-6 inline-flex min-h-12 items-center justify-center rounded-xl px-4 text-sm font-semibold disabled:cursor-not-allowed',
+                        highlighted ? 'bg-deep/15 text-primary-foreground/70' : 'bg-white/10 text-deep-muted',
                       )}
                     >
-                      plano atual
+                      Plano atual
                     </button>
                   ) : plan.id === 'free' ? (
                     // Não existe "checkout" pro Free — voltar pra ele é cancelar
                     // a assinatura atual, ação que mora em Meu Plano.
                     <Link
                       href="/configuracoes/plano"
-                      className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-4 text-sm font-bold text-foreground transition-colors hover:bg-secondary lg:mt-6"
+                      className={cn('mt-6 inline-flex min-h-12 items-center justify-center rounded-xl px-4 text-sm font-semibold transition-colors', outlineBtn)}
                     >
-                      começar grátis
+                      Começar grátis
                     </Link>
                   ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setPendingPlan(plan.id)}
-                        disabled={checkingOut !== null}
-                        className={cn(
-                          'mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold transition-opacity hover:opacity-90 disabled:opacity-50 lg:mt-6',
-                          highlighted
-                            ? 'bg-white/10 text-plan-featured-muted'
-                            : 'border border-border bg-card text-foreground',
-                        )}
-                      >
-                        {checkingOut === plan.id && <Loader2 className="size-4 animate-spin" />}
-                        assinar
-                      </button>
-                      {highlighted && (
-                        <p className="mt-2 text-center text-xs text-muted-foreground">
-                          cancele quando quiser
-                        </p>
+                    <button
+                      type="button"
+                      onClick={() => setPendingPlan(plan.id)}
+                      disabled={checkingOut !== null}
+                      className={cn(
+                        'mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition-all disabled:opacity-50',
+                        highlighted ? featuredBtn : outlineBtn,
                       )}
-                    </>
+                    >
+                      {checkingOut === plan.id && <Loader2 className="size-4 animate-spin" />}
+                      Assinar {plan.name}
+                    </button>
+                  )}
+                  {highlighted && !isCurrent && (
+                    <p className="mt-2 text-center text-xs text-primary-foreground/70">Cancele quando quiser</p>
                   )}
 
-                  <ul className={cn('mt-9 flex-1 space-y-3 border-t pt-5 lg:mt-12 lg:space-y-4 lg:pt-6', highlighted ? 'border-white/10' : 'border-border')}>
+                  <ul className={cn('mt-6 flex-1 space-y-3 border-t pt-5', highlighted ? 'border-deep/15' : 'border-white/10')}>
                     {plan.features.map((feature) => (
-                      <li key={feature} className={cn('flex items-start gap-2 text-sm leading-5 lg:gap-3 lg:text-base lg:leading-6', highlighted ? 'text-plan-featured-foreground' : 'text-foreground')}>
-                        <Check className="mt-0.5 size-4 shrink-0 text-emerald-500 lg:size-5" />
+                      <li key={feature} className="flex items-start gap-2.5 text-sm leading-5">
+                        <Check
+                          className={cn('mt-0.5 size-4 shrink-0', highlighted ? 'text-primary-foreground' : 'text-primary')}
+                          strokeWidth={3}
+                        />
                         {feature}
                       </li>
                     ))}
                   </ul>
                 </div>
-              </div>
-            </FadeIn>
-          )
-        })}
-      </div>
+              </FadeIn>
+            )
+          })}
+        </div>
+      </section>
 
       <AnimatePresence>
         {pendingPlanPricing && (
@@ -345,7 +329,7 @@ function CpfCnpjModal({
             </span>
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Checkout seguro</p>
-              <h3 className="text-xl font-bold tracking-tight">Assinar {planName}</h3>
+              <h3 className="font-display text-xl">Assinar {planName}</h3>
             </div>
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
@@ -359,11 +343,11 @@ function CpfCnpjModal({
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-foreground" htmlFor="checkout-cpf-cnpj">CPF ou CNPJ</label>
-                <input id="checkout-cpf-cnpj" type="text" inputMode="numeric" autoFocus value={payer.cpfCnpj} onChange={(e) => updatePayer('cpfCnpj', e.target.value)} placeholder="Somente números" disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
+                <input id="checkout-cpf-cnpj" type="text" inputMode="numeric" autoFocus value={payer.cpfCnpj} onChange={(e) => updatePayer('cpfCnpj', e.target.value)} placeholder="Somente números" disabled={busy} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground" htmlFor="checkout-phone-number">Telefone com DDD</label>
-                <input id="checkout-phone-number" type="tel" inputMode="tel" value={payer.phoneNumber} onChange={(e) => updatePayer('phoneNumber', e.target.value)} placeholder="Ex.: 85999999999" disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
+                <input id="checkout-phone-number" type="tel" inputMode="tel" value={payer.phoneNumber} onChange={(e) => updatePayer('phoneNumber', e.target.value)} placeholder="Ex.: 85999999999" disabled={busy} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
               </div>
             </div>
           </section>
@@ -376,29 +360,29 @@ function CpfCnpjModal({
             <div className="mt-3 grid gap-4 sm:grid-cols-6">
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-foreground" htmlFor="checkout-postal-code">CEP</label>
-                <input id="checkout-postal-code" type="text" inputMode="numeric" value={payer.postalCode} onChange={(e) => updatePayer('postalCode', e.target.value)} placeholder="Somente números" disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
+                <input id="checkout-postal-code" type="text" inputMode="numeric" value={payer.postalCode} onChange={(e) => updatePayer('postalCode', e.target.value)} placeholder="Somente números" disabled={busy} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
               </div>
               <div className="sm:col-span-4">
                 <label className="block text-sm font-medium text-foreground" htmlFor="checkout-address">Rua, avenida ou logradouro</label>
-                <input id="checkout-address" type="text" value={payer.address} onChange={(e) => updatePayer('address', e.target.value)} disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
+                <input id="checkout-address" type="text" value={payer.address} onChange={(e) => updatePayer('address', e.target.value)} disabled={busy} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-foreground" htmlFor="checkout-address-number">Número</label>
-                <input id="checkout-address-number" type="text" value={payer.addressNumber} onChange={(e) => updatePayer('addressNumber', e.target.value)} disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
+                <input id="checkout-address-number" type="text" value={payer.addressNumber} onChange={(e) => updatePayer('addressNumber', e.target.value)} disabled={busy} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
               </div>
               <div className="sm:col-span-4">
                 <label className="block text-sm font-medium text-foreground" htmlFor="checkout-province">Bairro</label>
-                <input id="checkout-province" type="text" value={payer.province} onChange={(e) => updatePayer('province', e.target.value)} disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
+                <input id="checkout-province" type="text" value={payer.province} onChange={(e) => updatePayer('province', e.target.value)} disabled={busy} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
               </div>
               <div className="sm:col-span-6">
                 <label className="block text-sm font-medium text-foreground" htmlFor="checkout-complement">Complemento <span className="font-normal text-muted-foreground">(opcional)</span></label>
-                <input id="checkout-complement" type="text" value={payer.complement} onChange={(e) => updatePayer('complement', e.target.value)} placeholder="Apartamento, bloco, sala..." disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
+                <input id="checkout-complement" type="text" value={payer.complement} onChange={(e) => updatePayer('complement', e.target.value)} placeholder="Apartamento, bloco, sala..." disabled={busy} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
               </div>
             </div>
           </section>
 
           {error && (
-            <p className="flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+            <p className="flex items-center gap-1.5 rounded-xl bg-danger-soft p-3 text-sm text-danger-ink">
               <AlertTriangle className="size-4 shrink-0" /> {error}
             </p>
           )}
@@ -409,7 +393,7 @@ function CpfCnpjModal({
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-card px-5 text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -417,7 +401,7 @@ function CpfCnpjModal({
             type="button"
             onClick={handleConfirm}
             disabled={busy}
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
             {busy && <Loader2 className="size-4 animate-spin" />}
             Continuar para pagamento

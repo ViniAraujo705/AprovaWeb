@@ -6,7 +6,23 @@ import { cn } from '@/lib/utils'
  * profundo pro modo normal e lima/off-white pro noturno — a troca é por CSS,
  * sem depender do tema montado (não pisca na hidratação).
  */
-export function CheckLogo({ className, priority }: { className?: string; priority?: boolean }) {
+export function CheckLogo({
+  className,
+  priority,
+  onDeep = false,
+}: {
+  className?: string
+  priority?: boolean
+  /** Sempre a versão negativa (lima/off-white) — pra fundos verde-profundo nos dois temas. */
+  onDeep?: boolean
+}) {
+  if (onDeep) {
+    return (
+      <span className={cn('relative inline-block h-7 w-[114px] shrink-0', className)}>
+        <Image src="/brand/check-logo-dark.png" alt="Check" fill sizes="160px" priority={priority} className="object-contain object-left" />
+      </span>
+    )
+  }
   return (
     <span className={cn('relative inline-block h-7 w-[114px] shrink-0', className)}>
       <Image

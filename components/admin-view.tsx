@@ -17,9 +17,9 @@ const statusLabel: Record<UserStatus, string> = {
 }
 
 const statusStyles: Record<UserStatus, string> = {
-  active: 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30',
+  active: 'bg-success-soft text-success-ink',
   inactive: 'bg-secondary text-muted-foreground ring-1 ring-border',
-  suspended: 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30',
+  suspended: 'bg-warning-soft text-warning-ink',
 }
 
 export function AdminView() {
@@ -28,8 +28,9 @@ export function AdminView() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">Admin</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="eyebrow">Sistema</p>
+      <h1 className="mt-3 font-display text-4xl leading-[1.05] sm:text-5xl">Admin</h1>
+      <p className="mt-3 max-w-2xl text-base text-muted-foreground">
         Métricas do sistema e gestão de usuários.
       </p>
 
@@ -194,7 +195,7 @@ function UserRow({
             type="button"
             onClick={() => setStatus(target)}
             disabled={busy !== null}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
           >
             {busy !== null && <Loader2 className="size-3.5 animate-spin" />}
             {target === 'suspended' ? 'Suspender' : 'Reativar'}

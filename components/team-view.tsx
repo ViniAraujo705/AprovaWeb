@@ -202,8 +202,10 @@ function InviteForm({ onInvited }: { onInvited: (m: TeamMember) => void }) {
       noValidate
       className="mt-8 rounded-2xl border border-border bg-card p-6"
     >
-      <div className="flex items-center gap-2 font-display text-lg">
-        <UserPlus className="size-5 text-primary-ink" />
+      <div className="flex items-center gap-3 font-display text-lg text-foreground">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
+          <UserPlus className="size-5" />
+        </span>
         Convidar novo editor
       </div>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -439,7 +441,7 @@ function MemberRow({
                   type="button"
                   onClick={() => setConfirming(false)}
                   disabled={busy}
-                  className="inline-flex min-h-9 items-center rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+                  className="inline-flex min-h-9 items-center rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
                 >
                   Cancelar
                 </button>
@@ -479,7 +481,7 @@ function MemberRow({
                 type="button"
                 onClick={() => setStatus(target)}
                 disabled={busy}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
               >
                 {busy && <Loader2 className="size-3.5 animate-spin" />}
                 {target === 'suspended' ? 'Suspender' : 'Reativar'}
@@ -499,7 +501,7 @@ function MemberRow({
                     type="button"
                     onClick={() => setConfirmingPromote(false)}
                     disabled={busy}
-                    className="inline-flex min-h-9 items-center rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+                    className="inline-flex min-h-9 items-center rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
                   >
                     Cancelar
                   </button>
@@ -509,7 +511,7 @@ function MemberRow({
                   type="button"
                   onClick={() => setConfirmingPromote(true)}
                   disabled={busy}
-                  className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
                 >
                   Promover a owner
                 </button>

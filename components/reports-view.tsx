@@ -676,13 +676,13 @@ function BottleneckCard({
     <div
       className={cn(
         'flex items-start gap-3 rounded-xl border p-4',
-        tone === 'destructive' ? 'border-destructive/30 bg-destructive/5' : 'border-amber-500/30 bg-amber-500/5',
+        tone === 'destructive' ? 'border-danger-border bg-danger-soft' : 'border-warning-border bg-warning-soft',
       )}
     >
       <span
         className={cn(
           'grid size-9 shrink-0 place-items-center rounded-full',
-          tone === 'destructive' ? 'bg-destructive/15 text-destructive' : 'bg-amber-500/15 text-amber-500',
+          tone === 'destructive' ? 'bg-danger-soft text-danger-ink' : 'bg-warning-soft text-warning-ink',
         )}
       >
         {icon}

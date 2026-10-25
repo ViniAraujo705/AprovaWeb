@@ -288,8 +288,9 @@ export function CheckDayView() {
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-4xl tracking-wide sm:text-5xl">CheckDay</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="eyebrow">Seu dia</p>
+          <h1 className="mt-3 font-display text-4xl leading-[1.05] sm:text-5xl">CheckDay</h1>
+          <p className="mt-3 max-w-2xl text-base text-muted-foreground">
             Notas, listas e prioridades do seu dia — salvas na sua conta, iguais no computador e no
             celular.
           </p>
@@ -312,7 +313,7 @@ export function CheckDayView() {
             disabled={loading}
             aria-label="Atualizar notas"
             title="Buscar as alterações feitas em outro aparelho"
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
           >
             <RefreshCw className={cn('size-3.5', loading && 'animate-spin')} />
             Atualizar

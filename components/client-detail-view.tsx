@@ -54,6 +54,7 @@ import { ApiError } from '@/lib/api'
 import { validateImageFile, validateClientFile, uploadToPresignedUrl, UploadError, resolveContentType } from '@/lib/upload'
 import { isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
+import { StatCard } from '@/components/page-header'
 import { FadeIn, AnimatePresence, motion, StaggerList, staggerItem } from '@/components/motion'
 import { useRouter } from 'next/navigation'
 import { toast } from '@/lib/toast'
@@ -95,9 +96,10 @@ export function ClientDetailView({ id }: { id: string }) {
         <ErrorState message={client.error} onRetry={client.refetch} />
       ) : client.data ? (
         <>
-          <div className="flex flex-wrap items-start justify-between gap-3">
+          <p className="eyebrow">Carteira da agência</p>
+          <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
-              <h1 className="min-w-0 truncate text-3xl font-bold tracking-tight sm:text-4xl" title={client.data.name}>
+              <h1 className="min-w-0 truncate font-display text-4xl leading-[1.1] sm:text-5xl" title={client.data.name}>
                 {client.data.name}
               </h1>
               {client.data.isExample && (
@@ -112,13 +114,13 @@ export function ClientDetailView({ id }: { id: string }) {
             <button
               type="button"
               onClick={() => setConfirmingDelete(true)}
-              className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-muted-foreground transition-colors hover:border-danger-border hover:text-danger-ink"
             >
               <Trash2 className="size-4" />
               Excluir cliente
             </button>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">Central de projetos, conteúdos, aprovações, calendário e dados operacionais.</p>
+          <p className="mt-3 text-base text-muted-foreground">Central de projetos, conteúdos, aprovações, calendário e dados operacionais.</p>
 
           <ClientWorkspace client={client.data} onUpdated={client.setData} />
 
@@ -161,7 +163,7 @@ function ClientTabBar({ tab, setTab }: { tab: ClientTab; setTab: (t: ClientTab) 
     // última aba encostava na borda da tela sem respiro — dava a impressão de
     // que a faixa não tinha rolado até o fim. Dentro do trilho o padding entra
     // no conteúdo rolável e sobra a folga certa nas duas pontas.
-    <div className="-mx-4 touch-pan-x overflow-x-auto overscroll-x-contain border-y border-border sm:mx-0 sm:rounded-xl sm:border">
+    <div className="-mx-4 touch-pan-x overflow-x-auto overscroll-x-contain border-y border-border bg-card sm:mx-0 sm:rounded-2xl sm:border">
       <div className="flex min-w-max gap-1 px-4 py-2 sm:px-2" role="tablist" aria-label="Central do cliente">
         {clientTabs.map(({ id, label, icon: Icon }) => (
           <button
@@ -171,8 +173,8 @@ function ClientTabBar({ tab, setTab }: { tab: ClientTab; setTab: (t: ClientTab) 
             aria-selected={tab === id}
             onClick={() => setTab(id)}
             className={cn(
-              'inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors',
-              tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+              'inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl px-4 text-sm font-medium transition-colors',
+              tab === id ? 'bg-primary font-semibold text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
             )}
           >
             <Icon className="size-3.5" /> {label}
@@ -236,17 +238,23 @@ function ClientWorkspace({
 
 function ClientMetrics({ projects, videos, events, compact = false }: { projects: Project[]; videos: Video[]; events: CalendarActivity[]; compact?: boolean }) {
   const items = [
-    { label: 'Projetos', value: projects.length, tone: 'text-primary-ink' },
-    { label: 'Conteúdos', value: videos.length, tone: 'text-foreground' },
-    { label: 'Aguardando aprovação', value: videos.filter((video) => video.status === 'pendente').length, tone: 'text-amber-500' },
-    { label: 'Em ajustes', value: videos.filter((video) => video.status === 'ajuste').length, tone: 'text-amber-500' },
-    { label: 'Aprovados', value: videos.filter((video) => video.status === 'aprovado').length, tone: 'text-emerald-500' },
-    { label: 'Gravações agendadas', value: events.length, tone: 'text-primary-ink' },
+    { label: 'Projetos', value: projects.length, dot: undefined, tone: 'default' as const },
+    { label: 'Conteúdos', value: videos.length, dot: undefined, tone: 'default' as const },
+    { label: 'Aguardando aprovação', value: videos.filter((video) => video.status === 'pendente').length, dot: 'bg-warning', tone: 'default' as const },
+    { label: 'Em ajustes', value: videos.filter((video) => video.status === 'ajuste').length, dot: 'bg-danger', tone: 'default' as const },
+    { label: 'Aprovados', value: videos.filter((video) => video.status === 'aprovado').length, dot: 'bg-primary', tone: 'success' as const },
+    { label: 'Gravações agendadas', value: events.length, dot: undefined, tone: 'default' as const },
   ].filter((item) => !compact || !['Projetos', 'Conteúdos', 'Gravações agendadas'].includes(item.label))
-  return <div className="grid gap-3 sm:grid-cols-3">{items.map((item) => <div key={item.label} className="rounded-xl border border-border bg-card p-4"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{item.label}</p><p className={cn('mt-1 text-3xl font-bold tracking-tight', item.tone)}>{item.value}</p></div>)}</div>
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      {items.map((item) => (
+        <StatCard key={item.label} label={item.label} value={item.value} dot={item.dot} tone={item.tone} />
+      ))}
+    </div>
+  )
 }
 
-const statusStyle = { pendente: 'bg-secondary text-muted-foreground', aprovado: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400', ajuste: 'bg-amber-500/15 text-amber-600 dark:text-amber-400', erro: 'bg-destructive/15 text-destructive' }
+const statusStyle = { pendente: 'bg-warning-soft text-warning-ink', aprovado: 'bg-success text-success-foreground', ajuste: 'bg-danger-soft text-danger-ink', erro: 'bg-danger-soft text-danger-ink' }
 
 /**
  * Ordem de exibição dos conteúdos do cliente: o que cobra ação da agência
@@ -262,15 +270,15 @@ function ClientVideos({ videos, loading, error, approvalOnly = false }: { videos
   // `sort` é estável: dentro do mesmo status a ordem que veio da API se mantém.
   const ordered = [...videos].sort((a, b) => statusPriority[a.status] - statusPriority[b.status])
   if (videos.length === 0) return <div className="mt-6"><EmptyState icon={<FileVideo className="size-7" />} title={approvalOnly ? 'Nenhuma aprovação para acompanhar' : 'Nenhum conteúdo ainda'} description={approvalOnly ? 'Os conteúdos enviados ao cliente aparecerão aqui conforme avançarem no fluxo.' : 'Envie um vídeo dentro de um projeto para centralizá-lo aqui.'} /></div>
-  return <div className="mt-6 space-y-2">{ordered.map((video) => <Link key={video.id} href={`/videos/${video.id}/revisao`} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary-ink/50"><FileVideo className="size-5 shrink-0 text-primary-ink" /><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{video.title}</p><p className="mt-0.5 text-xs text-muted-foreground">{video.commentsCount} comentário{video.commentsCount === 1 ? '' : 's'}{video.deadline ? ` · Prazo: ${new Date(video.deadline).toLocaleDateString('pt-BR')}` : ''}</p></div><span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', statusStyle[video.status])}>{statusLabel[video.status]}</span></Link>)}</div>
+  return <div className="mt-6 space-y-2">{ordered.map((video) => <Link key={video.id} href={`/videos/${video.id}/revisao`} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary-ink/50"><FileVideo className="size-5 shrink-0 text-primary-ink" /><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{video.title}</p><p className="mt-0.5 text-xs text-muted-foreground">{video.commentsCount} comentário{video.commentsCount === 1 ? '' : 's'}{video.deadline ? ` · Prazo: ${new Date(video.deadline).toLocaleDateString('pt-BR')}` : ''}</p></div><span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', statusStyle[video.status])}>{statusLabel[video.status]}</span></Link>)}</div>
 }
 
 function ClientCalendar({ events, loading, error }: { events: CalendarActivity[]; loading: boolean; error: string | null }) {
   if (loading) return <div className="mt-6 grid gap-3">{Array.from({ length: 2 }).map((_, index) => <Skeleton key={index} className="h-16 w-full" />)}</div>
   if (error) return <div className="mt-6"><ErrorState message={error} /></div>
   const ordered = [...events].sort((a, b) => a.startAt.localeCompare(b.startAt))
-  if (ordered.length === 0) return <div className="mt-6"><EmptyState icon={<CalendarDays className="size-7" />} title="Nenhuma gravação agendada" description="Os eventos vinculados a este cliente no calendário aparecerão aqui." action={<Link href="/calendario" className="mt-2 inline-flex min-h-10 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">Abrir calendário</Link>} /></div>
-  return <div className="mt-6 space-y-2">{ordered.map((event) => <Link key={event.id} href="/calendario" className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary-ink/50"><CalendarDays className="size-5 shrink-0 text-primary-ink" /><div className="min-w-0"><p className="font-medium text-foreground">{event.title}</p><p className="text-xs text-muted-foreground">{new Date(event.startAt).toLocaleString('pt-BR', { dateStyle: 'medium', timeStyle: 'short' })}{event.notes ? ` · ${event.notes}` : ''}</p></div></Link>)}</div>
+  if (ordered.length === 0) return <div className="mt-6"><EmptyState icon={<CalendarDays className="size-7" />} title="Nenhuma gravação agendada" description="Os eventos vinculados a este cliente no calendário aparecerão aqui." action={<Link href="/calendario" className="mt-2 inline-flex min-h-10 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground">Abrir calendário</Link>} /></div>
+  return <div className="mt-6 space-y-2">{ordered.map((event) => <Link key={event.id} href="/calendario" className="flex items-center gap-3 rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary-ink/50"><CalendarDays className="size-5 shrink-0 text-primary-ink" /><div className="min-w-0"><p className="font-medium text-foreground">{event.title}</p><p className="text-xs text-muted-foreground">{new Date(event.startAt).toLocaleString('pt-BR', { dateStyle: 'medium', timeStyle: 'short' })}{event.notes ? ` · ${event.notes}` : ''}</p></div></Link>)}</div>
 }
 
 const clientActivityTypeMeta: Record<ClientActivityType, { icon: typeof History }> = {
@@ -331,7 +339,7 @@ function ClientHistory({ clientId }: { clientId: string }) {
         {items.map((item) => {
           const Icon = clientActivityTypeMeta[item.type].icon
           return (
-            <div key={item.id} className="flex gap-3 rounded-xl border border-border bg-card p-4">
+            <div key={item.id} className="flex gap-3 rounded-2xl border border-border bg-card p-5">
               <Icon className="mt-0.5 size-4 shrink-0 text-primary-ink" />
               <p className="text-sm text-foreground">
                 {item.description}
@@ -521,7 +529,7 @@ function ClientFiles({ clientId }: { clientId: string }) {
             </p>
           )}
           {error && (
-            <p className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <p className="mt-4 flex items-center gap-2 rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-sm text-destructive">
               <AlertTriangle className="size-4 shrink-0" /> {error}
             </p>
           )}
@@ -549,7 +557,7 @@ function ClientFiles({ clientId }: { clientId: string }) {
               <motion.div
                 key={file.id}
                 variants={staggerItem}
-                className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"
+                className="flex items-center gap-3 rounded-2xl border border-border bg-card p-5"
               >
                 <Paperclip className="size-5 shrink-0 text-primary-ink" />
                 <div className="min-w-0 flex-1">
@@ -621,14 +629,14 @@ function DeleteClientModal({
         transition={{ duration: 0.2 }}
       />
       <motion.div
-        className="relative w-full max-w-md rounded-xl border border-border bg-card p-5"
+        className="relative w-full max-w-md rounded-2xl border border-border bg-card p-5"
         initial={{ y: 8, scale: 0.98 }}
         animate={{ y: 0, scale: 1 }}
         exit={{ y: 8, scale: 0.98 }}
         transition={{ duration: 0.2 }}
       >
         <div className="flex items-center gap-2">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-destructive/15 text-destructive">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-danger-soft text-danger-ink">
             <AlertTriangle className="size-5" />
           </span>
           <h3 className="text-lg font-bold tracking-tight">Excluir cliente?</h3>
@@ -648,7 +656,7 @@ function DeleteClientModal({
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+            className="inline-flex min-h-10 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -811,7 +819,7 @@ function ClientForm({
               type="button"
               onClick={removePhoto}
               disabled={busy}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
             >
               <Trash2 className="size-3.5" /> Remover
             </button>
@@ -927,13 +935,13 @@ function ClientForm({
           type="button"
           onClick={saveDetails}
           disabled={busy}
-          className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
           Salvar
         </button>
 
         {error && (
-          <p className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p className="mt-4 flex items-center gap-2 rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-sm text-destructive">
             <AlertTriangle className="size-4 shrink-0" /> {error}
           </p>
         )}
@@ -1008,7 +1016,7 @@ function ClientCustomFieldsForm({
           </p>
           <Link
             href="/configuracoes/campos-cliente"
-            className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70"
+            className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary"
           >
             <Plus className="size-3.5" /> Configurar campos
           </Link>
@@ -1020,8 +1028,10 @@ function ClientCustomFieldsForm({
   return (
     <FadeIn y={6}>
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <ListPlus className="size-4 text-primary-ink" />
+        <div className="flex items-center gap-3 font-display text-lg text-foreground">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
+            <ListPlus className="size-5" />
+          </span>
           Campos personalizados
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -1045,14 +1055,14 @@ function ClientCustomFieldsForm({
           type="button"
           onClick={save}
           disabled={busy}
-          className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
           {busy && <Loader2 className="size-3.5 animate-spin" />}
           Salvar
         </button>
 
         {error && (
-          <p className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p className="mt-4 flex items-center gap-2 rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-sm text-destructive">
             <AlertTriangle className="size-4 shrink-0" /> {error}
           </p>
         )}
@@ -1232,8 +1242,10 @@ function ClientBrandingForm({
   return (
     <FadeIn y={6}>
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Building2 className="size-4 text-primary-ink" />
+        <div className="flex items-center gap-3 font-display text-lg text-foreground">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
+            <Building2 className="size-5" />
+          </span>
           Marca própria deste cliente
           {locked && (
             <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-ink">
@@ -1270,7 +1282,7 @@ function ClientBrandingForm({
               type="button"
               onClick={removeLogo}
               disabled={busy}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
             >
               <Trash2 className="size-3.5" /> Remover
             </button>
@@ -1374,14 +1386,14 @@ function ClientBrandingForm({
           type="button"
           onClick={saveAppearance}
           disabled={busy}
-          className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
           {busy && <Loader2 className="size-3.5 animate-spin" />}
           Salvar
         </button>
 
         {error && (
-          <p className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p className="mt-4 flex items-center gap-2 rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-sm text-destructive">
             <AlertTriangle className="size-4 shrink-0" /> {error}
           </p>
         )}
@@ -1437,7 +1449,7 @@ function ClientProjects({ clientId }: { clientId: string }) {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-2xl tracking-wide">Projetos</h2>
+        <h2 className="font-display text-2xl">Projetos</h2>
         {!creating && (
           <button
             type="button"
@@ -1446,7 +1458,7 @@ function ClientProjects({ clientId }: { clientId: string }) {
               setName('')
               setError(null)
             }}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary"
           >
             <Plus className="size-3.5" /> Novo projeto
           </button>
@@ -1454,7 +1466,7 @@ function ClientProjects({ clientId }: { clientId: string }) {
       </div>
 
       {creating && (
-        <div className="mt-3 rounded-xl border border-border bg-card p-4">
+        <div className="mt-3 rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-foreground">Novo projeto para este cliente</span>
             <button
@@ -1510,7 +1522,7 @@ function ClientProjects({ clientId }: { clientId: string }) {
               <motion.div key={p.id} variants={staggerItem}>
                 <Link
                   href={`/projetos/${p.id}`}
-                  className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary-ink/50"
+                  className="flex items-center gap-3 rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary-ink/50"
                 >
                   <ProjectThumb
                     photoUrl={p.photoUrl}

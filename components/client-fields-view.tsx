@@ -73,16 +73,17 @@ export function ClientFieldsView() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-10">
-      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">Campos de cliente</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
+    <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+      <p className="eyebrow">Carteira da agência</p>
+      <h1 className="mt-3 font-display text-4xl leading-[1.05] sm:text-5xl">Campos de cliente</h1>
+      <p className="mt-3 max-w-2xl text-base text-muted-foreground">
         Campos extras (Instagram, CNPJ, o que fizer sentido pra sua agência) que aparecem no
         cadastro de cada cliente.
       </p>
 
       <NewFieldForm onCreated={upsert} order={fields.length} />
 
-      <h2 className="mt-8 font-display text-2xl tracking-wide">Campos ativos</h2>
+      <h2 className="mt-10 font-display text-2xl">Campos ativos</h2>
       <div className="mt-4">
         {loading ? (
           <div className="space-y-2">
@@ -148,9 +149,11 @@ function NewFieldForm({
   }
 
   return (
-    <form onSubmit={submit} noValidate className="mt-6 rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Plus className="size-4 text-primary-ink" />
+    <form onSubmit={submit} noValidate className="mt-6 rounded-2xl border border-border bg-card p-5">
+      <div className="flex items-center gap-3 font-display text-lg text-foreground">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
+          <Plus className="size-5" />
+        </span>
         Novo campo
       </div>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">

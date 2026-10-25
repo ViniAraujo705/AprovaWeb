@@ -516,7 +516,7 @@ export function DashboardView() {
                 isOwner && (
                   <Link
                     href="/upload"
-                    className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+                    className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90"
                   >
                     <Plus className="size-4" /> Enviar vídeo
                   </Link>
@@ -630,9 +630,9 @@ function OrganizedVideoList({
 
 const compactStatusStyles: Record<VideoStatus, string> = {
   pendente: 'bg-secondary text-muted-foreground',
-  aprovado: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-  ajuste: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-  erro: 'bg-destructive/15 text-destructive',
+  aprovado: 'bg-success-soft text-success-ink',
+  ajuste: 'bg-warning-soft text-warning-ink',
+  erro: 'bg-danger-soft text-danger-ink',
 }
 
 function VideoThumb({
@@ -1123,7 +1123,7 @@ function OnboardingBanner({
                 type="button"
                 onClick={() => setConfirming(false)}
                 disabled={deleting}
-                className="inline-flex min-h-9 items-center rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+                className="inline-flex min-h-9 items-center rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -1132,7 +1132,7 @@ function OnboardingBanner({
             <button
               type="button"
               onClick={() => setConfirming(true)}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary"
             >
               <Trash2 className="size-3.5" /> Excluir exemplos
             </button>

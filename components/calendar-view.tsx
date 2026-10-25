@@ -459,7 +459,7 @@ function DayEventsModal({
         transition={{ duration: 0.2 }}
       />
       <motion.div
-        className="relative flex max-h-[85vh] w-full max-w-md flex-col rounded-xl border border-border bg-card p-5"
+        className="relative flex max-h-[85vh] w-full max-w-md flex-col rounded-2xl border border-border bg-card p-5"
         initial={{ y: 8, scale: 0.98 }}
         animate={{ y: 0, scale: 1 }}
         exit={{ y: 8, scale: 0.98 }}
@@ -587,7 +587,7 @@ function ExportModal({
         transition={{ duration: 0.2 }}
       />
       <motion.div
-        className="relative flex w-full max-w-md flex-col rounded-xl border border-border bg-card p-5"
+        className="relative flex w-full max-w-md flex-col rounded-2xl border border-border bg-card p-5"
         initial={{ y: 8, scale: 0.98 }}
         animate={{ y: 0, scale: 1 }}
         exit={{ y: 8, scale: 0.98 }}
@@ -731,7 +731,7 @@ function GoogleCalendarModal({
         transition={{ duration: 0.2 }}
       />
       <motion.div
-        className="relative flex w-full max-w-md flex-col rounded-xl border border-border bg-card p-5"
+        className="relative flex w-full max-w-md flex-col rounded-2xl border border-border bg-card p-5"
         initial={{ y: 8, scale: 0.98 }}
         animate={{ y: 0, scale: 1 }}
         exit={{ y: 8, scale: 0.98 }}
@@ -1237,7 +1237,7 @@ function EventModal({
         transition={{ duration: 0.2 }}
       />
       <motion.div
-        className="relative flex max-h-[85vh] w-full max-w-md flex-col overflow-y-auto rounded-xl border border-border bg-card p-5"
+        className="relative flex max-h-[85vh] w-full max-w-md flex-col overflow-y-auto rounded-2xl border border-border bg-card p-5"
         initial={{ y: 8, scale: 0.98 }}
         animate={{ y: 0, scale: 1 }}
         exit={{ y: 8, scale: 0.98 }}
@@ -1403,7 +1403,7 @@ function EventModal({
                     className={cn(
                       'inline-flex min-h-8 items-center gap-1 rounded-full border px-3 text-xs font-medium transition-colors',
                       crewToRemove?.id === m.id
-                        ? 'border-destructive bg-destructive/15 text-destructive'
+                        ? 'border-destructive bg-danger-soft text-danger-ink'
                         : 'border-border bg-secondary text-muted-foreground hover:border-destructive/50 hover:text-destructive',
                     )}
                   >
@@ -1433,7 +1433,7 @@ function EventModal({
             })}
           </div>
           {managingCrew && crewToRemove && (
-            <div className="mt-1 flex flex-wrap items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-foreground">
+            <div className="mt-1 flex flex-wrap items-center gap-2 rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-xs text-foreground">
               <span className="min-w-0 flex-1">
                 Excluir <strong>{crewToRemove.name}</strong>? A pessoa sai da lista e de todas as atividades em que
                 estava.
@@ -1507,7 +1507,7 @@ function EventModal({
               type="button"
               onClick={addCrewMember}
               disabled={addingCrew || !newCrewName.trim()}
-              className="inline-flex min-h-9 items-center justify-center rounded-lg bg-secondary px-3 text-sm font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+              className="inline-flex min-h-9 items-center justify-center rounded-xl border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50"
             >
               {addingCrew ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
             </button>
@@ -1528,7 +1528,7 @@ function EventModal({
         </label>
 
         {error && (
-          <p className="mt-3 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p className="mt-3 flex items-center gap-2 rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-sm text-destructive">
             <AlertTriangle className="size-4 shrink-0" /> {error}
           </p>
         )}
@@ -1550,7 +1550,7 @@ function EventModal({
                   type="button"
                   onClick={() => setConfirmingDelete(false)}
                   disabled={busy}
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg bg-secondary px-3 text-sm font-medium text-foreground hover:bg-secondary/70"
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-secondary"
                 >
                   Cancelar
                 </button>

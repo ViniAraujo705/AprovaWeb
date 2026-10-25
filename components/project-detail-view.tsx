@@ -427,14 +427,14 @@ export function ProjectDetailView({ id }: { id: string }) {
               />
             )}
           <div className="min-w-0">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            <p className="eyebrow">
               {project.data && !project.data.clientId
                 ? `Avulso${project.data.contactName ? ` · ${project.data.contactName}` : ''}`
                 : (project.data?.client?.name ?? 'Projeto')}
             </p>
-            <div className="mt-1 flex min-w-0 items-center gap-3">
+            <div className="mt-3 flex min-w-0 items-center gap-3">
               <h1
-                className="truncate text-3xl font-bold tracking-tight sm:text-4xl"
+                className="truncate font-display text-4xl leading-[1.1] sm:text-5xl"
                 title={project.data?.name ?? 'Projeto'}
               >
                 {project.data?.name ?? 'Projeto'}
@@ -457,7 +457,7 @@ export function ProjectDetailView({ id }: { id: string }) {
             {!archived && (
               <Link
                 href={`/upload?projectId=${id}`}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
               >
                 <UploadCloud className="size-4" />
                 Novo vídeo
@@ -635,7 +635,7 @@ export function ProjectDetailView({ id }: { id: string }) {
       )}
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-2xl tracking-wide">Vídeos do projeto</h2>
+        <h2 className="font-display text-2xl">Vídeos do projeto</h2>
         {downloadableVideos.length > 0 && (
           <div className="flex flex-wrap items-center gap-3">
             <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
@@ -652,7 +652,7 @@ export function ProjectDetailView({ id }: { id: string }) {
                 type="button"
                 onClick={downloadSelected}
                 disabled={bulkDownloading}
-                className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 {bulkDownloading ? (
                   <Loader2 className="size-4 animate-spin" />
@@ -684,7 +684,7 @@ export function ProjectDetailView({ id }: { id: string }) {
       )}
       {bulkDownloadResult && !bulkDownloadProgress && (
         <div role="status" aria-live="polite" className="mt-3 flex items-center gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3 text-sm">
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-emerald-500"><Check className="size-4" /></span>
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-success-soft text-success-ink"><Check className="size-4" /></span>
           <div>
             <p className="font-medium text-foreground">Download concluído</p>
             <p className="text-xs text-muted-foreground">
@@ -722,7 +722,7 @@ export function ProjectDetailView({ id }: { id: string }) {
             action={
               <Link
                 href="/upload"
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90"
               >
                 Enviar vídeo
               </Link>

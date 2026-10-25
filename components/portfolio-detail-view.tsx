@@ -171,7 +171,7 @@ function PortfolioDetailBody({
           <button
             type="button"
             onClick={() => setUploadOpen((v) => !v)}
-            className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+            className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
           >
             <UploadCloud className="size-4" /> Enviar vídeos ou fotos
           </button>
@@ -369,7 +369,7 @@ function PortfolioDetailsForm({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+    <div className="rounded-2xl border border-border bg-card p-5 sm:p-5">
       <div className="flex flex-col gap-4 sm:flex-row">
         <div className="shrink-0">
           <span className="text-sm font-medium text-foreground">Capa</span>
@@ -537,14 +537,14 @@ function DeletePortfolioModal({
         transition={{ duration: 0.2 }}
       />
       <motion.div
-        className="relative w-full max-w-md rounded-xl border border-border bg-card p-5"
+        className="relative w-full max-w-md rounded-2xl border border-border bg-card p-5"
         initial={{ y: 8, scale: 0.98 }}
         animate={{ y: 0, scale: 1 }}
         exit={{ y: 8, scale: 0.98 }}
         transition={{ duration: 0.2 }}
       >
         <div className="flex items-center gap-2">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-destructive/15 text-destructive">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-danger-soft text-danger-ink">
             <AlertTriangle className="size-5" />
           </span>
           <h3 className="text-lg font-bold tracking-tight">Excluir portfólio?</h3>
@@ -563,7 +563,7 @@ function DeletePortfolioModal({
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+            className="inline-flex min-h-10 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -630,7 +630,7 @@ function SelectExistingVideoModal({
         transition={{ duration: 0.2 }}
       />
       <motion.div
-        className="relative flex max-h-[80vh] w-full max-w-lg flex-col rounded-xl border border-border bg-card p-5"
+        className="relative flex max-h-[80vh] w-full max-w-lg flex-col rounded-2xl border border-border bg-card p-5"
         initial={{ y: 8, scale: 0.98 }}
         animate={{ y: 0, scale: 1 }}
         exit={{ y: 8, scale: 0.98 }}
@@ -873,7 +873,7 @@ function UploadPortfolioMediaForm({
   }
 
   return (
-    <FadeIn y={6} className="mt-4 rounded-xl border border-border bg-card p-4">
+    <FadeIn y={6} className="mt-4 rounded-2xl border border-border bg-card p-5">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-foreground">Enviar vídeos ou fotos para o portfólio</span>
         <button
@@ -946,9 +946,9 @@ function UploadPortfolioMediaForm({
                   className={cn(
                     'grid size-9 shrink-0 place-items-center rounded-lg',
                     item.status === 'done'
-                      ? 'bg-emerald-500/15 text-emerald-400'
+                      ? 'bg-success-soft text-success-ink'
                       : item.status === 'error'
-                        ? 'bg-destructive/15 text-destructive'
+                        ? 'bg-danger-soft text-danger-ink'
                         : 'bg-primary/15 text-primary-ink',
                   )}
                 >
@@ -1221,7 +1221,7 @@ function PortfolioItemCard({
                   setError(null)
                 }}
                 disabled={busy}
-                className="inline-flex min-h-8 items-center rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+                className="inline-flex min-h-8 items-center rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
               >
                 Cancelar
               </button>

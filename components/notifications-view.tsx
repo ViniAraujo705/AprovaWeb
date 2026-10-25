@@ -54,8 +54,9 @@ export function NotificationsView() {
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-4xl tracking-wide sm:text-5xl">Notificações</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="eyebrow">Central de avisos</p>
+          <h1 className="mt-3 font-display text-4xl leading-[1.05] sm:text-5xl">Notificações</h1>
+          <p className="mt-3 max-w-2xl text-base text-muted-foreground">
             Comentários, aprovações, ajustes e avaliações dos seus clientes.
           </p>
         </div>
@@ -113,8 +114,10 @@ export function NotificationsView() {
                       if (!n.read) markRead(n.id)
                     }}
                     className={cn(
-                      'flex items-start gap-4 rounded-xl border border-border bg-card px-4 py-3.5 text-sm transition-colors hover:bg-secondary/60',
-                      !n.read && 'border-primary-ink/30 bg-primary/5',
+                      'flex items-start gap-4 rounded-2xl border px-4 py-3.5 text-sm transition-colors',
+                      n.read
+                        ? 'border-transparent bg-transparent hover:bg-card'
+                        : 'border-border bg-card hover:border-primary-ink/40',
                     )}
                   >
                     <div className="relative size-12 shrink-0 overflow-hidden rounded-lg bg-secondary">
@@ -128,7 +131,7 @@ export function NotificationsView() {
                           unoptimized
                         />
                       ) : (
-                        <span className="grid h-full w-full place-items-center text-muted-foreground">
+                        <span className="grid h-full w-full place-items-center bg-deep text-primary">
                           <Icon className="size-5" />
                         </span>
                       )}
@@ -142,7 +145,7 @@ export function NotificationsView() {
                         {notificationTimeAgo(n.createdAt)}
                       </p>
                     </div>
-                    {!n.read && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />}
+                    {!n.read && <span className="mt-1.5 size-2.5 shrink-0 rounded-full bg-primary ring-2 ring-primary/30" />}
                   </Link>
                 </li>
               )

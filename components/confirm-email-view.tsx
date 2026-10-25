@@ -7,6 +7,7 @@ import { authService } from '@/lib/services'
 import { ApiError } from '@/lib/api'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { CheckLogo } from '@/components/page-header'
+import { AuthLayout } from '@/components/auth-layout'
 
 type State = 'loading' | 'success' | 'error'
 
@@ -35,14 +36,13 @@ export function ConfirmEmailView({ token }: { token: string }) {
   }, [token])
 
   return (
-    <div className="grid min-h-screen place-items-center px-4 py-10">
-      <ThemeToggle className="fixed right-4 top-4" />
+    <AuthLayout>
       <div className="w-full max-w-sm text-center">
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center lg:hidden">
           <CheckLogo className="h-10 w-[164px]" priority />
         </div>
-        <h1 className="mt-8 font-display text-4xl tracking-wide">Confirmar e-mail</h1>
-        <div className="mt-6 rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
+        <h1 className="mt-8 font-display text-4xl lg:mt-0">Confirmar e-mail</h1>
+        <div className="mt-6 rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">
           {state === 'loading' && <Loader2 className="mx-auto mb-3 size-6 animate-spin text-primary-ink" />}
           {state === 'success' && <CheckCircle2 className="mx-auto mb-3 size-7 text-emerald-500" />}
           {state === 'error' && <XCircle className="mx-auto mb-3 size-7 text-destructive" />}
@@ -54,6 +54,6 @@ export function ConfirmEmailView({ token }: { token: string }) {
           </Link>
         )}
       </div>
-    </div>
+    </AuthLayout>
   )
 }

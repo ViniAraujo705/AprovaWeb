@@ -185,7 +185,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
       {/* Cabeçalho: indicador claro de que esta tela é o canal interno */}
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 font-display text-sm tracking-wide text-primary-foreground">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-1.5 text-sm font-semibold text-accent-foreground">
             <Lock className="size-3.5" />
             Revisão interna
           </span>
@@ -194,7 +194,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
           </span>
         </div>
         {isSuperseded && (
-          <div className="mt-2 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+          <div className="mt-2 flex items-center gap-2 rounded-lg border border-warning-border bg-warning-soft px-3 py-2 text-xs text-warning-ink">
             <History className="size-3.5 shrink-0" />
             Esta é uma versão antiga deste vídeo.{' '}
             <Link href={`/videos/${video.latestVersionId}/revisao`} className="font-medium underline">
@@ -204,7 +204,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
         )}
         <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            <p className="eyebrow">
               {video.type} · {video.clientName || 'Cliente'}
             </p>
             {isOwner ? (
@@ -214,11 +214,11 @@ export function InternalReview({ videoId }: { videoId: string }) {
                   const updated = await videoService.updateTitle(videoId, title)
                   updateTitle(updated.title)
                 }}
-                className="mt-1 text-3xl font-bold leading-tight tracking-tight sm:text-4xl"
+                className="mt-2 font-display text-3xl leading-tight sm:text-4xl"
               />
             ) : (
               <h1
-                className="mt-1 truncate text-3xl font-bold leading-tight tracking-tight sm:text-4xl"
+                className="mt-2 truncate font-display text-3xl leading-tight sm:text-4xl"
                 title={video.title}
               >
                 {video.title}
@@ -246,7 +246,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
             {video.publicLink && (
               <Link
                 href={`/videos/${videoId}/canal-cliente`}
-                className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70"
+                className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary"
               >
                 <ExternalLink className="size-3.5" />
                 Ver canal do cliente
@@ -257,7 +257,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
       </div>
 
       {video.status === 'ajuste' && (
-        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
+        <div className="mt-4 rounded-xl border border-warning-border bg-warning-soft p-3 text-sm text-amber-300">
           O cliente solicitou ajustes. Os comentários dele aparecem abaixo automaticamente.
         </div>
       )}
@@ -280,7 +280,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
         {/* Thread de comentários internos */}
         <div className="mt-6 lg:mt-0">
           <section className="rounded-xl border border-primary-ink/30 bg-primary/5 p-4">
-            <h2 className="font-display text-2xl tracking-wide">Ajustes do cliente ({clientComments.length})</h2>
+            <h2 className="font-display text-2xl">Ajustes do cliente ({clientComments.length})</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Sincronizados com o canal do cliente; ficam visíveis nos dois lugares.
             </p>
@@ -312,7 +312,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
             onCreated={appendComment}
           />
 
-          <h2 className="mt-6 font-display text-2xl tracking-wide">
+          <h2 className="mt-6 font-display text-2xl">
             Discussão interna ({comments.length})
           </h2>
           {threads.length === 0 ? (
@@ -379,9 +379,11 @@ function InternalComposer({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <MessageSquarePlus className="size-4 text-primary-ink" />
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <div className="flex items-center gap-3 font-display text-lg text-foreground">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
+          <MessageSquarePlus className="size-5" />
+        </span>
         Comentar em {formatDuration(timestamp)}
       </div>
       <textarea
@@ -570,7 +572,7 @@ function ReplyComposer({
           type="button"
           onClick={onCancel}
           disabled={posting}
-          className="inline-flex min-h-9 items-center rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+          className="inline-flex min-h-9 items-center rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
         >
           Cancelar
         </button>
@@ -603,7 +605,7 @@ function DownloadOriginalButton({ videoId }: { videoId: string }) {
         type="button"
         onClick={download}
         disabled={busy}
-        className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+        className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
       >
         {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
         Baixar original
@@ -759,7 +761,7 @@ function NewVersionButton({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={phase === 'uploading'}
-        className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+        className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
       >
         {phase === 'uploading' ? (
           <>

@@ -55,7 +55,7 @@ export function SessionRow({
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-foreground">{session.device}</span>
             {session.current && (
-              <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-400 ring-1 ring-emerald-500/30">
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
                 Sessão atual
               </span>
             )}
@@ -92,7 +92,7 @@ export function SessionRow({
                 type="button"
                 onClick={() => setConfirming(false)}
                 disabled={busy}
-                className="inline-flex min-h-9 items-center rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+                className="inline-flex min-h-9 items-center rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -101,7 +101,7 @@ export function SessionRow({
             <button
               type="button"
               onClick={() => setConfirming(true)}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary"
             >
               <LogOut className="size-3.5" /> Encerrar
             </button>
@@ -156,7 +156,7 @@ export function RevokeAllSessionsButton({
             type="button"
             onClick={() => setConfirming(false)}
             disabled={busy}
-            className="inline-flex min-h-9 items-center rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+            className="inline-flex min-h-9 items-center rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -170,7 +170,7 @@ export function RevokeAllSessionsButton({
     <button
       type="button"
       onClick={() => setConfirming(true)}
-      className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70"
+      className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary"
     >
       <LogOut className="size-3.5" /> {label}
     </button>

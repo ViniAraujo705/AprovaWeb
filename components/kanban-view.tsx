@@ -560,7 +560,7 @@ export function KanbanView() {
               <button
                 type="button"
                 onClick={() => setCreatingStage('planejado')}
-                className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+                className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90"
               >
                 <Plus className="size-4" /> Nova demanda
               </button>
@@ -1354,7 +1354,7 @@ function DemandModal({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary"
           >
             Cancelar
           </button>
@@ -1362,7 +1362,7 @@ function DemandModal({
             type="button"
             onClick={handleSave}
             disabled={!title.trim() || saving}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {saving ? <Loader2 className="size-4 animate-spin" /> : isEditing ? 'Salvar' : 'Criar demanda'}
           </button>

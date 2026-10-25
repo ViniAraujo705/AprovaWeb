@@ -10,6 +10,7 @@ import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { teamRoleLabel, type AccountOption } from '@/lib/types'
 import { CheckLogo } from '@/components/page-header'
+import { AuthLayout } from '@/components/auth-layout'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -41,12 +42,12 @@ function AccountPicker({
 
   return (
     <div className="w-full max-w-sm">
-      <div className="flex items-center justify-center">
+      <div className="flex items-center justify-center lg:hidden">
         <CheckLogo className="h-10 w-[164px]" priority />
       </div>
 
-      <h1 className="mt-8 text-center font-display text-4xl tracking-wide">Qual agência?</h1>
-      <p className="mt-1 text-center text-sm text-muted-foreground">
+      <h1 className="mt-8 text-center font-display text-4xl lg:mt-0 lg:text-left">Qual agência?</h1>
+      <p className="mt-1 text-center text-sm text-muted-foreground lg:text-left">
         Seu e-mail está vinculado a mais de uma agência. Escolha em qual entrar.
       </p>
 
@@ -76,7 +77,7 @@ function AccountPicker({
       </div>
 
       {error && (
-        <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p className="mt-4 rounded-xl border border-danger-border bg-danger-soft px-3 py-2.5 text-sm text-danger-ink">
           {error}
         </p>
       )}
@@ -148,8 +149,7 @@ export function LoginView() {
 
   if (accountSelection) {
     return (
-      <div className="grid min-h-screen place-items-center px-4 py-10">
-        <ThemeToggle className="fixed right-4 top-4" />
+      <AuthLayout>
         <AccountPicker
           pendingToken={accountSelection.pendingToken}
           accounts={accountSelection.accounts}
@@ -158,32 +158,31 @@ export function LoginView() {
             router.replace(redirect && redirect.startsWith('/') ? redirect : '/dashboard')
           }}
         />
-      </div>
+      </AuthLayout>
     )
   }
 
   return (
-    <div className="grid min-h-screen place-items-center px-4 py-10">
-      <ThemeToggle className="fixed right-4 top-4" />
+    <AuthLayout>
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center lg:hidden">
           <CheckLogo className="h-10 w-[164px]" priority />
         </div>
 
-        <h1 className="mt-8 text-center font-display text-4xl tracking-wide">Entrar</h1>
-        <p className="mt-1 text-center text-sm text-muted-foreground">
+        <h1 className="mt-8 text-center font-display text-4xl lg:mt-0 lg:text-left">Entrar</h1>
+        <p className="mt-1 text-center text-sm text-muted-foreground lg:text-left">
           Acesse o painel para enviar e acompanhar seus vídeos.
         </p>
 
         {justInvited && (
-          <p className="mt-6 flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-400">
+          <p className="mt-6 flex items-center justify-center gap-1.5 rounded-xl bg-success-soft px-3 py-2.5 text-sm font-medium text-success-ink">
             <Check className="size-4" /> Acesso criado! Entre com seu e-mail e senha.
           </p>
         )}
 
         {justReset && (
-          <p className="mt-6 flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-400">
+          <p className="mt-6 flex items-center justify-center gap-1.5 rounded-xl bg-success-soft px-3 py-2.5 text-sm font-medium text-success-ink">
             <Check className="size-4" /> Senha redefinida! Entre com sua nova senha.
           </p>
         )}
@@ -202,7 +201,7 @@ export function LoginView() {
                 aria-invalid={!!errors.email}
                 placeholder="voce@agencia.com"
                 className={cn(
-                  'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
+                  'min-h-12 w-full rounded-xl border bg-card pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
                   errors.email ? 'border-destructive' : 'border-border',
                 )}
               />
@@ -222,7 +221,7 @@ export function LoginView() {
                 aria-invalid={!!errors.password}
                 placeholder="••••••••"
                 className={cn(
-                  'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
+                  'min-h-12 w-full rounded-xl border bg-card pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
                   errors.password ? 'border-destructive' : 'border-border',
                 )}
               />
@@ -248,7 +247,7 @@ export function LoginView() {
           </label>
 
           {formError && (
-            <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <p className="rounded-xl border border-danger-border bg-danger-soft px-3 py-2.5 text-sm text-danger-ink">
               {formError}
             </p>
           )}
@@ -260,7 +259,7 @@ export function LoginView() {
           >
             {submitting ? (
               <>
-                <Loader2 className="size-5 animate-spin" /> ENTRANDO…
+                <Loader2 className="size-5 animate-spin" /> Entrando…
               </>
             ) : (
               'Entrar'
@@ -283,6 +282,6 @@ export function LoginView() {
           Entrar como demo
         </button>
       </div>
-    </div>
+    </AuthLayout>
   )
 }

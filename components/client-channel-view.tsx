@@ -102,7 +102,7 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
       {/* Cabeçalho */}
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 font-display text-sm tracking-wide text-foreground ring-1 ring-border">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#3d533c] px-3.5 py-1.5 text-sm font-semibold text-[#ebece7]">
             <Users className="size-3.5" />
             Canal do cliente
           </span>
@@ -112,11 +112,11 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
         </div>
         <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            <p className="eyebrow">
               {video.type} · {video.clientName || 'Cliente'}
             </p>
             <h1
-              className="mt-1 truncate text-3xl font-bold leading-tight tracking-tight sm:text-4xl"
+              className="mt-2 truncate font-display text-3xl leading-tight sm:text-4xl"
               title={video.title}
             >
               {video.title}
@@ -124,7 +124,7 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
           </div>
           <Link
             href={`/videos/${videoId}/revisao`}
-            className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary/15 px-3 text-xs font-medium text-primary-ink hover:bg-primary/25"
+            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl bg-accent px-4 text-sm font-medium text-accent-foreground hover:opacity-90"
           >
             <Lock className="size-3.5" />
             Ir para a revisão interna
@@ -133,7 +133,7 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
       </div>
 
       {video.status === 'aprovado' && (
-        <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-500/15 p-3 text-sm font-medium text-emerald-400 ring-1 ring-emerald-500/30">
+        <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-500/15 p-3 text-sm font-medium text-emerald-400">
           <PartyPopper className="size-4 shrink-0" />
           Vídeo aprovado pelo cliente!
         </div>
@@ -159,7 +159,7 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
             onCreated={appendReply}
           />
 
-          <h2 className="mt-6 font-display text-2xl tracking-wide">
+          <h2 className="mt-6 font-display text-2xl">
             Conversa com o cliente ({sorted.length})
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -235,8 +235,10 @@ function ReplyComposer({
 
   return (
     <div className="rounded-xl border border-primary-ink/40 bg-primary/5 p-4">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Reply className="size-4 text-primary-ink" />
+      <div className="flex items-center gap-3 font-display text-lg text-foreground">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
+          <Reply className="size-5" />
+        </span>
         Responder ao cliente em {formatDuration(timestamp)}
       </div>
       <textarea

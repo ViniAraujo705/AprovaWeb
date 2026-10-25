@@ -101,7 +101,7 @@ export function ClientsView() {
       />
 
       {creating && (
-        <div className="mt-4 rounded-xl border border-border bg-card p-4">
+        <div className="mt-4 rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-foreground">Novo cliente</span>
             <button
@@ -151,7 +151,7 @@ export function ClientsView() {
               <button
                 type="button"
                 onClick={openForm}
-                className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+                className="mt-1 inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90"
               >
                 Novo cliente
               </button>

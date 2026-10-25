@@ -19,9 +19,10 @@ import { useQuery } from '@/lib/use-query'
 
 export function IntegrationsView() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-10">
-      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">Integrações</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
+    <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+      <p className="eyebrow">Conta da agência</p>
+      <h1 className="mt-3 font-display text-4xl leading-[1.05] sm:text-5xl">Integrações</h1>
+      <p className="mt-3 max-w-2xl text-base text-muted-foreground">
         O Check conversa com as ferramentas que já fazem parte da rotina da sua equipe, reduzindo
         a necessidade de alternar entre várias plataformas.
       </p>

@@ -99,7 +99,7 @@ function PlanLimitModal({ reason, onClose }: { reason: string; onClose: () => vo
         transition={{ duration: 0.2 }}
       />
       <motion.div
-        className="relative w-full max-w-md rounded-xl border border-border bg-card p-5"
+        className="relative w-full max-w-md rounded-2xl border border-border bg-card p-5"
         initial={{ y: 8, scale: 0.98 }}
         animate={{ y: 0, scale: 1 }}
         exit={{ y: 8, scale: 0.98 }}
@@ -123,7 +123,7 @@ function PlanLimitModal({ reason, onClose }: { reason: string; onClose: () => vo
         <Link
           href="/planos"
           onClick={onClose}
-          className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+          className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90"
         >
           Ver planos
         </Link>

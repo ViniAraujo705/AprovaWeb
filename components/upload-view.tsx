@@ -709,7 +709,7 @@ export function UploadView() {
               <button
                 type="button"
                 onClick={retryFailed}
-                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90"
               >
                 <RotateCcw className="size-4" /> Tentar novamente ({errorCount})
               </button>
@@ -717,7 +717,7 @@ export function UploadView() {
             <button
               type="button"
               onClick={reset}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary"
             >
               <Plus className="size-4" /> Enviar outro lote
             </button>
@@ -1141,7 +1141,7 @@ export function UploadView() {
 
           {/* Erro de submit */}
           {submitError && !busy && (
-            <p className="mt-6 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <p className="mt-6 flex items-center gap-2 rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-sm text-destructive">
               <AlertTriangle className="size-4 shrink-0" /> {submitError}
             </p>
           )}

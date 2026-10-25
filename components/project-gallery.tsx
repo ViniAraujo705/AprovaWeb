@@ -327,7 +327,7 @@ export function ProjectGalleryView({
             exit={{ opacity: 0, y: -8 }}
             className="fixed left-1/2 top-4 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-xl sm:w-auto sm:min-w-96"
           >
-            <span className={cn('grid size-9 shrink-0 place-items-center rounded-lg', downloadStatus.phase === 'preparing' ? 'bg-primary/15 text-primary-ink' : 'bg-emerald-500/15 text-emerald-500')}>
+            <span className={cn('grid size-9 shrink-0 place-items-center rounded-lg', downloadStatus.phase === 'preparing' ? 'bg-primary/15 text-primary-ink' : 'bg-success-soft text-success-ink')}>
               {downloadStatus.phase === 'preparing' ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
             </span>
             <div className="min-w-0 flex-1">
@@ -484,7 +484,7 @@ export function ProjectGalleryView({
                     type="button"
                     onClick={() => (selected.size === 1 ? downloadSelected() : setDownloadConfirmOpen(true))}
                     disabled={bulkDownloading}
-                    className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                    className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
                     {bulkDownloading ? (
                       <Loader2 className="size-4 animate-spin" />

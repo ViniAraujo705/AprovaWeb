@@ -9,6 +9,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { CheckLogo } from '@/components/page-header'
+import { AuthLayout } from '@/components/auth-layout'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -59,16 +60,15 @@ export function RegisterView() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center px-4 py-10">
-      <ThemeToggle className="fixed right-4 top-4" />
+    <AuthLayout>
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center lg:hidden">
           <CheckLogo className="h-10 w-[164px]" priority />
         </div>
 
-        <h1 className="mt-8 text-center font-display text-4xl tracking-wide">Criar conta</h1>
-        <p className="mt-1 text-center text-sm text-muted-foreground">
+        <h1 className="mt-8 text-center font-display text-4xl lg:mt-0 lg:text-left">Criar conta</h1>
+        <p className="mt-1 text-center text-sm text-muted-foreground lg:text-left">
           Comece com um projeto de exemplo pronto pra explorar.
         </p>
 
@@ -85,7 +85,7 @@ export function RegisterView() {
                 aria-invalid={!!errors.name}
                 placeholder="Seu nome"
                 className={cn(
-                  'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
+                  'min-h-12 w-full rounded-xl border bg-card pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
                   errors.name ? 'border-destructive' : 'border-border',
                 )}
               />
@@ -106,7 +106,7 @@ export function RegisterView() {
                 aria-invalid={!!errors.email}
                 placeholder="voce@agencia.com"
                 className={cn(
-                  'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
+                  'min-h-12 w-full rounded-xl border bg-card pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
                   errors.email ? 'border-destructive' : 'border-border',
                 )}
               />
@@ -126,7 +126,7 @@ export function RegisterView() {
                 aria-invalid={!!errors.password}
                 placeholder="Mínimo de 6 caracteres"
                 className={cn(
-                  'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
+                  'min-h-12 w-full rounded-xl border bg-card pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
                   errors.password ? 'border-destructive' : 'border-border',
                 )}
               />
@@ -146,7 +146,7 @@ export function RegisterView() {
           </label>
 
           {formError && (
-            <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <p className="rounded-xl border border-danger-border bg-danger-soft px-3 py-2.5 text-sm text-danger-ink">
               {formError}
             </p>
           )}
@@ -158,7 +158,7 @@ export function RegisterView() {
           >
             {submitting ? (
               <>
-                <Loader2 className="size-5 animate-spin" /> CRIANDO…
+                <Loader2 className="size-5 animate-spin" /> Criando…
               </>
             ) : (
               'Criar conta'
@@ -173,6 +173,6 @@ export function RegisterView() {
           </Link>
         </p>
       </div>
-    </div>
+    </AuthLayout>
   )
 }

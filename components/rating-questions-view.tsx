@@ -73,17 +73,18 @@ export function RatingQuestionsView() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-10">
-      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">
+    <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+      <p className="eyebrow">Equipe e resultados</p>
+      <h1 className="mt-3 font-display text-4xl leading-[1.05] sm:text-5xl">
         Perguntas de avaliação
       </h1>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="mt-3 max-w-2xl text-base text-muted-foreground">
         Essas perguntas aparecem como estrelas na tela de aprovação do cliente.
       </p>
 
       <NewQuestionForm onCreated={upsert} order={questions.length} />
 
-      <h2 className="mt-8 font-display text-2xl tracking-wide">Perguntas ativas</h2>
+      <h2 className="mt-10 font-display text-2xl">Perguntas ativas</h2>
       <div className="mt-4">
         {loading ? (
           <div className="space-y-2">
@@ -152,9 +153,11 @@ function NewQuestionForm({
   }
 
   return (
-    <form onSubmit={submit} noValidate className="mt-6 rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Plus className="size-4 text-primary-ink" />
+    <form onSubmit={submit} noValidate className="mt-6 rounded-2xl border border-border bg-card p-5">
+      <div className="flex items-center gap-3 font-display text-lg text-foreground">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
+          <Plus className="size-5" />
+        </span>
         Nova pergunta
       </div>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -335,7 +338,7 @@ function QuestionRow({
             className={cn(
               'rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide disabled:opacity-50',
               question.active
-                ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30'
+                ? 'bg-success-soft text-success-ink'
                 : 'bg-secondary text-muted-foreground ring-1 ring-border',
             )}
           >

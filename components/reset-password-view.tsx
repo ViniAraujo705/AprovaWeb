@@ -9,6 +9,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { CheckLogo } from '@/components/page-header'
+import { AuthLayout } from '@/components/auth-layout'
 
 export function ResetPasswordView({ token }: { token: string }) {
   const router = useRouter()
@@ -52,16 +53,15 @@ export function ResetPasswordView({ token }: { token: string }) {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center px-4 py-10">
-      <ThemeToggle className="fixed right-4 top-4" />
+    <AuthLayout>
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center lg:hidden">
           <CheckLogo className="h-10 w-[164px]" priority />
         </div>
 
-        <h1 className="mt-8 text-center font-display text-4xl tracking-wide">Redefinir senha</h1>
-        <p className="mt-1 text-center text-sm text-muted-foreground">
+        <h1 className="mt-8 text-center font-display text-4xl lg:mt-0 lg:text-left">Redefinir senha</h1>
+        <p className="mt-1 text-center text-sm text-muted-foreground lg:text-left">
           Escolha uma nova senha para sua conta.
         </p>
 
@@ -78,7 +78,7 @@ export function ResetPasswordView({ token }: { token: string }) {
                 aria-invalid={!!errors.password}
                 placeholder="Mínimo de 6 caracteres"
                 className={cn(
-                  'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
+                  'min-h-12 w-full rounded-xl border bg-card pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
                   errors.password ? 'border-destructive' : 'border-border',
                 )}
               />
@@ -109,7 +109,7 @@ export function ResetPasswordView({ token }: { token: string }) {
                 aria-invalid={!!errors.confirmPassword}
                 placeholder="Repita a nova senha"
                 className={cn(
-                  'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
+                  'min-h-12 w-full rounded-xl border bg-card pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
                   errors.confirmPassword ? 'border-destructive' : 'border-border',
                 )}
               />
@@ -129,7 +129,7 @@ export function ResetPasswordView({ token }: { token: string }) {
           </label>
 
           {formError && (
-            <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <p className="rounded-xl border border-danger-border bg-danger-soft px-3 py-2.5 text-sm text-danger-ink">
               {formError}
             </p>
           )}
@@ -141,7 +141,7 @@ export function ResetPasswordView({ token }: { token: string }) {
           >
             {submitting ? (
               <>
-                <Loader2 className="size-5 animate-spin" /> REDEFININDO…
+                <Loader2 className="size-5 animate-spin" /> Redefinindo…
               </>
             ) : (
               'Redefinir senha'
@@ -156,6 +156,6 @@ export function ResetPasswordView({ token }: { token: string }) {
           </Link>
         </p>
       </div>
-    </div>
+    </AuthLayout>
   )
 }

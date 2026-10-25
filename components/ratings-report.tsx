@@ -301,7 +301,7 @@ export function RatingsReportView() {
 
           <div className="mt-6 grid gap-3 lg:grid-cols-2">
             {/* Média por pergunta */}
-            <section className="rounded-xl border border-border bg-card p-4">
+            <section className="rounded-2xl border border-border bg-card p-5">
               <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                 <ListChecks className="size-4 text-muted-foreground" /> Média por pergunta
               </h2>
@@ -326,7 +326,7 @@ export function RatingsReportView() {
             </section>
 
             {/* Evolução mensal */}
-            <section className="rounded-xl border border-border bg-card p-4">
+            <section className="rounded-2xl border border-border bg-card p-5">
               <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                 <TrendingUp className="size-4 text-muted-foreground" /> Evolução da satisfação
               </h2>
@@ -363,7 +363,7 @@ export function RatingsReportView() {
 
           {/* Por cliente */}
           {clientFilter === ALL_CLIENTS && byClient.length > 0 && (
-            <section className="mt-6 rounded-xl border border-border bg-card p-4">
+            <section className="mt-6 rounded-2xl border border-border bg-card p-5">
               <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                 <Contact className="size-4 text-muted-foreground" /> Satisfação por cliente
               </h2>
@@ -413,7 +413,7 @@ export function RatingsReportView() {
           )}
 
           {/* Notas baixas */}
-          <section className="mt-6 rounded-xl border border-border bg-card p-4">
+          <section className="mt-6 rounded-2xl border border-border bg-card p-5">
             <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
               <ThumbsDown className="size-4 text-muted-foreground" /> Onde melhorar
             </h2>
@@ -513,7 +513,7 @@ function Kpi({
   tone?: 'warn'
 }) {
   return (
-    <motion.div variants={staggerItem} className="rounded-xl border border-border bg-card p-4">
+    <motion.div variants={staggerItem} className="rounded-2xl border border-border bg-card p-5">
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <span className={cn(tone === 'warn' ? 'text-destructive' : 'text-muted-foreground')}>{icon}</span>
         {label}

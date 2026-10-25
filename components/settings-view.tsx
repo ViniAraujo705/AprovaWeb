@@ -49,9 +49,10 @@ export function SettingsView() {
   const { user } = useAuth()
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-10">
-      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">Configurações</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
+    <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+      <p className="eyebrow">Conta da agência</p>
+      <h1 className="mt-3 font-display text-4xl leading-[1.05] sm:text-5xl">Configurações</h1>
+      <p className="mt-3 max-w-2xl text-base text-muted-foreground">
         Gerencie seu perfil e a marca que seus clientes veem nos links de aprovação.
       </p>
 
@@ -187,8 +188,10 @@ function ProfileForm({ user }: { user: User }) {
   return (
     <FadeIn className="mt-8" y={6}>
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Camera className="size-4 text-primary-ink" />
+        <div className="flex items-center gap-3 font-display text-lg text-foreground">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
+            <Camera className="size-5" />
+          </span>
           Perfil
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -232,7 +235,7 @@ function ProfileForm({ user }: { user: User }) {
               type="button"
               onClick={() => !busyPhoto && inputRef.current?.click()}
               disabled={busyPhoto}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
             >
               <ImagePlus className="size-3.5" /> Alterar foto
             </button>
@@ -292,7 +295,7 @@ function ProfileForm({ user }: { user: User }) {
           <button
             type="submit"
             disabled={busySave}
-            className="inline-flex min-h-11 w-fit items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            className="inline-flex min-h-11 w-fit items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
             {busySave && <Loader2 className="size-3.5 animate-spin" />}
             Salvar
@@ -300,7 +303,7 @@ function ProfileForm({ user }: { user: User }) {
         </form>
 
         {error && (
-          <p className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p className="mt-4 flex items-center gap-2 rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-sm text-destructive">
             <AlertTriangle className="size-4 shrink-0" /> {error}
           </p>
         )}
@@ -345,8 +348,10 @@ function SecurityForm({ user }: { user: User }) {
   return (
     <FadeIn className="mt-8" y={6}>
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Lock className="size-4 text-primary-ink" />
+        <div className="flex items-center gap-3 font-display text-lg text-foreground">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
+            <Lock className="size-5" />
+          </span>
           Senha
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -358,7 +363,7 @@ function SecurityForm({ user }: { user: User }) {
           type="button"
           onClick={sendResetEmail}
           disabled={sending || sent}
-          className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+          className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50"
         >
           {sending ? (
             <Loader2 className="size-3.5 animate-spin" />
@@ -371,7 +376,7 @@ function SecurityForm({ user }: { user: User }) {
         </button>
 
         {error && (
-          <p className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p className="mt-4 flex items-center gap-2 rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-sm text-destructive">
             <AlertTriangle className="size-4 shrink-0" /> {error}
           </p>
         )}
@@ -405,8 +410,10 @@ function SessionsSection() {
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Monitor className="size-4 text-primary-ink" />
+            <div className="flex items-center gap-3 font-display text-lg text-foreground">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
+                <Monitor className="size-5" />
+              </span>
               Sessões ativas
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -548,8 +555,10 @@ function NotificationPreferencesSection() {
   return (
     <FadeIn className="mt-8" y={6}>
       <div id="notificacoes" className="scroll-mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <BellRing className="size-4 text-primary-ink" />
+        <div className="flex items-center gap-3 font-display text-lg text-foreground">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
+            <BellRing className="size-5" />
+          </span>
           Notificações por e-mail
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -777,8 +786,10 @@ function BrandingForm({ user }: { user: User }) {
   return (
     <FadeIn className="mt-8" y={6}>
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Building2 className="size-4 text-primary-ink" />
+        <div className="flex items-center gap-3 font-display text-lg text-foreground">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
+            <Building2 className="size-5" />
+          </span>
           Marca da agência
           {locked && (
             <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-ink">
@@ -814,7 +825,7 @@ function BrandingForm({ user }: { user: User }) {
               type="button"
               onClick={removeLogo}
               disabled={busy}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
             >
               <Trash2 className="size-3.5" /> Remover
             </button>
@@ -929,14 +940,14 @@ function BrandingForm({ user }: { user: User }) {
           type="button"
           onClick={saveAppearance}
           disabled={busy}
-          className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
           {busy && <Loader2 className="size-3.5 animate-spin" />}
           Salvar
         </button>
 
         {error && (
-          <p className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p className="mt-4 flex items-center gap-2 rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-sm text-destructive">
             <AlertTriangle className="size-4 shrink-0" /> {error}
           </p>
         )}

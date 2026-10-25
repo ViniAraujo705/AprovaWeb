@@ -112,34 +112,34 @@ export function NotificationPopups() {
               animate={{ y: 0, scale: 1 }}
               exit={{ x: 24, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="pointer-events-auto relative w-full overflow-hidden rounded-xl border border-border bg-card shadow-2xl sm:w-[22rem]"
+              className="pointer-events-auto relative w-full overflow-hidden rounded-2xl bg-deep text-deep-foreground shadow-2xl shadow-black/25 sm:w-[22rem]"
             >
               <button
                 type="button"
                 onClick={() => open(n, href)}
-                className="flex w-full items-start gap-3 p-3 pr-10 text-left text-sm transition-colors hover:bg-secondary/60"
+                className="flex w-full items-start gap-3 p-3 pr-10 text-left text-sm transition-colors hover:bg-white/5"
               >
-                <div className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-secondary">
+                <div className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-primary">
                   {n.video?.posterUrl ? (
                     <Image src={n.video.posterUrl} alt="" fill className="object-cover" sizes="44px" unoptimized />
                   ) : (
-                    <span className="grid h-full w-full place-items-center text-primary-ink">
+                    <span className="grid h-full w-full place-items-center text-primary-foreground">
                       <Icon className="size-5" />
                     </span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-foreground">
-                    <span className="font-medium">{subject}</span> {text}
+                  <p className="text-deep-foreground">
+                    <span className="font-semibold">{subject}</span> {text}
                   </p>
-                  {context && <p className="mt-0.5 truncate text-xs text-muted-foreground">{context}</p>}
+                  {context && <p className="mt-0.5 truncate text-xs text-deep-muted">{context}</p>}
                 </div>
               </button>
               <button
                 type="button"
                 onClick={() => dismiss(n.id)}
                 aria-label="Fechar aviso"
-                className="absolute right-2 top-2 rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                className="absolute right-2 top-2 rounded-md p-1.5 text-deep-muted hover:bg-white/10 hover:text-deep-foreground"
               >
                 <X className="size-4" />
               </button>

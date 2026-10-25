@@ -76,7 +76,7 @@ export function ReleaseStorageModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="release-storage-title"
-        className="relative flex max-h-[90svh] w-full max-w-md flex-col overflow-y-auto rounded-xl border border-border bg-card p-5"
+        className="relative flex max-h-[90svh] w-full max-w-md flex-col overflow-y-auto rounded-2xl border border-border bg-card p-5"
         initial={{ y: 8, scale: 0.98 }}
         animate={{ y: 0, scale: 1 }}
         exit={{ y: 8, scale: 0.98 }}
@@ -84,7 +84,7 @@ export function ReleaseStorageModal({
       >
         <div className="flex items-start justify-between gap-3">
           <h3 id="release-storage-title" className="flex items-center gap-2 text-base font-semibold">
-            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-destructive/15 text-destructive">
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-danger-soft text-danger-ink">
               <Trash2 className="size-4" />
             </span>
             Excluir os vídeos do armazenamento?
@@ -149,7 +149,7 @@ export function ReleaseStorageModal({
               </div>
             </div>
 
-            <label className="mt-5 flex cursor-pointer items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+            <label className="mt-5 flex cursor-pointer items-start gap-2.5 rounded-lg border border-danger-border bg-danger-soft p-3 text-sm">
               <input
                 type="checkbox"
                 checked={acknowledged}
@@ -173,7 +173,7 @@ export function ReleaseStorageModal({
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+            className="inline-flex min-h-10 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50"
           >
             {summary?.releasable ? 'Cancelar' : 'Fechar'}
           </button>

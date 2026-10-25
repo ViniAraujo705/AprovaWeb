@@ -23,6 +23,7 @@ import { planPricing, formatBRL } from '@/lib/plan-pricing'
 import { planLabel, type PlanId, type PlanLimits, type PlanStatus, type PlanUsage } from '@/lib/types'
 import { PENDING_CHECKOUT_PLAN_KEY } from '@/lib/config'
 import { cn } from '@/lib/utils'
+import { PageHeader } from '@/components/page-header'
 
 function readPendingCheckoutPlan(): PlanId | null {
   const raw = sessionStorage.getItem(PENDING_CHECKOUT_PLAN_KEY)
@@ -163,19 +164,20 @@ export function PlanView() {
   }, [isOwner, planStatus?.plan, refetch])
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 lg:py-10">
-      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">Meu plano</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Seu plano atual e o quanto você já usou de cada limite.
-      </p>
+    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+      <PageHeader
+        eyebrow="Conta da agência"
+        title="Meu plano"
+        description="Seu plano atual e o quanto você já usou de cada limite."
+      />
 
       {(confirmState === 'polling' || confirmState === 'timeout') && (
         <FadeIn className="mt-6" y={6}>
           <div
             className={cn(
-              'flex items-center gap-3 rounded-xl border p-4 text-sm',
+              'flex items-center gap-3 rounded-2xl border p-4 text-sm',
               confirmState === 'timeout'
-                ? 'border-amber-500/30 bg-amber-500/10 text-amber-600'
+                ? 'border-warning-border bg-warning-soft text-warning-ink'
                 : 'border-primary-ink/30 bg-primary/5 text-foreground',
             )}
           >
@@ -200,13 +202,16 @@ export function PlanView() {
         <ErrorState className="mt-8" message="Não foi possível carregar seu plano." onRetry={refetch} />
       ) : (
         <>
+          <div className="mt-8 grid gap-4 lg:grid-cols-[1.1fr_1fr]">
           <PlanCard plan={planStatus.plan} isOwner={isOwner} />
 
-          <FadeIn className="mt-6" y={6}>
-            <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Gauge className="size-4 text-primary-ink" />
-                Uso do plano
+          <FadeIn y={6}>
+            <div className="h-full rounded-3xl border border-border bg-card p-6">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-deep text-primary">
+                  <Gauge className="size-5" />
+                </span>
+                <h2 className="font-display text-xl text-foreground">Uso do plano</h2>
               </div>
               <div className="mt-5 flex flex-col gap-5">
                 {AXES.map((axis) => (
@@ -231,6 +236,7 @@ export function PlanView() {
               </div>
             </div>
           </FadeIn>
+          </div>
         </>
       )}
     </div>
@@ -263,45 +269,45 @@ function PlanCard({ plan, isOwner }: { plan: PlanId; isOwner: boolean }) {
 
   return (
     <FadeIn y={6}>
-      <div className="rounded-2xl border border-primary-ink/40 bg-primary/5 p-5 ring-1 ring-primary-ink/20 sm:p-6">
+      <div className="h-full rounded-3xl bg-deep p-6 text-deep-foreground sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Sparkles className="size-4 text-primary-ink" />
-            Plano {pricing.name}
-          </div>
-          <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-ink">
+          <p className="font-display text-2xl">{pricing.name}</p>
+          <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">
             Plano atual
           </span>
         </div>
 
-        <p className="mt-3 font-display text-3xl tracking-wide">
-          {pricing.monthly === 0 ? 'Grátis' : `${formatBRL(pricing.monthly)}/mês`}
+        <p className="mt-6 flex items-baseline gap-1">
+          <span className="font-display text-5xl leading-none">
+            {formatBRL(pricing.monthly)}
+          </span>
+          {pricing.monthly !== 0 && <span className="text-deep-muted">/mês</span>}
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">{pricing.description}</p>
+        <p className="mt-3 text-sm text-deep-muted">{pricing.description}</p>
 
-        <ul className="mt-4 space-y-2">
+        <ul className="mt-6 space-y-3 border-t border-white/10 pt-5">
           {pricing.features.map((feature) => (
-            <li key={feature} className="flex items-start gap-2 text-sm text-foreground">
-              <Check className="mt-0.5 size-4 shrink-0 text-primary-ink" />
+            <li key={feature} className="flex items-start gap-2.5 text-sm text-deep-foreground">
+              <Check className="mt-0.5 size-4 shrink-0 text-primary" strokeWidth={3} />
               {feature}
             </li>
           ))}
         </ul>
 
         {!isOwner ? (
-          <p className="mt-5 text-xs text-muted-foreground">
+          <p className="mt-6 text-xs text-deep-muted">
             Apenas o dono da conta pode gerenciar o plano e a cobrança.
           </p>
         ) : plan === 'free' ? (
           <Link
             href="/planos"
-            className="mt-5 inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+            className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-primary px-6 font-display text-base text-primary-foreground hover:opacity-90"
           >
             Fazer upgrade
           </Link>
         ) : confirmingCancel ? (
-          <div className="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-            <p className="text-sm text-foreground">
+          <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-sm text-deep-foreground">
               Tem certeza? Você perde acesso aos recursos pagos imediatamente, sem reembolso
               proporcional.
             </p>
@@ -310,7 +316,7 @@ function PlanCard({ plan, isOwner }: { plan: PlanId; isOwner: boolean }) {
                 type="button"
                 onClick={cancelSubscription}
                 disabled={cancelling}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-destructive px-3 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-danger px-4 text-sm font-medium text-danger-foreground hover:opacity-90 disabled:opacity-50"
               >
                 {cancelling && <Loader2 className="size-3.5 animate-spin" />}
                 Confirmar cancelamento
@@ -319,25 +325,25 @@ function PlanCard({ plan, isOwner }: { plan: PlanId; isOwner: boolean }) {
                 type="button"
                 onClick={() => setConfirmingCancel(false)}
                 disabled={cancelling}
-                className="inline-flex min-h-9 items-center rounded-lg bg-secondary px-3 text-xs font-medium text-foreground disabled:opacity-50"
+                className="inline-flex min-h-10 items-center rounded-xl border border-deep-foreground/40 px-4 text-sm font-medium text-deep-foreground disabled:opacity-50"
               >
                 Voltar
               </button>
             </div>
-            {cancelError && <p className="mt-2 text-xs text-destructive">{cancelError}</p>}
+            {cancelError && <p className="mt-2 text-xs text-[#f19a88]">{cancelError}</p>}
           </div>
         ) : (
-          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row">
             <Link
               href="/planos"
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70"
+              className="inline-flex min-h-12 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:opacity-90"
             >
               Ver planos
             </Link>
             <button
               type="button"
               onClick={() => setConfirmingCancel(true)}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-destructive/30 px-4 text-sm font-medium text-destructive hover:bg-destructive/10"
+              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-deep-foreground/40 px-5 text-sm font-medium text-deep-foreground hover:bg-white/5"
             >
               Cancelar assinatura
             </button>
@@ -371,17 +377,17 @@ function UsageRow({ label, used, limit }: { label: string; used: number; limit: 
         <span
           className={cn(
             'font-medium',
-            reached ? 'text-destructive' : near ? 'text-amber-500' : 'text-muted-foreground',
+            reached ? 'text-danger-ink' : near ? 'text-warning-ink' : 'text-muted-foreground',
           )}
         >
           {used}/{limit}
         </span>
       </div>
-      <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-secondary">
+      <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-secondary">
         <div
           className={cn(
             'h-full rounded-full transition-all',
-            reached ? 'bg-destructive' : near ? 'bg-amber-500' : 'bg-primary',
+            reached ? 'bg-danger' : near ? 'bg-warning' : 'bg-foreground',
           )}
           style={{ width: `${Math.min(100, Math.round(ratio * 100))}%` }}
         />
