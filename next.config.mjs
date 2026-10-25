@@ -7,6 +7,16 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  experimental: {
+    /*
+     * Cache de disco do Turbopack no `next build` (padrão `true` no 16.3) fica
+     * desligado: a Vercel restaura esse cache entre deploys e ele serviu uma
+     * versão antiga do app/globals.css — o deploy saiu com os componentes
+     * novos e os tokens de cor velhos. Build um pouco mais lento, mas sempre
+     * fiel ao código.
+     */
+    turbopackFileSystemCacheForBuild: false,
+  },
   /**
    * Domínio antigo (`vistoow.com.br`) redireciona pro canônico
    * (`checkprod.com.br`) preservando o path e a query.
