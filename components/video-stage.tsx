@@ -988,7 +988,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                 ))}
               {/* playhead */}
               <span
-                className="pointer-events-none absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-background"
+                className="pointer-events-none absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary-ink bg-background"
                 style={{ left: total ? `${(current / total) * 100}%` : '0%' }}
               />
             </div>
@@ -1015,7 +1015,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
             <button
               type="button"
               onClick={toggleQuality}
-              className="font-medium underline underline-offset-2 hover:text-primary"
+              className="font-medium underline underline-offset-2 hover:text-primary-ink"
             >
               Voltar para o original
             </button>
@@ -1030,7 +1030,7 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                 <button
                   type="button"
                   onClick={toggleQuality}
-                  className="font-medium text-foreground underline underline-offset-2 hover:text-primary"
+                  className="font-medium text-foreground underline underline-offset-2 hover:text-primary-ink"
                 >
                   {showingOriginal
                     ? lowResOptimized
@@ -1295,7 +1295,7 @@ function ProcessingOverlay() {
   return (
     <div className="absolute inset-0 grid place-items-center bg-black/50 backdrop-blur-[2px]">
       <div className="flex flex-col items-center gap-2 rounded-xl bg-background/80 px-4 py-3 text-center">
-        <Loader2 className="size-5 animate-spin text-primary" />
+        <Loader2 className="size-5 animate-spin text-primary-ink" />
         <p className="text-sm font-medium text-foreground">Preparando vídeo…</p>
         <p className="max-w-[16rem] text-xs text-muted-foreground">
           A versão otimizada está sendo gerada. Você já pode comentar e avaliar.

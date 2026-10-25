@@ -434,12 +434,17 @@ export function ClientReview({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/90 px-4 py-3 backdrop-blur"
+        className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/90 px-4 py-4 backdrop-blur sm:px-8"
       >
         <AgencyLogo branding={data.branding} />
         <div className="flex shrink-0 items-center gap-2">
+          {data.branding?.agencyName && (
+            <span className="hidden truncate text-sm text-muted-foreground md:inline">
+              Enviado por <span className="font-semibold text-foreground">{data.branding.agencyName}</span>
+            </span>
+          )}
           <span
-            className="min-w-0 shrink truncate rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground"
+            className="min-w-0 shrink truncate rounded-full bg-accent px-3.5 py-1.5 text-sm font-medium text-accent-foreground"
             title={video.clientName || 'Cliente'}
           >
             {video.clientName || 'Cliente'}
@@ -459,8 +464,8 @@ export function ClientReview({
             className="overflow-hidden"
           >
             <div className="mx-auto flex max-w-6xl items-start gap-3 px-4 pt-4 lg:px-6">
-              <div className="flex flex-1 items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
-                <Info className="mt-0.5 size-4 shrink-0 text-primary" />
+              <div className="flex flex-1 items-start gap-3 rounded-xl border border-primary-ink/30 bg-primary/5 p-3">
+                <Info className="mt-0.5 size-4 shrink-0 text-primary-ink" />
                 <p className="flex-1 text-xs text-muted-foreground sm:text-sm">
                   <span className="font-medium text-foreground">Como funciona: </span>
                   assista o vídeo e toque em qualquer ponto da linha do tempo pra comentar
@@ -495,7 +500,7 @@ export function ClientReview({
                   const updated = await publicService.updateTitle(activeLink, title)
                   setData((prev) => ({ ...prev, video: { ...prev.video, title: updated.title } }))
                 }}
-                className="mt-1 text-2xl font-bold leading-tight tracking-tight sm:text-3xl"
+                className="mt-1 font-display text-3xl leading-tight sm:text-4xl"
               />
             </div>
             {(video.originalUrl || video.url) && (
@@ -594,27 +599,30 @@ export function ClientReview({
           ) : (
             <>
               {/* Comment composer */}
-              <div className="rounded-xl border border-border bg-card p-4">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <MessageSquarePlus className="size-4 text-primary" />
-                  Comentar em {formatDuration(current)}
+              <div className="rounded-2xl border border-border bg-card p-5">
+                <div className="flex items-center gap-2 font-display text-base">
+                  <MessageSquarePlus className="size-4 text-primary-ink" />
+                  Comentar em
+                  <span className="rounded-md bg-warning px-1.5 py-0.5 font-sans text-xs font-semibold tabular-nums text-warning-foreground">
+                    {formatDuration(current)}
+                  </span>
                 </div>
                 <input
                   value={authorName}
                   onChange={(e) => setAuthorName(e.target.value)}
                   placeholder="Seu nome"
-                  className="mt-2 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                  className="mt-3 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
                 />
                 <textarea
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder="Escreva um comentário ou grave um áudio neste ponto do vídeo…"
                   rows={2}
-                  className="mt-2 w-full resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                  className="mt-2 w-full resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
                 />
 
                 {audioPreviewUrl ? (
-                  <div className="mt-2 flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2">
+                  <div className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
                     <audio controls src={audioPreviewUrl} className="h-9 w-full min-w-0" />
                     <button
                       type="button"
@@ -637,10 +645,10 @@ export function ClientReview({
                   type="button"
                   onClick={addComment}
                   disabled={(!draft.trim() && !audioBlob) || !authorName.trim() || postingComment}
-                  className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary font-display text-lg tracking-wide text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+                  className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
                 >
                   {postingComment && <Loader2 className="size-4 animate-spin" />}
-                  ADICIONAR COMENTÁRIO
+                  Adicionar comentário
                 </button>
 
                 {/* Confirmação rápida de envio */}
@@ -651,7 +659,7 @@ export function ClientReview({
                       animate={{ y: 0 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.2 }}
-                      className="mt-2 flex items-center justify-center gap-1.5 text-sm font-medium text-emerald-400"
+                      className="mt-2 flex items-center justify-center gap-1.5 text-sm font-medium text-success-ink"
                     >
                       <Check className="size-4" /> Comentário enviado
                     </motion.p>
@@ -661,7 +669,7 @@ export function ClientReview({
 
               {/* Comments list */}
               <h2 className="mt-6 font-display text-2xl tracking-wide">
-                COMENTÁRIOS ({sorted.length})
+                Comentários ({sorted.length})
               </h2>
               {sorted.length === 0 ? (
                 <p className="mt-3 rounded-xl border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">
@@ -687,14 +695,14 @@ export function ClientReview({
               {/* Ratings: uma linha por pergunta ativa da agência */}
               {data.ratingQuestions.length > 0 && (
                 <>
-                  <h2 className="mt-6 font-display text-2xl tracking-wide">NOTAS POR CATEGORIA</h2>
+                  <h2 className="mt-6 font-display text-xl">Sua avaliação</h2>
                   <div className="mt-3 flex flex-col gap-3">
                     {data.ratingQuestions.map((q) => (
                       <div
                         key={q.id}
-                        className="flex items-center justify-between rounded-xl border border-border bg-card p-3"
+                        className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-2.5"
                       >
-                        <span className="text-sm font-medium">{q.text}</span>
+                        <span className="text-sm font-medium text-foreground">{q.text}</span>
                         <Stars
                           value={ratings[q.id] ?? 0}
                           onChange={(v) => rate(q.id, q.text, v)}
@@ -706,14 +714,15 @@ export function ClientReview({
               )}
 
               {/* Nota geral: em destaque, alimenta o desempenho do editor */}
-              <div id="nota-geral" className="mt-6 rounded-xl border-2 border-primary/50 bg-primary/5 p-4 text-center">
-                <p className="font-display text-xl tracking-wide">NOTA GERAL</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Sua avaliação geral do vídeo (obrigatória para aprovar).
-                </p>
-                <div className="mt-3 flex justify-center">
-                  <Stars value={overallRating} onChange={setOverallRating} size="lg" />
+              <div
+                id="nota-geral"
+                className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border-2 border-foreground bg-card px-4 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Nota geral</p>
+                  <p className="text-xs text-muted-foreground">Obrigatória para dar o check.</p>
                 </div>
+                <Stars value={overallRating} onChange={setOverallRating} />
               </div>
 
               {/* Recado opcional: vai junto da aprovação e aparece pra agência */}
@@ -727,7 +736,7 @@ export function ClientReview({
                   onChange={(e) => setTestimonial(e.target.value.slice(0, 1000))}
                   rows={3}
                   placeholder="Ex.: Adoramos o resultado, a equipe foi super ágil!"
-                  className="mt-1.5 w-full resize-none rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                  className="mt-1.5 w-full resize-none rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">Enviado junto com a aprovação.</p>
               </div>
@@ -737,7 +746,7 @@ export function ClientReview({
       </FadeIn>
 
       {/* Sticky action bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-4 backdrop-blur lg:sticky lg:mx-auto lg:max-w-6xl lg:px-6">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 p-4 backdrop-blur lg:sticky lg:px-6">
         {decision ? (
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-xl bg-card p-3">
             <p className="text-sm font-medium">
@@ -759,38 +768,39 @@ export function ClientReview({
             {decisionError && (
               <p role="alert" className="mb-2 text-center text-sm text-destructive">{decisionError}</p>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-[1fr_1.4fr] gap-3 sm:grid-cols-[1fr_2fr]">
               <button
                 type="button"
                 onClick={() => decide('ajuste')}
                 disabled={decisionBusy !== null}
-                className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl border-2 border-primary bg-transparent font-display text-xl tracking-wide text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+                className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-foreground bg-card font-display text-base text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
               >
                 {decisionBusy === 'ajuste' ? (
                   <Loader2 className="size-5 animate-spin" />
                 ) : (
                   <RotateCcw className="size-5" />
                 )}
-                PEDIR AJUSTE
+                Pedir ajuste
               </button>
               <button
                 type="button"
                 onClick={approve}
                 disabled={decisionBusy !== null}
                 aria-describedby={overallRating === 0 ? 'aviso-nota-geral' : undefined}
-                className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl bg-primary font-display text-xl tracking-wide text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-primary font-display text-base text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 {decisionBusy === 'aprovado' ? (
                   <Loader2 className="size-5 animate-spin" />
                 ) : (
-                  <Check className="size-5" />
+                  <Check className="size-5" strokeWidth={3} />
                 )}
-                APROVAR
+                <span className="sm:hidden">Dar check</span>
+                <span className="hidden sm:inline">Dar check e aprovar</span>
               </button>
             </div>
             {overallRating === 0 && (
               <p id="aviso-nota-geral" className="mt-2 text-center text-xs text-muted-foreground">
-                Para aprovar, avalie o vídeo com as estrelas de nota geral.
+                Para dar o check, avalie a nota geral.
               </p>
             )}
           </div>
@@ -828,7 +838,7 @@ export function ClientReview({
               exit={{ opacity: 0, y: 8, scale: 0.98 }}
               className="relative w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl"
             >
-              <span className="grid size-10 place-items-center rounded-xl bg-amber-500/15 text-amber-500">
+              <span className="grid size-10 place-items-center rounded-xl bg-warning-soft text-warning-ink">
                 <Info className="size-5" />
               </span>
               <h2 id="optimized-download-title" className="mt-3 text-lg font-semibold text-foreground">
@@ -892,7 +902,7 @@ function Stars({
                 className={cn(
                   'transition-colors',
                   size === 'lg' ? 'size-9' : 'size-6',
-                  filled ? 'fill-primary text-primary' : 'text-muted-foreground',
+                  filled ? 'fill-primary text-foreground' : 'text-foreground/70',
                 )}
               />
             </motion.span>
