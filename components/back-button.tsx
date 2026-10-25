@@ -20,7 +20,7 @@ export function BackButton({ className }: { className?: string }) {
       type="button"
       onClick={handleBack}
       className={cn(
-        'inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-secondary px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground',
+        'inline-flex min-h-10 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary',
         className,
       )}
     >

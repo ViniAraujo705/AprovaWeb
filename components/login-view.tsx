@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, Mail, Lock, Check, Eye, EyeOff, Building2, ChevronRight } from 'lucide-react'
@@ -10,6 +9,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { teamRoleLabel, type AccountOption } from '@/lib/types'
+import { CheckLogo } from '@/components/page-header'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -41,14 +41,11 @@ function AccountPicker({
 
   return (
     <div className="w-full max-w-sm">
-      <div className="flex items-center justify-center gap-2">
-        <span className="relative size-9 shrink-0 overflow-hidden rounded-lg">
-          <Image src="/logo-check.png" alt="Check" fill className="object-cover" sizes="36px" />
-        </span>
-        <span className="font-display text-3xl leading-none tracking-wide">CHECK</span>
+      <div className="flex items-center justify-center">
+        <CheckLogo className="h-10 w-[164px]" priority />
       </div>
 
-      <h1 className="mt-8 text-center font-display text-4xl tracking-wide">QUAL AGÊNCIA?</h1>
+      <h1 className="mt-8 text-center font-display text-4xl tracking-wide">Qual agência?</h1>
       <p className="mt-1 text-center text-sm text-muted-foreground">
         Seu e-mail está vinculado a mais de uma agência. Escolha em qual entrar.
       </p>
@@ -60,7 +57,7 @@ function AccountPicker({
             type="button"
             disabled={selecting !== null}
             onClick={() => pick(acc.accountId)}
-            className="flex min-h-14 items-center gap-3 rounded-lg border border-border bg-secondary px-4 text-left transition-colors hover:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex min-h-14 items-center gap-3 rounded-xl border border-border bg-card px-4 text-left transition-colors hover:border-primary-ink disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Building2 className="size-4 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1">
@@ -170,14 +167,11 @@ export function LoginView() {
       <ThemeToggle className="fixed right-4 top-4" />
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2">
-          <span className="relative size-9 shrink-0 overflow-hidden rounded-lg">
-            <Image src="/logo-check.png" alt="Check" fill className="object-cover" sizes="36px" />
-          </span>
-          <span className="font-display text-3xl leading-none tracking-wide">CHECK</span>
+        <div className="flex items-center justify-center">
+          <CheckLogo className="h-10 w-[164px]" priority />
         </div>
 
-        <h1 className="mt-8 text-center font-display text-4xl tracking-wide">ENTRAR</h1>
+        <h1 className="mt-8 text-center font-display text-4xl tracking-wide">Entrar</h1>
         <p className="mt-1 text-center text-sm text-muted-foreground">
           Acesse o painel para enviar e acompanhar seus vídeos.
         </p>
@@ -208,7 +202,7 @@ export function LoginView() {
                 aria-invalid={!!errors.email}
                 placeholder="voce@agencia.com"
                 className={cn(
-                  'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary',
+                  'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
                   errors.email ? 'border-destructive' : 'border-border',
                 )}
               />
@@ -228,7 +222,7 @@ export function LoginView() {
                 aria-invalid={!!errors.password}
                 placeholder="••••••••"
                 className={cn(
-                  'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary',
+                  'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
                   errors.password ? 'border-destructive' : 'border-border',
                 )}
               />
@@ -262,14 +256,14 @@ export function LoginView() {
           <button
             type="submit"
             disabled={submitting}
-            className="mt-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-5 font-display text-xl tracking-wide text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-base text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? (
               <>
                 <Loader2 className="size-5 animate-spin" /> ENTRANDO…
               </>
             ) : (
-              'ENTRAR'
+              'Entrar'
             )}
           </button>
         </form>

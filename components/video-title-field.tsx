@@ -57,7 +57,7 @@ export function VideoTitleField({
             if (e.key === 'Escape') setEditing(false)
           }}
           className={cn(
-            'w-full min-w-0 border-b border-primary bg-transparent outline-none',
+            'w-full min-w-0 border-b border-primary-ink bg-transparent outline-none',
             className,
           )}
         />

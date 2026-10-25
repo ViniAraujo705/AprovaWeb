@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-CHECK (formerly APROVA) — a Next.js 16 (App Router) frontend for a video-approval workflow between agencies and their clients. It talks to a separate NestJS + Prisma + R2 backend over a REST API; there is no backend code in this repo. Dark theme, `Bebas Neue` display font, Tailwind v4.
+CHECK (formerly APROVA) — a Next.js 16 (App Router) frontend for a video-approval workflow between agencies and their clients. It talks to a separate NestJS + Prisma + R2 backend over a REST API; there is no backend code in this repo. Light/dark themes in the Check identity (deep green + off-white + lime; `Manrope` display font, `Inter` body), Tailwind v4.
 
 ## Commands
 
@@ -50,6 +50,6 @@ npx tsc --noEmit # type-check — do this after any change, see caveat below
 
 **Data fetching** uses a hand-rolled `useQuery` (`lib/use-query.ts`) — no SWR/React Query. It returns `{ data, loading, error, refetch, setData }`; `setData` (supports a functional updater) is the mechanism for optimistic local updates after a mutation, used instead of refetching (see how new comments or edited fields get spliced into state across the review components).
 
-**Design tokens**: everything styles through Tailwind classes bound to CSS custom properties in `app/globals.css` (`bg-primary`, `text-muted-foreground`, etc.), not hardcoded colors — changing the theme is a `globals.css` edit, not a component sweep. Motion goes through `components/motion.tsx` (wraps framer-motion, respects `prefers-reduced-motion` globally) rather than importing `framer-motion` directly in components.
+**Design tokens**: everything styles through Tailwind classes bound to CSS custom properties in `app/globals.css` (`bg-primary`, `text-muted-foreground`, etc.), not hardcoded colors — changing the theme is a `globals.css` edit, not a component sweep. `--primary` is the lime **fill** (CTAs, "Deu check" badges) and is never used as text on light backgrounds — text/border accents use `text-primary-ink` / `border-primary-ink`. Status colors come from `success|warning|danger` tokens (`bg-warning-soft text-warning-ink`, etc.), and the dark "deep green" surface is `bg-deep`. Shared pieces of the identity: `components/gestures.tsx` (the gesture illustrations — `check`, `approved`, `attention`, `critical`, `empty`), and `components/page-header.tsx` (`PageHeader` with eyebrow, `StatCard`, `GestureCallout`, `CheckLogo`). Logos live in `public/brand/`. Reference layout: the "ID NOVA - LAYOUT NO SISTEMA" PDF (Oct 2026). Motion goes through `components/motion.tsx` (wraps framer-motion, respects `prefers-reduced-motion` globally) rather than importing `framer-motion` directly in components.
 
 **Uploads** are a 3-step presigned-URL flow against Cloudflare R2, not a proxy through the Next.js server: `videoService.getUploadUrl()` → direct browser `PUT` to R2 with real progress via XHR (`lib/upload.ts`) → `videoService.create()` to register the row. Branding/logo upload (`userService.getBrandingUploadUrl` / `updateBranding`) follows the same shape.

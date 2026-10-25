@@ -75,7 +75,7 @@ export function RatingQuestionsView() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-10">
       <h1 className="font-display text-4xl tracking-wide sm:text-5xl">
-        PERGUNTAS DE AVALIAÇÃO
+        Perguntas de avaliação
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Essas perguntas aparecem como estrelas na tela de aprovação do cliente.
@@ -83,7 +83,7 @@ export function RatingQuestionsView() {
 
       <NewQuestionForm onCreated={upsert} order={questions.length} />
 
-      <h2 className="mt-8 font-display text-2xl tracking-wide">PERGUNTAS ATIVAS</h2>
+      <h2 className="mt-8 font-display text-2xl tracking-wide">Perguntas ativas</h2>
       <div className="mt-4">
         {loading ? (
           <div className="space-y-2">
@@ -154,7 +154,7 @@ function NewQuestionForm({
   return (
     <form onSubmit={submit} noValidate className="mt-6 rounded-xl border border-border bg-card p-4">
       <div className="flex items-center gap-2 text-sm font-medium">
-        <Plus className="size-4 text-primary" />
+        <Plus className="size-4 text-primary-ink" />
         Nova pergunta
       </div>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -162,15 +162,15 @@ function NewQuestionForm({
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Ex: Trilha sonora"
-          className="min-h-11 flex-1 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+          className="min-h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
         />
         <button
           type="submit"
           disabled={submitting || !text.trim()}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 font-display text-lg tracking-wide text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-base text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {submitting ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-          ADICIONAR
+          Adicionar
         </button>
       </div>
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
@@ -286,7 +286,7 @@ function QuestionRow({
                   }
                 }}
                 disabled={busy}
-                className="min-h-9 w-full rounded-lg border border-primary bg-secondary px-2 text-sm text-foreground outline-none"
+                className="min-h-9 w-full rounded-lg border border-primary-ink bg-secondary px-2 text-sm text-foreground outline-none"
               />
               <button
                 type="button"
@@ -315,7 +315,7 @@ function QuestionRow({
               type="button"
               onClick={() => setEditing(true)}
               className={cn(
-                'flex min-w-0 items-center gap-1.5 truncate text-left text-sm font-medium hover:text-primary',
+                'flex min-w-0 items-center gap-1.5 truncate text-left text-sm font-medium hover:text-primary-ink',
                 !question.active && 'text-muted-foreground line-through',
               )}
               title={question.text}

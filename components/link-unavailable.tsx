@@ -13,7 +13,7 @@ export function LinkUnavailable({
         <span className="mx-auto grid size-14 place-items-center rounded-full bg-destructive/10 text-destructive">
           <AlertTriangle className="size-7" />
         </span>
-        <h1 className="mt-4 font-display text-3xl tracking-wide">LINK INDISPONÍVEL</h1>
+        <h1 className="mt-4 font-display text-3xl tracking-wide">Link indisponível</h1>
         <p className="mt-2 text-sm text-muted-foreground">{description}</p>
         <Link
           href="/"

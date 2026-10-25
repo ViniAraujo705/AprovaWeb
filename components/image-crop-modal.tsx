@@ -329,7 +329,7 @@ export function ImageCropModal({
               value={zoom}
               onChange={(e) => setZoom(Number(e.target.value))}
               aria-label="Zoom"
-              className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
+              className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary-ink"
             />
             <ZoomIn className="size-4 shrink-0 text-muted-foreground" />
           </div>

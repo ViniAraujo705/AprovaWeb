@@ -103,7 +103,7 @@ export function ClientDetailView({ id }: { id: string }) {
               {client.data.isExample && (
                 <span
                   title="Cliente de exemplo — explore e delete quando quiser."
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary-ink"
                 >
                   <Sparkles className="size-3.5" /> Exemplo
                 </span>
@@ -236,12 +236,12 @@ function ClientWorkspace({
 
 function ClientMetrics({ projects, videos, events, compact = false }: { projects: Project[]; videos: Video[]; events: CalendarActivity[]; compact?: boolean }) {
   const items = [
-    { label: 'Projetos', value: projects.length, tone: 'text-primary' },
+    { label: 'Projetos', value: projects.length, tone: 'text-primary-ink' },
     { label: 'Conteúdos', value: videos.length, tone: 'text-foreground' },
     { label: 'Aguardando aprovação', value: videos.filter((video) => video.status === 'pendente').length, tone: 'text-amber-500' },
     { label: 'Em ajustes', value: videos.filter((video) => video.status === 'ajuste').length, tone: 'text-amber-500' },
     { label: 'Aprovados', value: videos.filter((video) => video.status === 'aprovado').length, tone: 'text-emerald-500' },
-    { label: 'Gravações agendadas', value: events.length, tone: 'text-primary' },
+    { label: 'Gravações agendadas', value: events.length, tone: 'text-primary-ink' },
   ].filter((item) => !compact || !['Projetos', 'Conteúdos', 'Gravações agendadas'].includes(item.label))
   return <div className="grid gap-3 sm:grid-cols-3">{items.map((item) => <div key={item.label} className="rounded-xl border border-border bg-card p-4"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{item.label}</p><p className={cn('mt-1 text-3xl font-bold tracking-tight', item.tone)}>{item.value}</p></div>)}</div>
 }
@@ -262,7 +262,7 @@ function ClientVideos({ videos, loading, error, approvalOnly = false }: { videos
   // `sort` é estável: dentro do mesmo status a ordem que veio da API se mantém.
   const ordered = [...videos].sort((a, b) => statusPriority[a.status] - statusPriority[b.status])
   if (videos.length === 0) return <div className="mt-6"><EmptyState icon={<FileVideo className="size-7" />} title={approvalOnly ? 'Nenhuma aprovação para acompanhar' : 'Nenhum conteúdo ainda'} description={approvalOnly ? 'Os conteúdos enviados ao cliente aparecerão aqui conforme avançarem no fluxo.' : 'Envie um vídeo dentro de um projeto para centralizá-lo aqui.'} /></div>
-  return <div className="mt-6 space-y-2">{ordered.map((video) => <Link key={video.id} href={`/videos/${video.id}/revisao`} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"><FileVideo className="size-5 shrink-0 text-primary" /><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{video.title}</p><p className="mt-0.5 text-xs text-muted-foreground">{video.commentsCount} comentário{video.commentsCount === 1 ? '' : 's'}{video.deadline ? ` · Prazo: ${new Date(video.deadline).toLocaleDateString('pt-BR')}` : ''}</p></div><span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', statusStyle[video.status])}>{statusLabel[video.status]}</span></Link>)}</div>
+  return <div className="mt-6 space-y-2">{ordered.map((video) => <Link key={video.id} href={`/videos/${video.id}/revisao`} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary-ink/50"><FileVideo className="size-5 shrink-0 text-primary-ink" /><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{video.title}</p><p className="mt-0.5 text-xs text-muted-foreground">{video.commentsCount} comentário{video.commentsCount === 1 ? '' : 's'}{video.deadline ? ` · Prazo: ${new Date(video.deadline).toLocaleDateString('pt-BR')}` : ''}</p></div><span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', statusStyle[video.status])}>{statusLabel[video.status]}</span></Link>)}</div>
 }
 
 function ClientCalendar({ events, loading, error }: { events: CalendarActivity[]; loading: boolean; error: string | null }) {
@@ -270,7 +270,7 @@ function ClientCalendar({ events, loading, error }: { events: CalendarActivity[]
   if (error) return <div className="mt-6"><ErrorState message={error} /></div>
   const ordered = [...events].sort((a, b) => a.startAt.localeCompare(b.startAt))
   if (ordered.length === 0) return <div className="mt-6"><EmptyState icon={<CalendarDays className="size-7" />} title="Nenhuma gravação agendada" description="Os eventos vinculados a este cliente no calendário aparecerão aqui." action={<Link href="/calendario" className="mt-2 inline-flex min-h-10 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">Abrir calendário</Link>} /></div>
-  return <div className="mt-6 space-y-2">{ordered.map((event) => <Link key={event.id} href="/calendario" className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"><CalendarDays className="size-5 shrink-0 text-primary" /><div className="min-w-0"><p className="font-medium text-foreground">{event.title}</p><p className="text-xs text-muted-foreground">{new Date(event.startAt).toLocaleString('pt-BR', { dateStyle: 'medium', timeStyle: 'short' })}{event.notes ? ` · ${event.notes}` : ''}</p></div></Link>)}</div>
+  return <div className="mt-6 space-y-2">{ordered.map((event) => <Link key={event.id} href="/calendario" className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary-ink/50"><CalendarDays className="size-5 shrink-0 text-primary-ink" /><div className="min-w-0"><p className="font-medium text-foreground">{event.title}</p><p className="text-xs text-muted-foreground">{new Date(event.startAt).toLocaleString('pt-BR', { dateStyle: 'medium', timeStyle: 'short' })}{event.notes ? ` · ${event.notes}` : ''}</p></div></Link>)}</div>
 }
 
 const clientActivityTypeMeta: Record<ClientActivityType, { icon: typeof History }> = {
@@ -332,7 +332,7 @@ function ClientHistory({ clientId }: { clientId: string }) {
           const Icon = clientActivityTypeMeta[item.type].icon
           return (
             <div key={item.id} className="flex gap-3 rounded-xl border border-border bg-card p-4">
-              <Icon className="mt-0.5 size-4 shrink-0 text-primary" />
+              <Icon className="mt-0.5 size-4 shrink-0 text-primary-ink" />
               <p className="text-sm text-foreground">
                 {item.description}
                 <span className="text-muted-foreground">
@@ -356,7 +356,7 @@ function ClientHistory({ clientId }: { clientId: string }) {
             type="button"
             onClick={loadMore}
             disabled={loadingMore}
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-50"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-50"
           >
             {loadingMore && <Loader2 className="size-4 animate-spin" />}
             Carregar mais
@@ -472,7 +472,7 @@ function ClientFiles({ clientId }: { clientId: string }) {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value as ClientFileCategory)}
-              className="min-h-11 w-full max-w-xs rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+              className="min-h-11 w-full max-w-xs rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
             >
               {Object.entries(clientFileCategoryLabel).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -500,12 +500,12 @@ function ClientFiles({ clientId }: { clientId: string }) {
               fileError
                 ? 'border-destructive/60 bg-destructive/5'
                 : dragging
-                  ? 'border-primary bg-primary/10'
-                  : 'border-primary/50 bg-background hover:border-primary hover:bg-primary/5',
+                  ? 'border-primary-ink bg-primary/10'
+                  : 'border-primary-ink/50 bg-background hover:border-primary-ink hover:bg-primary/5',
             )}
           >
             <input ref={inputRef} type="file" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
-            <span className="grid size-12 place-items-center rounded-full bg-primary/15 text-primary">
+            <span className="grid size-12 place-items-center rounded-full bg-primary/15 text-primary-ink">
               {busy ? <Loader2 className="size-6 animate-spin" /> : <Paperclip className="size-6" />}
             </span>
             <p className="mt-2 text-sm font-medium text-foreground">
@@ -551,13 +551,13 @@ function ClientFiles({ clientId }: { clientId: string }) {
                 variants={staggerItem}
                 className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"
               >
-                <Paperclip className="size-5 shrink-0 text-primary" />
+                <Paperclip className="size-5 shrink-0 text-primary-ink" />
                 <div className="min-w-0 flex-1">
                   <a
                     href={file.fileUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="truncate font-medium text-foreground hover:text-primary"
+                    className="truncate font-medium text-foreground hover:text-primary-ink"
                     title={file.fileName}
                   >
                     {file.fileName}
@@ -836,8 +836,8 @@ function ClientForm({
             fileError
               ? 'border-destructive/60 bg-destructive/5'
               : dragging
-                ? 'border-primary bg-primary/10'
-                : 'border-primary/50 bg-background hover:border-primary hover:bg-primary/5',
+                ? 'border-primary-ink bg-primary/10'
+                : 'border-primary-ink/50 bg-background hover:border-primary-ink hover:bg-primary/5',
           )}
         >
           <input
@@ -850,7 +850,7 @@ function ClientForm({
               e.target.value = ''
             }}
           />
-          <span className="grid size-12 place-items-center rounded-full bg-primary/15 text-primary">
+          <span className="grid size-12 place-items-center rounded-full bg-primary/15 text-primary-ink">
             {busy ? <Loader2 className="size-6 animate-spin" /> : <ImagePlus className="size-6" />}
           </span>
           <p className="mt-2 text-sm font-medium text-foreground">
@@ -884,7 +884,7 @@ function ClientForm({
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+            className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
           />
         </label>
 
@@ -894,7 +894,7 @@ function ClientForm({
           <select
             value={responsibleId}
             onChange={(e) => setResponsibleId(e.target.value)}
-            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+            className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
           >
             <option value="">Sem responsável</option>
             {(team.data ?? []).map((m) => (
@@ -916,7 +916,7 @@ function ClientForm({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Ex: Gostou do resultado?💛"
             rows={2}
-            className="resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+            className="resize-none rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
           />
           <span className="text-xs text-muted-foreground">
             Aparece como legenda por cima do vídeo na aba &quot;Preview Reels&quot; que o cliente vê.
@@ -1021,7 +1021,7 @@ function ClientCustomFieldsForm({
     <FadeIn y={6}>
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <ListPlus className="size-4 text-primary" />
+          <ListPlus className="size-4 text-primary-ink" />
           Campos personalizados
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -1035,7 +1035,7 @@ function ClientCustomFieldsForm({
               <input
                 value={values[f.id] ?? ''}
                 onChange={(e) => setValues((prev) => ({ ...prev, [f.id]: e.target.value }))}
-                className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+                className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
               />
             </label>
           ))}
@@ -1233,10 +1233,10 @@ function ClientBrandingForm({
     <FadeIn y={6}>
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <Building2 className="size-4 text-primary" />
+          <Building2 className="size-4 text-primary-ink" />
           Marca própria deste cliente
           {locked && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-ink">
               <Lock className="size-3" /> Pro
             </span>
           )}
@@ -1249,7 +1249,7 @@ function ClientBrandingForm({
 
         {/* Preview atual */}
         <div className="mt-4 flex items-center gap-4">
-          <div className="grid h-16 w-40 place-items-center overflow-hidden rounded-lg border border-border bg-secondary">
+          <div className="grid h-16 w-40 place-items-center overflow-hidden rounded-xl border border-border bg-card">
             {logoUrl ? (
               <span className="relative h-12 w-36">
                 <Image
@@ -1299,8 +1299,8 @@ function ClientBrandingForm({
             fileError
               ? 'border-destructive/60 bg-destructive/5'
               : dragging
-                ? 'border-primary bg-primary/10'
-                : 'border-primary/50 bg-background hover:border-primary hover:bg-primary/5',
+                ? 'border-primary-ink bg-primary/10'
+                : 'border-primary-ink/50 bg-background hover:border-primary-ink hover:bg-primary/5',
           )}
         >
           <input
@@ -1313,7 +1313,7 @@ function ClientBrandingForm({
               e.target.value = ''
             }}
           />
-          <span className="grid size-12 place-items-center rounded-full bg-primary/15 text-primary">
+          <span className="grid size-12 place-items-center rounded-full bg-primary/15 text-primary-ink">
             {busy ? <Loader2 className="size-6 animate-spin" /> : <ImagePlus className="size-6" />}
           </span>
           <p className="mt-2 text-sm font-medium text-foreground">
@@ -1350,13 +1350,13 @@ function ClientBrandingForm({
               value={accentColor}
               onChange={(e) => setAccentColor(e.target.value)}
               aria-label="Cor de destaque do cliente"
-              className="size-11 cursor-pointer rounded-lg border border-border bg-secondary p-1"
+              className="size-11 cursor-pointer rounded-xl border border-border bg-card p-1"
             />
             <input
               value={accentColor}
               onChange={(e) => setAccentColor(e.target.value)}
               placeholder={DEFAULT_ACCENT_COLOR}
-              className="min-h-11 w-32 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+              className="min-h-11 w-32 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
             />
             {accentColor !== DEFAULT_ACCENT_COLOR && (
               <button
@@ -1437,7 +1437,7 @@ function ClientProjects({ clientId }: { clientId: string }) {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-2xl tracking-wide">PROJETOS</h2>
+        <h2 className="font-display text-2xl tracking-wide">Projetos</h2>
         {!creating && (
           <button
             type="button"
@@ -1470,7 +1470,7 @@ function ClientProjects({ clientId }: { clientId: string }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Ex: Reel lançamento batom"
-            className="mt-3 min-h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+            className="mt-3 min-h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
           />
           {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
           <button
@@ -1510,12 +1510,12 @@ function ClientProjects({ clientId }: { clientId: string }) {
               <motion.div key={p.id} variants={staggerItem}>
                 <Link
                   href={`/projetos/${p.id}`}
-                  className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"
+                  className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary-ink/50"
                 >
                   <ProjectThumb
                     photoUrl={p.photoUrl}
                     size="sm"
-                    fallback={<FolderOpen className="size-5 shrink-0 text-primary" />}
+                    fallback={<FolderOpen className="size-5 shrink-0 text-primary-ink" />}
                   />
                   <span className="min-w-0 truncate font-medium text-foreground" title={p.name}>
                     {p.name}

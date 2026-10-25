@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { Contact, Plus, Loader2, Sparkles, X } from 'lucide-react'
+import { ChevronRight, Contact, Plus, Loader2, Search, Sparkles, X } from 'lucide-react'
 import { clientService } from '@/lib/services'
 import type { Client } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
@@ -13,6 +13,8 @@ import { ApiError } from '@/lib/api'
 import { StaggerList, staggerItem, motion } from '@/components/motion'
 import { toast } from '@/lib/toast'
 import { usePlanLimit } from '@/components/plan-limit-provider'
+import { ClientAvatar } from '@/components/client-avatar'
+import { PageHeader } from '@/components/page-header'
 
 /**
  * Lista de clientes (rota /clientes) — cada card leva ao detalhe do cliente
@@ -26,6 +28,7 @@ export function ClientsView() {
   const { handlePlanLimitError, bumpUsage } = usePlanLimit()
 
   const [creating, setCreating] = useState(false)
+  const [search, setSearch] = useState('')
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -60,26 +63,42 @@ export function ClientsView() {
   }
 
   const allClients = clients.data ?? []
+  const query = search.trim().toLocaleLowerCase('pt-BR')
+  const visibleClients = query
+    ? allClients.filter((c) => c.name.toLocaleLowerCase('pt-BR').includes(query))
+    : allClients
 
   return (
     <div className="flex flex-1 flex-col px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-display text-4xl tracking-wide sm:text-5xl">CLIENTES</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Configure nome, foto de perfil e a legenda que aparece no modo Reels de cada cliente.
-          </p>
-        </div>
-        {!creating && (
-          <button
-            type="button"
-            onClick={openForm}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
-          >
-            <Plus className="size-4" /> Novo cliente
-          </button>
-        )}
-      </div>
+      <PageHeader
+        eyebrow="Carteira da agência"
+        title="Clientes"
+        description="Configure nome, foto de perfil e a legenda que aparece no modo Reels de cada cliente."
+        actions={
+          <>
+            {allClients.length > 0 && (
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar cliente…"
+                  className="min-h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink sm:w-64"
+                />
+              </div>
+            )}
+            {!creating && (
+              <button
+                type="button"
+                onClick={openForm}
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-base text-primary-foreground hover:opacity-90"
+              >
+                <Plus className="size-4" /> Novo cliente
+              </button>
+            )}
+          </>
+        }
+      />
 
       {creating && (
         <div className="mt-4 rounded-xl border border-border bg-card p-4">
@@ -98,7 +117,7 @@ export function ClientsView() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Nome do cliente"
-            className="mt-3 min-h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+            className="mt-3 min-h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
           />
           {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
           <button
@@ -139,8 +158,8 @@ export function ClientsView() {
             }
           />
         ) : (
-          <StaggerList className="m-auto grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {allClients.map((c) => (
+          <StaggerList className="grid w-full gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {visibleClients.map((c) => (
               <ClientCard key={c.id} client={c} />
             ))}
           </StaggerList>
@@ -154,37 +173,37 @@ function ClientCard({ client }: { client: Client }) {
   return (
     <motion.div
       variants={staggerItem}
-      className="group relative flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"
+      className="group relative flex items-center gap-4 rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary-ink/50"
     >
       <Link
         href={`/clientes/${client.id}`}
         aria-label={`Configurar cliente ${client.name}`}
-        className="absolute inset-0 z-[1] rounded-xl"
+        className="absolute inset-0 z-[1] rounded-2xl"
       />
-      <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-secondary">
-        {client.photoUrl ? (
+      {client.photoUrl ? (
+        <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-secondary">
           <Image src={client.photoUrl} alt="" fill className="object-cover" sizes="48px" unoptimized />
-        ) : (
-          <span className="grid h-full w-full place-items-center text-sm font-bold uppercase text-muted-foreground">
-            {(client.name || '?').slice(0, 1)}
-          </span>
-        )}
-      </div>
+        </div>
+      ) : (
+        <ClientAvatar name={client.name || '?'} seed={client.id} size="xl" />
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <h3 className="truncate text-lg font-bold tracking-tight" title={client.name}>
+          <h3 className="truncate font-display text-lg font-bold" title={client.name}>
             {client.name}
           </h3>
           {client.isExample && (
             <span
               title="Cliente de exemplo — explore e delete quando quiser."
-              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary-ink"
             >
               <Sparkles className="size-3" /> Exemplo
             </span>
           )}
         </div>
+        {client.email && <p className="truncate text-sm text-muted-foreground">{client.email}</p>}
       </div>
+      <ChevronRight className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
     </motion.div>
   )
 }

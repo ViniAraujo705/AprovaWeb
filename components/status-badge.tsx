@@ -1,11 +1,14 @@
+import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { statusLabel, type VideoStatus } from '@/lib/types'
 
 const styles: Record<VideoStatus, string> = {
-  pendente: 'bg-primary text-primary-foreground',
-  aprovado: 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30',
-  ajuste: 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30',
-  erro: 'bg-destructive/15 text-destructive ring-1 ring-destructive/30',
+  // Selos do sistema de gestos: aguardando = âmbar, aprovado = lima ("Deu
+  // check"), ajuste = coral.
+  pendente: 'bg-warning-soft text-warning-ink ring-1 ring-warning-border',
+  aprovado: 'bg-success text-success-foreground',
+  ajuste: 'bg-danger-soft text-danger-ink ring-1 ring-danger-border',
+  erro: 'bg-danger-soft text-danger-ink ring-1 ring-danger-border',
 }
 
 export function StatusBadge({
@@ -24,8 +27,9 @@ export function StatusBadge({
       )}
     >
       {status === 'pendente' && (
-        <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+        <span className="size-1.5 rounded-full bg-warning" aria-hidden="true" />
       )}
+      {status === 'aprovado' && <Check className="size-3" strokeWidth={3} aria-hidden="true" />}
       {statusLabel[status]}
     </span>
   )

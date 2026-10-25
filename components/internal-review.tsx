@@ -187,7 +187,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 font-display text-sm tracking-wide text-primary-foreground">
             <Lock className="size-3.5" />
-            REVISÃO INTERNA
+            Revisão interna
           </span>
           <span className="text-xs text-muted-foreground">
             Visível apenas para a equipe da agência — o cliente não vê esta tela.
@@ -279,8 +279,8 @@ export function InternalReview({ videoId }: { videoId: string }) {
 
         {/* Thread de comentários internos */}
         <div className="mt-6 lg:mt-0">
-          <section className="rounded-xl border border-primary/30 bg-primary/5 p-4">
-            <h2 className="font-display text-2xl tracking-wide">AJUSTES DO CLIENTE ({clientComments.length})</h2>
+          <section className="rounded-xl border border-primary-ink/30 bg-primary/5 p-4">
+            <h2 className="font-display text-2xl tracking-wide">Ajustes do cliente ({clientComments.length})</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Sincronizados com o canal do cliente; ficam visíveis nos dois lugares.
             </p>
@@ -313,7 +313,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
           />
 
           <h2 className="mt-6 font-display text-2xl tracking-wide">
-            DISCUSSÃO INTERNA ({comments.length})
+            Discussão interna ({comments.length})
           </h2>
           {threads.length === 0 ? (
             <p className="mt-3 rounded-xl border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">
@@ -381,7 +381,7 @@ function InternalComposer({
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="flex items-center gap-2 text-sm font-medium">
-        <MessageSquarePlus className="size-4 text-primary" />
+        <MessageSquarePlus className="size-4 text-primary-ink" />
         Comentar em {formatDuration(timestamp)}
       </div>
       <textarea
@@ -389,17 +389,17 @@ function InternalComposer({
         onChange={(e) => setDraft(e.target.value)}
         placeholder="Anote um ajuste ou observação para a equipe…"
         rows={2}
-        className="mt-2 w-full resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+        className="mt-2 w-full resize-none rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
       />
       {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
       <button
         type="button"
         onClick={submit}
         disabled={!draft.trim() || posting}
-        className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary font-display text-lg tracking-wide text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+        className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-base text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
       >
         {posting && <Loader2 className="size-4 animate-spin" />}
-        COMENTAR INTERNAMENTE
+        Comentar internamente
       </button>
       <AnimatePresence>
         {sent && (
@@ -439,7 +439,7 @@ function ThreadItem({
 
       {/* Respostas (indentadas) */}
       {replies.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-3 border-l-2 border-primary/25 pl-3">
+        <ul className="mt-3 flex flex-col gap-3 border-l-2 border-primary-ink/25 pl-3">
           {replies.map((r) => (
             <li key={r.id}>
               <CommentBody comment={r} onSeek={onSeek} isReply />
@@ -465,7 +465,7 @@ function ThreadItem({
           <button
             type="button"
             onClick={() => setReplying(true)}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-primary"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-primary-ink"
           >
             <CornerDownRight className="size-3.5" />
             Responder
@@ -491,7 +491,7 @@ function CommentBody({
       <button
         type="button"
         onClick={() => onSeek(comment.timestamp)}
-        className="h-fit shrink-0 rounded-md bg-primary/15 px-2 py-1 text-xs font-semibold text-primary"
+        className="h-fit shrink-0 rounded-md bg-primary/15 px-2 py-1 text-xs font-semibold text-primary-ink"
       >
         {formatDuration(comment.timestamp)}
       </button>
@@ -553,7 +553,7 @@ function ReplyComposer({
         placeholder="Escreva uma resposta…"
         rows={2}
         autoFocus
-        className="w-full resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+        className="w-full resize-none rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
       />
       {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
       <div className="mt-2 flex items-center gap-2">

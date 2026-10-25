@@ -5,12 +5,12 @@ import { useEffect, useState } from 'react'
 import { useTheme } from 'next-themes'
 
 /** Fundos de página de cada tema (`--background` em `app/globals.css`). */
-const SURFACE_LIGHT = '#f5f5f7'
-const SURFACE_DARK = '#0b0b0d'
+const SURFACE_LIGHT = '#ebece7'
+const SURFACE_DARK = '#17201a'
 /**
  * Contraste mínimo entre a cor de marca e o fundo da página. 4.5:1 é o piso da
  * WCAG para texto normal — e a cor de marca vira texto em vários lugares
- * (`text-primary`), não só preenchimento de botão.
+ * (`text-primary-ink`), não só preenchimento de botão.
  */
 const MIN_CONTRAST = 4.5
 
@@ -76,7 +76,7 @@ function readableForeground(hex: string): string {
   if (!rgb) return '#ffffff'
   const [r, g, b] = rgb
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  return luminance > 0.6 ? '#0b0b0d' : '#ffffff'
+  return luminance > 0.6 ? '#253326' : '#ffffff'
 }
 
 /**
@@ -95,15 +95,20 @@ export function brandAccentStyle(
   { dark = true }: { dark?: boolean } = {},
 ): CSSProperties | undefined {
   if (!color) return undefined
-  const accent = withReadableContrast(color, dark ? SURFACE_DARK : SURFACE_LIGHT)
+  // `--primary` é preenchimento (botão, selo) e usa a cor como veio; textos e
+  // bordas de destaque usam `--primary-ink`, que é a versão ajustada pro
+  // contraste com o fundo da página.
+  const ink = withReadableContrast(color, dark ? SURFACE_DARK : SURFACE_LIGHT)
+  const accent = hexToRgb(color) ? color : ink
   const foreground = readableForeground(accent)
   return {
     ['--primary' as string]: accent,
     ['--primary-foreground' as string]: foreground,
-    ['--ring' as string]: accent,
+    ['--primary-ink' as string]: ink,
+    ['--ring' as string]: ink,
     ['--sidebar-primary' as string]: accent,
     ['--sidebar-primary-foreground' as string]: foreground,
-    ['--sidebar-ring' as string]: accent,
+    ['--sidebar-ring' as string]: ink,
   } as CSSProperties
 }
 

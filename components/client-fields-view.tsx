@@ -74,7 +74,7 @@ export function ClientFieldsView() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-10">
-      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">CAMPOS DE CLIENTE</h1>
+      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">Campos de cliente</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Campos extras (Instagram, CNPJ, o que fizer sentido pra sua agência) que aparecem no
         cadastro de cada cliente.
@@ -82,7 +82,7 @@ export function ClientFieldsView() {
 
       <NewFieldForm onCreated={upsert} order={fields.length} />
 
-      <h2 className="mt-8 font-display text-2xl tracking-wide">CAMPOS ATIVOS</h2>
+      <h2 className="mt-8 font-display text-2xl tracking-wide">Campos ativos</h2>
       <div className="mt-4">
         {loading ? (
           <div className="space-y-2">
@@ -150,7 +150,7 @@ function NewFieldForm({
   return (
     <form onSubmit={submit} noValidate className="mt-6 rounded-xl border border-border bg-card p-4">
       <div className="flex items-center gap-2 text-sm font-medium">
-        <Plus className="size-4 text-primary" />
+        <Plus className="size-4 text-primary-ink" />
         Novo campo
       </div>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -158,15 +158,15 @@ function NewFieldForm({
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           placeholder="Ex: Instagram"
-          className="min-h-11 flex-1 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+          className="min-h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
         />
         <button
           type="submit"
           disabled={submitting || !label.trim()}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 font-display text-lg tracking-wide text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-base text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {submitting ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-          ADICIONAR
+          Adicionar
         </button>
       </div>
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
@@ -269,7 +269,7 @@ function FieldRow({
                   }
                 }}
                 disabled={busy}
-                className="min-h-9 w-full rounded-lg border border-primary bg-secondary px-2 text-sm text-foreground outline-none"
+                className="min-h-9 w-full rounded-lg border border-primary-ink bg-secondary px-2 text-sm text-foreground outline-none"
               />
               <button
                 type="button"
@@ -297,7 +297,7 @@ function FieldRow({
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="flex min-w-0 items-center gap-1.5 truncate text-left text-sm font-medium hover:text-primary"
+              className="flex min-w-0 items-center gap-1.5 truncate text-left text-sm font-medium hover:text-primary-ink"
               title={field.label}
             >
               <Pencil className="size-3 shrink-0 opacity-50" />

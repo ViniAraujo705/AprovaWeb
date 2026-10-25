@@ -27,6 +27,7 @@ import { SessionRow, RevokeAllSessionsButton } from '@/components/session-row'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { PageHeader } from '@/components/page-header'
 import { toast } from '@/lib/toast'
 import { usePlanLimit } from '@/components/plan-limit-provider'
 import { ClientAvatar } from '@/components/client-avatar'
@@ -35,9 +36,9 @@ import { useAuth } from '@/components/auth-provider'
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const statusStyles: Record<MemberStatus, string> = {
-  active: 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30',
-  invited: 'bg-primary/15 text-primary ring-1 ring-primary/30',
-  suspended: 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30',
+  active: 'bg-success-soft text-success-ink',
+  invited: 'bg-secondary text-muted-foreground',
+  suspended: 'bg-warning-soft text-warning-ink',
 }
 
 /** Convite pendente cujo prazo (`expiresAt`) já passou — precisa ser reenviado. */
@@ -70,16 +71,17 @@ export function TeamView() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">EQUIPE</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Gerencie quem tem acesso à conta da agência.
-      </p>
+      <PageHeader
+        eyebrow="Conta da agência"
+        title="Equipe"
+        description="Gerencie quem tem acesso à conta da agência."
+      />
 
       {/* Convidar editor */}
       <InviteForm onInvited={upsert} />
 
       {/* Lista de membros */}
-      <h2 className="mt-10 font-display text-2xl tracking-wide">MEMBROS</h2>
+      <h2 className="mt-10 font-display text-2xl">Membros</h2>
       <div className="mt-4">
         {loading ? (
           <div className="space-y-2">
@@ -95,15 +97,15 @@ export function TeamView() {
             description="Convide um editor pelo e-mail para colaborar nos vídeos."
           />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-border">
+          <div className="overflow-x-auto rounded-2xl border border-border bg-background">
             <table className="w-full min-w-[620px] text-sm">
-              <thead className="bg-secondary/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="bg-card text-left text-xs uppercase tracking-[0.14em] text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">Nome</th>
-                  <th className="px-4 py-3 font-semibold">E-mail</th>
-                  <th className="px-4 py-3 font-semibold">Papel</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Ações</th>
+                  <th className="px-6 py-4 font-semibold">Nome</th>
+                  <th className="px-6 py-4 font-semibold">E-mail</th>
+                  <th className="px-6 py-4 font-semibold">Papel</th>
+                  <th className="px-6 py-4 font-semibold">Status</th>
+                  <th className="px-6 py-4 font-semibold">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -198,10 +200,10 @@ function InviteForm({ onInvited }: { onInvited: (m: TeamMember) => void }) {
     <form
       onSubmit={submit}
       noValidate
-      className="mt-6 rounded-xl border border-border bg-card p-4"
+      className="mt-8 rounded-2xl border border-border bg-card p-6"
     >
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <UserPlus className="size-4 text-primary" />
+      <div className="flex items-center gap-2 font-display text-lg">
+        <UserPlus className="size-5 text-primary-ink" />
         Convidar novo editor
       </div>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -216,7 +218,7 @@ function InviteForm({ onInvited }: { onInvited: (m: TeamMember) => void }) {
             aria-invalid={!!error}
             placeholder="editor@agencia.com"
             className={cn(
-              'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary',
+              'min-h-12 w-full rounded-xl border bg-background pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
               error ? 'border-destructive' : 'border-border',
             )}
           />
@@ -224,10 +226,10 @@ function InviteForm({ onInvited }: { onInvited: (m: TeamMember) => void }) {
         <button
           type="submit"
           disabled={submitting}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 font-display text-lg tracking-wide text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-base text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {submitting ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
-          CONVIDAR
+          Convidar
         </button>
       </div>
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
@@ -237,13 +239,13 @@ function InviteForm({ onInvited }: { onInvited: (m: TeamMember) => void }) {
         </p>
       )}
       {inviteUrl && (
-        <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+        <div className="mt-3 rounded-lg border border-primary-ink/30 bg-primary/5 p-3">
           <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <Link2 className="size-3.5" />
             Convite criado — envie por e-mail ou copie o link para o editor:
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <code className="flex-1 truncate rounded-md bg-background px-2.5 py-2 text-xs text-primary">
+            <code className="flex-1 truncate rounded-md bg-background px-2.5 py-2 text-xs text-primary-ink">
               {inviteUrl}
             </code>
             <button
@@ -367,7 +369,7 @@ function MemberRow({
   return (
     <>
     <tr className="text-foreground">
-      <td className="px-4 py-3 font-medium">
+      <td className="px-6 py-4 font-medium">
         <div className="flex items-center gap-2.5">
           {/* Convite pendente ainda não tem conta/foto — só o placeholder do e-mail. */}
           <ClientAvatar
@@ -378,36 +380,36 @@ function MemberRow({
           <span className={cn(!member.name && 'text-muted-foreground')}>{member.name || '—'}</span>
         </div>
       </td>
-      <td className="px-4 py-3 text-muted-foreground">{member.email}</td>
-      <td className="px-4 py-3">
+      <td className="px-6 py-4 text-muted-foreground">{member.email}</td>
+      <td className="px-6 py-4">
         <span
           className={cn(
-            'rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-            isOwner ? 'bg-primary/15 text-primary' : 'bg-secondary text-muted-foreground',
+            'rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]',
+            isOwner ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground',
           )}
         >
           {teamRoleLabel[member.teamRole]}
         </span>
       </td>
-      <td className="px-4 py-3">
+      <td className="px-6 py-4">
         <span
           className={cn(
             'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold',
             expired
-              ? 'bg-destructive/15 text-destructive ring-1 ring-destructive/30'
+              ? 'bg-danger-soft text-danger-ink'
               : statusStyles[member.status],
           )}
         >
           {expired ? 'Convite expirado' : memberStatusLabel[member.status]}
         </span>
       </td>
-      <td className="px-4 py-3">
+      <td className="px-6 py-4">
         <div className="flex flex-wrap items-center gap-2">
         {canShowSessions && (
           <button
             type="button"
             onClick={() => setSessionsOpen((v) => !v)}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary"
           >
             <Monitor className="size-3.5" />
             Sessões
@@ -462,7 +464,7 @@ function MemberRow({
                 <button
                   type="button"
                   onClick={() => setConfirming(true)}
-                  className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70"
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary"
                 >
                   <Trash2 className="size-3.5" /> Cancelar convite
                 </button>

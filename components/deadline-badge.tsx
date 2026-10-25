@@ -12,8 +12,8 @@ import { ApiError } from '@/lib/api'
 import { videoService } from '@/lib/services'
 
 const urgencyStyles: Record<DeadlineUrgency, string> = {
-  overdue: 'bg-destructive/15 text-destructive ring-1 ring-destructive/30',
-  soon: 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30',
+  overdue: 'bg-danger-soft text-danger-ink ring-1 ring-danger-border',
+  soon: 'bg-warning-soft text-warning-ink ring-1 ring-warning-border',
   ok: 'bg-secondary text-muted-foreground ring-1 ring-border',
 }
 
@@ -122,7 +122,7 @@ export function DeadlineField({
             if (e.key === 'Enter') save((e.target as HTMLInputElement).value)
             if (e.key === 'Escape') setEditing(false)
           }}
-          className="min-h-8 rounded-lg border border-border bg-secondary px-2 text-xs text-foreground outline-none focus:border-primary"
+          className="min-h-8 rounded-xl border border-border bg-card px-2 text-xs text-foreground outline-none focus:border-primary-ink"
         />
         {saving && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
         {error && <span className="text-xs text-destructive">{error}</span>}
@@ -143,7 +143,7 @@ export function DeadlineField({
     >
       <DeadlineBadge
         deadline={deadline}
-        className={cn('transition-colors hover:ring-1 hover:ring-primary/50', className)}
+        className={cn('transition-colors hover:ring-1 hover:ring-primary-ink/50', className)}
       />
     </button>
   )

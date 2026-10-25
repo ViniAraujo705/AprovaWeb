@@ -185,7 +185,7 @@ function NavLinksList({ onNavigate }: { onNavigate?: () => void }) {
     <nav className="flex flex-col">
       {modules.map((m, i) => (
         <div key={m.key} className={cn(i > 0 && 'mt-4 border-t border-sidebar-border pt-4')}>
-          <p className="lowercase px-3 pb-2 text-xs font-medium text-muted-foreground/70">{m.label}</p>
+          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">{m.label}</p>
           <div className="flex flex-col gap-1">
             {m.items.map((item) => {
               const active = itemMatchesRoute(item, pathname)
@@ -196,9 +196,9 @@ function NavLinksList({ onNavigate }: { onNavigate?: () => void }) {
                   href={item.href}
                   onClick={onNavigate}
                   className={cn(
-                    'flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors',
+                    'flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors',
                     active
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-primary font-semibold text-primary-foreground'
                       : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
                   )}
                 >
@@ -253,7 +253,7 @@ function RailUserFooter() {
     <div className="flex flex-col items-center gap-2">
       <span
         title={user?.name || user?.email || ''}
-        className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary text-xs font-bold uppercase text-foreground"
+        className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-avatar text-xs font-bold uppercase text-avatar-foreground"
       >
         {user?.photoUrl ? (
           <Image src={user.photoUrl} alt="" fill className="object-cover" sizes="32px" unoptimized />
@@ -281,9 +281,9 @@ function RailUserFooter() {
 function SidebarUserFooter() {
   const { user, logout } = useAuth()
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-sidebar-border bg-secondary/40 p-3">
+    <div className="flex flex-col gap-3 rounded-2xl border border-sidebar-border bg-background/60 p-3">
       <div className="flex min-w-0 items-center gap-2">
-        <span className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary text-xs font-bold uppercase text-foreground">
+        <span className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-avatar text-xs font-bold uppercase text-avatar-foreground">
           {user?.photoUrl ? (
             <Image src={user.photoUrl} alt="" fill className="object-cover" sizes="32px" unoptimized />
           ) : (

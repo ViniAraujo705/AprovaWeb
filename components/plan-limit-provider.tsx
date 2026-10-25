@@ -114,7 +114,7 @@ function PlanLimitModal({ reason, onClose }: { reason: string; onClose: () => vo
           <X className="size-4" />
         </button>
 
-        <div className="flex items-center gap-2 pr-8 text-sm font-medium text-primary">
+        <div className="flex items-center gap-2 pr-8 text-sm font-medium text-primary-ink">
           <Lock className="size-4" />
           Recurso do plano pago
         </div>

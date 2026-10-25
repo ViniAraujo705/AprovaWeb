@@ -164,7 +164,7 @@ export function PlanView() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 lg:py-10">
-      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">MEU PLANO</h1>
+      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">Meu plano</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Seu plano atual e o quanto você já usou de cada limite.
       </p>
@@ -176,12 +176,12 @@ export function PlanView() {
               'flex items-center gap-3 rounded-xl border p-4 text-sm',
               confirmState === 'timeout'
                 ? 'border-amber-500/30 bg-amber-500/10 text-amber-600'
-                : 'border-primary/30 bg-primary/5 text-foreground',
+                : 'border-primary-ink/30 bg-primary/5 text-foreground',
             )}
           >
             {confirmState === 'polling' ? (
               <>
-                <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
+                <Loader2 className="size-4 shrink-0 animate-spin text-primary-ink" />
                 Confirmando seu pagamento… isso pode levar alguns segundos.
               </>
             ) : (
@@ -205,7 +205,7 @@ export function PlanView() {
           <FadeIn className="mt-6" y={6}>
             <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <Gauge className="size-4 text-primary" />
+                <Gauge className="size-4 text-primary-ink" />
                 Uso do plano
               </div>
               <div className="mt-5 flex flex-col gap-5">
@@ -263,13 +263,13 @@ function PlanCard({ plan, isOwner }: { plan: PlanId; isOwner: boolean }) {
 
   return (
     <FadeIn y={6}>
-      <div className="rounded-2xl border border-primary/40 bg-primary/5 p-5 ring-1 ring-primary/20 sm:p-6">
+      <div className="rounded-2xl border border-primary-ink/40 bg-primary/5 p-5 ring-1 ring-primary-ink/20 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm font-medium">
-            <Sparkles className="size-4 text-primary" />
+            <Sparkles className="size-4 text-primary-ink" />
             Plano {pricing.name}
           </div>
-          <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+          <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-ink">
             Plano atual
           </span>
         </div>
@@ -282,7 +282,7 @@ function PlanCard({ plan, isOwner }: { plan: PlanId; isOwner: boolean }) {
         <ul className="mt-4 space-y-2">
           {pricing.features.map((feature) => (
             <li key={feature} className="flex items-start gap-2 text-sm text-foreground">
-              <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+              <Check className="mt-0.5 size-4 shrink-0 text-primary-ink" />
               {feature}
             </li>
           ))}

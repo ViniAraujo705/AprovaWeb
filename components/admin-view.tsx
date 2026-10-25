@@ -28,7 +28,7 @@ export function AdminView() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">ADMIN</h1>
+      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">Admin</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Métricas do sistema e gestão de usuários.
       </p>
@@ -71,7 +71,7 @@ export function AdminView() {
       </div>
 
       {/* Users */}
-      <h2 className="mt-10 font-display text-2xl tracking-wide">USUÁRIOS</h2>
+      <h2 className="mt-10 font-display text-2xl tracking-wide">Usuários</h2>
       <div className="mt-4">
         {users.loading ? (
           <div className="space-y-2">
@@ -206,7 +206,7 @@ function UserRow({
                 value={plan}
                 onChange={(e) => setPlan(e.target.value as PlanId)}
                 disabled={savingPlan}
-                className="min-h-8 rounded-lg border border-border bg-secondary px-2 text-xs text-foreground outline-none disabled:opacity-50"
+                className="min-h-8 rounded-xl border border-border bg-card px-2 text-xs text-foreground outline-none disabled:opacity-50"
               >
                 {(['portfolio', 'free', 'pro', 'agencia'] satisfies PlanId[]).map((p) => (
                   <option key={p} value={p}>
@@ -250,7 +250,7 @@ function MetricCard({
     <div
       className={cn(
         'rounded-xl border p-4',
-        accent ? 'border-primary/40 bg-primary/10' : 'border-border bg-card',
+        accent ? 'border-primary-ink/40 bg-primary/10' : 'border-border bg-card',
       )}
     >
       <div className="flex items-center gap-2 text-muted-foreground">
@@ -263,7 +263,7 @@ function MetricCard({
         <p
           className={cn(
             'mt-2 font-display text-3xl leading-none tracking-wide sm:text-4xl',
-            accent ? 'text-primary' : 'text-foreground',
+            accent ? 'text-primary-ink' : 'text-foreground',
           )}
         >
           {value ?? 0}

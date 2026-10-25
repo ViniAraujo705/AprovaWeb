@@ -136,7 +136,7 @@ export function PortfoliosView() {
     <div className="flex flex-1 flex-col px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-4xl tracking-wide sm:text-5xl">PORTFÓLIOS</h1>
+          <h1 className="font-display text-4xl tracking-wide sm:text-5xl">Portfólios</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Monte vitrines de vídeos e fotos em destaque e compartilhe como link público, sem
             dados de cliente.
@@ -174,7 +174,7 @@ export function PortfoliosView() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Nome do portfólio (ex: Reels para redes sociais)"
-            className="mt-3 min-h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+            className="mt-3 min-h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
           />
           <textarea
             value={description}
@@ -182,7 +182,7 @@ export function PortfoliosView() {
             placeholder="Bio do álbum (opcional)"
             rows={3}
             aria-label="Bio do álbum"
-            className="mt-2 w-full resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+            className="mt-2 w-full resize-none rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
           />
           {categoryLocked ? (
             <p className="mt-2 text-xs text-muted-foreground">
@@ -193,7 +193,7 @@ export function PortfoliosView() {
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="mt-2 min-h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+                className="mt-2 min-h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
               >
                 <option value="">Sem categoria</option>
                 {allCategories.map((c) => (
@@ -542,7 +542,7 @@ function PortfolioProfileEditModal({
             type="button"
             onClick={() => !coverBusy && coverInputRef.current?.click()}
             disabled={coverBusy}
-            className="group relative aspect-[3/1] w-full overflow-hidden rounded-lg border border-border bg-secondary disabled:opacity-70"
+            className="group relative aspect-[3/1] w-full overflow-hidden rounded-xl border border-border bg-card disabled:opacity-70"
           >
             {profile.coverUrl ? (
               <Image src={profile.coverUrl} alt="" fill className="object-cover" sizes="400px" unoptimized />
@@ -574,7 +574,7 @@ function PortfolioProfileEditModal({
             onChange={(e) => setBio(e.target.value)}
             rows={3}
             placeholder="Uma apresentação curta exibida no topo do hub público."
-            className="resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+            className="resize-none rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
           />
         </label>
 
@@ -589,13 +589,13 @@ function PortfolioProfileEditModal({
                   value={l.label}
                   onChange={(e) => updateLinkRow(l.id, { label: e.target.value })}
                   placeholder="Site, Instagram, WhatsApp..."
-                  className="min-h-9 w-28 shrink-0 rounded-lg border border-border bg-secondary px-2.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                  className="min-h-9 w-28 shrink-0 rounded-xl border border-border bg-card px-2.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
                 />
                 <input
                   value={l.url}
                   onChange={(e) => updateLinkRow(l.id, { url: e.target.value })}
                   placeholder="https://..."
-                  className="min-h-9 min-w-0 flex-1 rounded-lg border border-border bg-secondary px-2.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                  className="min-h-9 min-w-0 flex-1 rounded-xl border border-border bg-card px-2.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
                 />
                 <button
                   type="button"
@@ -628,7 +628,7 @@ function PortfolioProfileEditModal({
                 className={cn(
                   'flex flex-col gap-0.5 rounded-lg border p-2.5 text-left transition-colors',
                   templateId === opt.id
-                    ? 'border-primary bg-primary/10'
+                    ? 'border-primary-ink bg-primary/10'
                     : 'border-border bg-secondary hover:bg-secondary/70',
                 )}
               >
@@ -737,7 +737,7 @@ function CategoryTabs({
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addCategory()}
             placeholder="Nome da categoria"
-            className="min-h-8 w-40 rounded-lg border border-border bg-secondary px-2.5 text-sm text-foreground outline-none focus:border-primary"
+            className="min-h-8 w-40 rounded-xl border border-border bg-card px-2.5 text-sm text-foreground outline-none focus:border-primary-ink"
           />
           <button
             type="button"
@@ -1015,7 +1015,7 @@ function CategoryTabMenu({
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && save()}
-                      className="min-h-8 w-full min-w-0 rounded-lg border border-border bg-secondary px-2.5 text-sm text-foreground outline-none focus:border-primary"
+                      className="min-h-8 w-full min-w-0 rounded-xl border border-border bg-card px-2.5 text-sm text-foreground outline-none focus:border-primary-ink"
                     />
                     <button
                       type="button"
@@ -1187,7 +1187,7 @@ function NewGalleryCard({ onClick }: { onClick: () => void }) {
       type="button"
       variants={staggerItem}
       onClick={onClick}
-      className="flex aspect-[4/5] w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+      className="flex aspect-[4/5] w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border text-muted-foreground transition-colors hover:border-primary-ink hover:text-foreground"
     >
       <Plus className="size-5" />
       <span className="text-xs font-medium">Nova galeria</span>

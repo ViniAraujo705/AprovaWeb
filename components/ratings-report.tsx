@@ -218,7 +218,7 @@ export function RatingsReportView() {
   }
 
   const selectClass =
-    'min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary'
+    'min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink'
 
   return (
     <>
@@ -227,7 +227,7 @@ export function RatingsReportView() {
           type="button"
           onClick={exportCsv}
           disabled={ratings.length === 0}
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-secondary px-3 text-sm font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
         >
           <Download className="size-4" /> CSV
         </button>
@@ -385,7 +385,7 @@ export function RatingsReportView() {
                           <button
                             type="button"
                             onClick={() => setClientFilter(c.key)}
-                            className="text-left font-medium text-foreground hover:text-primary hover:underline"
+                            className="text-left font-medium text-foreground hover:text-primary-ink hover:underline"
                           >
                             {c.name}
                           </button>
@@ -475,7 +475,7 @@ export function RatingsReportView() {
                   <button
                     type="button"
                     onClick={() => setShowAllLow((v) => !v)}
-                    className="mt-2 text-xs font-medium text-primary hover:underline print:hidden"
+                    className="mt-2 text-xs font-medium text-primary-ink hover:underline print:hidden"
                   >
                     {showAllLow ? 'Mostrar menos' : `Ver todas (${lowDeliveries.length})`}
                   </button>

@@ -1,20 +1,11 @@
 import Image from 'next/image'
 
-// Paleta fixa (independente do tema) pra manter contraste com o texto branco
-// das iniciais tanto no claro quanto no escuro.
+// Tons da identidade Check (sálvia, lima e pedra), como nos cards de cliente
+// do layout — cada um já com a cor de texto que dá contraste nos dois temas.
 const AVATAR_COLORS = [
-  'bg-rose-500',
-  'bg-orange-500',
-  'bg-amber-500',
-  'bg-lime-600',
-  'bg-emerald-500',
-  'bg-teal-500',
-  'bg-cyan-500',
-  'bg-blue-500',
-  'bg-indigo-500',
-  'bg-violet-500',
-  'bg-fuchsia-500',
-  'bg-pink-500',
+  'bg-avatar text-avatar-foreground',
+  'bg-primary text-primary-foreground',
+  'bg-border text-primary-ink',
 ]
 
 function hashToIndex(input: string, length: number): number {
@@ -36,6 +27,7 @@ const SIZE_CLASSES = {
   sm: 'size-6 text-[10px]',
   md: 'size-8 text-xs',
   lg: 'size-10 text-sm',
+  xl: 'size-12 text-base',
 } as const
 
 /**
@@ -69,7 +61,7 @@ export function ClientAvatar({
   const colorClass = AVATAR_COLORS[hashToIndex(seed || name, AVATAR_COLORS.length)]
   return (
     <span
-      className={`grid shrink-0 place-items-center rounded-full font-bold text-white ${sizeClasses} ${colorClass} ${className}`}
+      className={`grid shrink-0 place-items-center rounded-full font-bold ${sizeClasses} ${colorClass} ${className}`}
     >
       {initials(name)}
     </span>

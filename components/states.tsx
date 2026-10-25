@@ -1,4 +1,5 @@
-import { Loader2, AlertTriangle, Inbox } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
+import { Gesture } from '@/components/gestures'
 import { cn } from '@/lib/utils'
 
 /** Spinner centralizado para carregamentos de página. */
@@ -24,11 +25,11 @@ export function ErrorState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-12 text-center',
+        'flex flex-col items-center justify-center gap-3 rounded-2xl border border-danger-border bg-danger-soft px-6 py-12 text-center',
         className,
       )}
     >
-      <AlertTriangle className="size-6 text-destructive" />
+      <Gesture state="critical" className="h-16 w-auto" />
       <p className="max-w-sm text-sm text-muted-foreground">{message}</p>
       {onRetry && (
         <button
@@ -60,13 +61,13 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-card px-6 py-14 text-center',
+        'flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card px-6 py-14 text-center',
         className,
       )}
     >
-      <span className="text-muted-foreground">{icon ?? <Inbox className="size-7" />}</span>
+      <span className="text-muted-foreground">{icon ?? <Gesture state="empty" className="h-16 w-auto" />}</span>
       <div>
-        <p className="font-medium text-foreground">{title}</p>
+        <p className="font-display text-lg text-foreground">{title}</p>
         {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
       </div>
       {action}

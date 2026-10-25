@@ -104,7 +104,7 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 font-display text-sm tracking-wide text-foreground ring-1 ring-border">
             <Users className="size-3.5" />
-            CANAL DO CLIENTE
+            Canal do cliente
           </span>
           <span className="text-xs text-muted-foreground">
             Você está vendo o que o cliente vê. Suas respostas aparecem para ele.
@@ -124,7 +124,7 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
           </div>
           <Link
             href={`/videos/${videoId}/revisao`}
-            className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary/15 px-3 text-xs font-medium text-primary hover:bg-primary/25"
+            className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary/15 px-3 text-xs font-medium text-primary-ink hover:bg-primary/25"
           >
             <Lock className="size-3.5" />
             Ir para a revisão interna
@@ -160,7 +160,7 @@ export function ClientChannelView({ videoId }: { videoId: string }) {
           />
 
           <h2 className="mt-6 font-display text-2xl tracking-wide">
-            CONVERSA COM O CLIENTE ({sorted.length})
+            Conversa com o cliente ({sorted.length})
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
             Os ajustes enviados pelo cliente também aparecem automaticamente na revisão interna.
@@ -234,9 +234,9 @@ function ReplyComposer({
   }
 
   return (
-    <div className="rounded-xl border border-primary/40 bg-primary/5 p-4">
+    <div className="rounded-xl border border-primary-ink/40 bg-primary/5 p-4">
       <div className="flex items-center gap-2 text-sm font-medium">
-        <Reply className="size-4 text-primary" />
+        <Reply className="size-4 text-primary-ink" />
         Responder ao cliente em {formatDuration(timestamp)}
       </div>
       <textarea
@@ -244,17 +244,17 @@ function ReplyComposer({
         onChange={(e) => setDraft(e.target.value)}
         placeholder="Escreva uma resposta pública para o cliente…"
         rows={2}
-        className="mt-2 w-full resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+        className="mt-2 w-full resize-none rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
       />
       {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
       <button
         type="button"
         onClick={submit}
         disabled={!draft.trim() || posting}
-        className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary font-display text-lg tracking-wide text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+        className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-base text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
       >
         {posting && <Loader2 className="size-4 animate-spin" />}
-        RESPONDER COMO AGÊNCIA
+        Responder como agência
       </button>
       <AnimatePresence>
         {sent && (

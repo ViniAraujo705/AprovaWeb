@@ -288,7 +288,7 @@ export function CheckDayView() {
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-4xl tracking-wide sm:text-5xl">CHECKDAY</h1>
+          <h1 className="font-display text-4xl tracking-wide sm:text-5xl">CheckDay</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Notas, listas e prioridades do seu dia — salvas na sua conta, iguais no computador e no
             celular.

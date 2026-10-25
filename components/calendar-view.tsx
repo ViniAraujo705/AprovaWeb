@@ -54,48 +54,26 @@ import { FadeIn, motion, AnimatePresence } from '@/components/motion'
 import { toast } from '@/lib/toast'
 import { cn, shortName } from '@/lib/utils'
 import { downloadIcs } from '@/lib/ics'
+import { PageHeader } from '@/components/page-header'
 
+// Chips em tons pastel com texto escuro e ponto colorido, como no layout da
+// identidade Check. Âmbar/coral/lima seguem os tokens de status.
 const CALENDAR_TYPE_META: Record<
   CalendarActivityType,
   { icon: typeof Video; chipBg: string; chipText: string; dot: string }
 > = {
-  gravacao: { icon: Video, chipBg: 'bg-primary/15 hover:bg-primary/25', chipText: 'text-primary', dot: 'bg-primary' },
-  captacao: {
-    icon: Camera,
-    chipBg: 'bg-sky-500/15 hover:bg-sky-500/25',
-    chipText: 'text-sky-600 dark:text-sky-400',
-    dot: 'bg-sky-500',
-  },
-  ensaio: {
-    icon: UsersIcon,
-    chipBg: 'bg-violet-500/15 hover:bg-violet-500/25',
-    chipText: 'text-violet-600 dark:text-violet-400',
-    dot: 'bg-violet-500',
-  },
-  reuniao: {
-    icon: MessagesSquare,
-    chipBg: 'bg-amber-500/15 hover:bg-amber-500/25',
-    chipText: 'text-amber-600 dark:text-amber-400',
-    dot: 'bg-amber-500',
-  },
-  entrega: {
-    icon: Package,
-    chipBg: 'bg-emerald-500/15 hover:bg-emerald-500/25',
-    chipText: 'text-emerald-600 dark:text-emerald-400',
-    dot: 'bg-emerald-500',
-  },
-  prazo: { icon: Flag, chipBg: 'bg-destructive/15 hover:bg-destructive/25', chipText: 'text-destructive', dot: 'bg-destructive' },
-  evento: {
-    icon: PartyPopper,
-    chipBg: 'bg-pink-500/15 hover:bg-pink-500/25',
-    chipText: 'text-pink-600 dark:text-pink-400',
-    dot: 'bg-pink-500',
-  },
+  gravacao: { icon: Video, chipBg: 'bg-secondary hover:bg-secondary/70', chipText: 'text-foreground', dot: 'bg-foreground' },
+  captacao: { icon: Camera, chipBg: 'bg-sky-400/20 hover:bg-sky-400/30', chipText: 'text-foreground', dot: 'bg-sky-400' },
+  ensaio: { icon: UsersIcon, chipBg: 'bg-violet-400/20 hover:bg-violet-400/30', chipText: 'text-foreground', dot: 'bg-violet-400' },
+  reuniao: { icon: MessagesSquare, chipBg: 'bg-warning-soft hover:bg-warning/30', chipText: 'text-foreground', dot: 'bg-warning' },
+  entrega: { icon: Package, chipBg: 'bg-success-soft hover:bg-primary/40', chipText: 'text-foreground', dot: 'bg-primary' },
+  prazo: { icon: Flag, chipBg: 'bg-danger-soft hover:bg-danger/25', chipText: 'text-foreground', dot: 'bg-danger' },
+  evento: { icon: PartyPopper, chipBg: 'bg-pink-400/20 hover:bg-pink-400/30', chipText: 'text-foreground', dot: 'bg-pink-400' },
   demanda_interna: {
     icon: ClipboardList,
-    chipBg: 'bg-indigo-500/15 hover:bg-indigo-500/25',
-    chipText: 'text-indigo-600 dark:text-indigo-400',
-    dot: 'bg-indigo-500',
+    chipBg: 'bg-secondary hover:bg-secondary/70',
+    chipText: 'text-foreground',
+    dot: 'bg-chart-2',
   },
 }
 
@@ -216,18 +194,16 @@ export function CalendarView() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:py-10">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-4xl tracking-wide sm:text-5xl">CALENDÁRIO</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Organize gravações, entregas, reuniões e prazos da equipe.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader
+        eyebrow="Agenda da equipe"
+        title="Calendário"
+        description="Organize gravações, entregas, reuniões e prazos da equipe."
+        actions={
+        <>
           <button
             type="button"
             onClick={() => setGoogleOpen(true)}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary"
           >
             {googleConnected ? (
               <CalendarCheck className="size-4 text-emerald-500" />
@@ -239,27 +215,28 @@ export function CalendarView() {
           <button
             type="button"
             onClick={() => setExportOpen(true)}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-secondary px-4 text-sm font-medium text-foreground hover:bg-secondary/70"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary"
           >
             <Download className="size-4" /> Exportar
           </button>
           <button
             type="button"
             onClick={() => setModal({ date: new Date(), event: null })}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 font-display text-base text-primary-foreground hover:opacity-90"
           >
             <Plus className="size-4" /> Nova atividade
           </button>
-        </div>
-      </div>
+        </>
+        }
+      />
 
-      <div className="mt-6 flex items-center justify-between gap-3">
+      <div className="mt-8 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => shiftMonth(-1)}
             aria-label="Mês anterior"
-            className="grid size-9 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="grid size-10 place-items-center rounded-xl border border-border bg-card text-foreground hover:bg-secondary"
           >
             <ChevronLeft className="size-4" />
           </button>
@@ -267,16 +244,16 @@ export function CalendarView() {
             type="button"
             onClick={() => shiftMonth(1)}
             aria-label="Próximo mês"
-            className="grid size-9 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="grid size-10 place-items-center rounded-xl border border-border bg-card text-foreground hover:bg-secondary"
           >
             <ChevronRight className="size-4" />
           </button>
-          <h2 className="ml-2 text-lg font-semibold text-foreground">{monthLabel}</h2>
+          <h2 className="ml-3 font-display text-2xl text-foreground first-letter:uppercase">{monthLabel}</h2>
         </div>
         <button
           type="button"
           onClick={goToday}
-          className="inline-flex min-h-9 items-center rounded-lg bg-secondary px-3 text-sm font-medium text-foreground hover:bg-secondary/70"
+          className="inline-flex min-h-10 items-center rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary"
         >
           Hoje
         </button>
@@ -293,13 +270,13 @@ export function CalendarView() {
               onClick={() => toggleType(t)}
               aria-pressed={active}
               className={cn(
-                'inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors',
+                'inline-flex min-h-9 items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors',
                 active
                   ? cn('border-transparent', meta.chipBg, meta.chipText)
-                  : 'border-border bg-secondary text-muted-foreground hover:text-foreground',
+                  : 'border-border bg-transparent text-muted-foreground line-through decoration-muted-foreground/50 hover:text-foreground',
               )}
             >
-              <meta.icon className="size-3.5" />
+              <span className={cn('size-2 rounded-full', meta.dot)} aria-hidden="true" />
               {CALENDAR_ACTIVITY_TYPE_LABEL[t]}
             </button>
           )
@@ -315,14 +292,14 @@ export function CalendarView() {
           <ErrorState message={error} onRetry={refetch} />
         </div>
       ) : (
-        <FadeIn className="mt-4 overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-sm">
+        <FadeIn className="mt-4 overflow-hidden rounded-2xl border border-border bg-card text-foreground">
           <div className="overflow-x-auto">
             <div className="min-w-[760px]">
-              <div className="grid grid-cols-[repeat(7,minmax(108px,1fr))] border-b border-border bg-secondary">
+              <div className="grid grid-cols-[repeat(7,minmax(108px,1fr))] border-b border-border bg-card">
                 {WEEKDAYS.map((w) => (
                   <div
                     key={w}
-                    className="px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide text-muted-foreground"
+                    className="px-2 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground"
                   >
                     {w}
                   </div>
@@ -338,8 +315,8 @@ export function CalendarView() {
                     <div
                       key={key}
                       className={cn(
-                        'flex min-h-[92px] flex-col items-stretch gap-1 border-b border-r border-border p-1.5 text-left last:border-r-0 sm:min-h-[110px] sm:p-2',
-                        !inMonth && 'bg-secondary/50 text-muted-foreground',
+                        'flex min-h-[92px] flex-col items-stretch gap-1.5 border-b border-r border-border p-1.5 text-left last:border-r-0 sm:min-h-[120px] sm:p-2.5',
+                        !inMonth && 'bg-background/60 text-muted-foreground',
                       )}
                     >
                       <button
@@ -347,9 +324,9 @@ export function CalendarView() {
                         onClick={() => setModal({ date: d, event: null })}
                         aria-label={`Adicionar atividade em ${d.toLocaleDateString('pt-BR')}`}
                         className={cn(
-                          'inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-[11px] font-bold transition-colors hover:bg-secondary',
+                          'inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-xs font-semibold transition-colors hover:bg-secondary',
                           isToday
-                            ? 'bg-foreground text-background hover:bg-foreground/85'
+                            ? 'bg-primary text-primary-foreground hover:bg-primary/85'
                             : inMonth
                               ? 'text-foreground'
                               : 'text-muted-foreground',
@@ -368,12 +345,12 @@ export function CalendarView() {
                               type="button"
                               onClick={() => setModal({ date: new Date(ev.startAt), event: ev })}
                               className={cn(
-                                'flex flex-col rounded-sm border border-border px-1.5 py-1 text-left text-foreground transition-colors',
+                                'flex flex-col rounded-lg px-2 py-1.5 text-left text-foreground transition-colors',
                                 CALENDAR_TYPE_META[ev.type].chipBg,
                               )}
                               title={[ev.title, extra].filter(Boolean).join(' — ')}
                             >
-                              <span className="flex min-w-0 items-start gap-1 text-[10px] font-bold leading-[1.2] sm:text-[11px]">
+                              <span className="flex min-w-0 items-start gap-1.5 text-[10px] font-semibold leading-[1.25] sm:text-xs">
                                 <span
                                   className={cn(
                                     'mt-0.5 size-1.5 shrink-0 rounded-full',
@@ -636,7 +613,7 @@ function ExportModal({
           <select
             value={period}
             onChange={(e) => setPeriod(e.target.value as ExportPeriod)}
-            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+            className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
           >
             <option value="week">Semana atual</option>
             <option value="month">Mês em exibição ({monthLabel})</option>
@@ -649,7 +626,7 @@ function ExportModal({
           <select
             value={crewId}
             onChange={(e) => setCrewId(e.target.value)}
-            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+            className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
           >
             <option value="">Todos</option>
             {crewRoster.map((m) => (
@@ -665,7 +642,7 @@ function ExportModal({
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as CalendarActivityType | '')}
-            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+            className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
           >
             <option value="">Todos</option>
             {CALENDAR_ACTIVITY_TYPES.map((t) => (
@@ -917,7 +894,7 @@ function DateTimeField({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex min-h-11 w-full items-center gap-1.5 rounded-lg border border-border bg-secondary px-2 text-left text-sm outline-none focus:border-primary"
+        className="flex min-h-11 w-full items-center gap-1.5 rounded-xl border border-border bg-card px-2 text-left text-sm outline-none focus:border-primary-ink"
       >
         <span className={cn('flex-1 truncate', parsed ? 'text-foreground' : 'text-muted-foreground')}>{displayLabel}</span>
       </button>
@@ -989,7 +966,7 @@ function DateTimeField({
                   <select
                     value={(parsed ?? new Date()).getHours()}
                     onChange={(e) => setTime(Number(e.target.value), (parsed ?? new Date()).getMinutes())}
-                    className="min-h-9 flex-1 rounded-lg border border-border bg-secondary px-1.5 text-sm text-foreground outline-none focus:border-primary"
+                    className="min-h-9 flex-1 rounded-xl border border-border bg-card px-1.5 text-sm text-foreground outline-none focus:border-primary-ink"
                   >
                     {Array.from({ length: 24 }, (_, h) => (
                       <option key={h} value={h}>
@@ -1001,7 +978,7 @@ function DateTimeField({
                   <select
                     value={(parsed ?? new Date()).getMinutes()}
                     onChange={(e) => setTime((parsed ?? new Date()).getHours(), Number(e.target.value))}
-                    className="min-h-9 flex-1 rounded-lg border border-border bg-secondary px-1.5 text-sm text-foreground outline-none focus:border-primary"
+                    className="min-h-9 flex-1 rounded-xl border border-border bg-card px-1.5 text-sm text-foreground outline-none focus:border-primary-ink"
                   >
                     {Array.from({ length: 60 }, (_, m) => (
                       <option key={m} value={m}>
@@ -1289,7 +1266,7 @@ function EventModal({
               setType(next)
               if (next !== 'demanda_interna') setDemandId(null)
             }}
-            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+            className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
           >
             {CALENDAR_ACTIVITY_TYPES.map((t) => (
               <option key={t} value={t}>
@@ -1319,7 +1296,7 @@ function EventModal({
                 setTitle(demand.title)
                 setClientId(demand.clientId ?? '')
               }}
-              className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+              className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
             >
               <option value="">Nenhuma — criar avulsa</option>
               {demands.map((d) => (
@@ -1340,7 +1317,7 @@ function EventModal({
             aria-invalid={!!titleError}
             disabled={!!demandId}
             className={cn(
-              'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary disabled:opacity-60',
+              'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink disabled:opacity-60',
               titleError ? 'border-destructive' : 'border-border',
             )}
           />
@@ -1373,7 +1350,7 @@ function EventModal({
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             disabled={!!demandId}
-            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-60"
+            className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink disabled:opacity-60"
           >
             <option value="">Sem cliente</option>
             {clients.map((c) => (
@@ -1445,7 +1422,7 @@ function EventModal({
                   className={cn(
                     'inline-flex min-h-8 items-center gap-1 rounded-full border px-3 text-xs font-medium transition-colors',
                     selected
-                      ? 'border-primary bg-primary/15 text-primary'
+                      ? 'border-primary-ink bg-primary/15 text-primary-ink'
                       : 'border-border bg-secondary text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -1499,7 +1476,7 @@ function EventModal({
                   if (e.target.value) addTeamMember(e.target.value)
                 }}
                 disabled={addingMemberId !== null}
-                className="min-h-9 flex-1 rounded-lg border border-border bg-secondary px-2 text-sm text-foreground outline-none focus:border-primary disabled:opacity-60"
+                className="min-h-9 flex-1 rounded-xl border border-border bg-card px-2 text-sm text-foreground outline-none focus:border-primary-ink disabled:opacity-60"
               >
                 <option value="">+ Vincular conta da equipe…</option>
                 {teamMembers
@@ -1524,7 +1501,7 @@ function EventModal({
                 }
               }}
               placeholder="Adicionar pessoa (não precisa ter conta no Aprova)"
-              className="min-h-9 flex-1 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+              className="min-h-9 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
             />
             <button
               type="button"
@@ -1546,7 +1523,7 @@ function EventModal({
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
             placeholder="Endereço, equipamento, observações…"
-            className="resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+            className="resize-none rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
           />
         </label>
 

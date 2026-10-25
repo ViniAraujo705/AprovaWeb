@@ -54,7 +54,7 @@ export function NotificationsView() {
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-4xl tracking-wide sm:text-5xl">NOTIFICAÇÕES</h1>
+          <h1 className="font-display text-4xl tracking-wide sm:text-5xl">Notificações</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Comentários, aprovações, ajustes e avaliações dos seus clientes.
           </p>
@@ -67,7 +67,7 @@ export function NotificationsView() {
             className={cn(
               'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
               unreadOnly
-                ? 'border-primary bg-primary/10 text-primary'
+                ? 'border-primary-ink bg-primary/10 text-primary-ink'
                 : 'border-border text-muted-foreground hover:text-foreground',
             )}
           >
@@ -77,7 +77,7 @@ export function NotificationsView() {
             <button
               type="button"
               onClick={markAllRead}
-              className="text-xs font-medium text-primary hover:underline"
+              className="text-xs font-medium text-primary-ink hover:underline"
             >
               Marcar tudo como lido
             </button>
@@ -114,7 +114,7 @@ export function NotificationsView() {
                     }}
                     className={cn(
                       'flex items-start gap-4 rounded-xl border border-border bg-card px-4 py-3.5 text-sm transition-colors hover:bg-secondary/60',
-                      !n.read && 'border-primary/30 bg-primary/5',
+                      !n.read && 'border-primary-ink/30 bg-primary/5',
                     )}
                   >
                     <div className="relative size-12 shrink-0 overflow-hidden rounded-lg bg-secondary">

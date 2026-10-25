@@ -3,8 +3,8 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, Film, Download, AlertTriangle, Share2, Check, X, Info, Package } from 'lucide-react'
-import type { ProjectGallery } from '@/lib/types'
+import { Loader2, Film, Download, AlertTriangle, Share2, Check, X, Info, Package, Play } from 'lucide-react'
+import type { GalleryVideoItem, ProjectGallery } from '@/lib/types'
 import { publicService } from '@/lib/services'
 import { AgencyLogo } from '@/components/agency-logo'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -15,6 +15,7 @@ import { useBrandAccentStyle } from '@/lib/theme'
 import { toast } from '@/lib/toast'
 import { publicUrl } from '@/lib/site'
 import { cn } from '@/lib/utils'
+import { Gesture } from '@/components/gestures'
 
 const GALLERY_ONBOARDING_SEEN_KEY = 'aprova_gallery_onboarding_seen'
 
@@ -42,6 +43,8 @@ export function ProjectGalleryView({
 }) {
   const brandAccent = useBrandAccentStyle(gallery.branding?.accentColor)
   const count = gallery.videos.length
+  const checkedCount = gallery.videos.filter((v) => v.status === 'aprovado').length
+  const waitingCount = gallery.videos.filter((v) => v.status === 'pendente').length
 
   // Seleção múltipla, para o cliente baixar vários vídeos de uma vez. A
   // galeria pública só traz `link`/`posterUrl` por vídeo (resposta enxuta) —
@@ -272,13 +275,18 @@ export function ProjectGalleryView({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/90 px-4 py-3 backdrop-blur"
+        className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/90 px-4 py-4 backdrop-blur sm:px-8"
       >
         <AgencyLogo branding={gallery.branding} />
         <div className="flex shrink-0 items-center gap-2">
+          {gallery.branding?.agencyName && (
+            <span className="hidden truncate text-sm text-muted-foreground md:inline">
+              Enviado por <span className="font-semibold text-foreground">{gallery.branding.agencyName}</span>
+            </span>
+          )}
           {gallery.clientName && (
             <span
-              className="min-w-0 shrink truncate rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground"
+              className="min-w-0 shrink truncate rounded-full bg-accent px-3.5 py-1.5 text-sm font-medium text-accent-foreground"
               title={gallery.clientName}
             >
               {gallery.clientName}
@@ -319,7 +327,7 @@ export function ProjectGalleryView({
             exit={{ opacity: 0, y: -8 }}
             className="fixed left-1/2 top-4 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-xl sm:w-auto sm:min-w-96"
           >
-            <span className={cn('grid size-9 shrink-0 place-items-center rounded-lg', downloadStatus.phase === 'preparing' ? 'bg-primary/15 text-primary' : 'bg-emerald-500/15 text-emerald-500')}>
+            <span className={cn('grid size-9 shrink-0 place-items-center rounded-lg', downloadStatus.phase === 'preparing' ? 'bg-primary/15 text-primary-ink' : 'bg-emerald-500/15 text-emerald-500')}>
               {downloadStatus.phase === 'preparing' ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
             </span>
             <div className="min-w-0 flex-1">
@@ -352,8 +360,8 @@ export function ProjectGalleryView({
             className="overflow-hidden"
           >
             <div className="mx-auto flex max-w-6xl items-start gap-3 px-4 pt-4 sm:px-6">
-              <div className="flex flex-1 items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
-                <Info className="mt-0.5 size-4 shrink-0 text-primary" />
+              <div className="flex flex-1 items-start gap-3 rounded-xl border border-primary-ink/30 bg-primary/5 p-3">
+                <Info className="mt-0.5 size-4 shrink-0 text-primary-ink" />
                 <p className="flex-1 text-xs text-muted-foreground sm:text-sm">
                   <span className="font-medium text-foreground">Como funciona: </span>
                   toque em um vídeo para assistir, comentar em pontos específicos, avaliar com
@@ -375,21 +383,72 @@ export function ProjectGalleryView({
       </AnimatePresence>
 
       <FadeIn className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              {count} {count === 1 ? 'vídeo' : 'vídeos'} para aprovação
+        {/* Hero verde-profundo: quanto falta checar + gesto do check. */}
+        <section className="relative overflow-hidden rounded-3xl bg-deep px-6 py-8 text-deep-foreground sm:px-12 sm:py-12">
+          <div className="relative z-[1] max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+              {waitingCount > 0
+                ? `${waitingCount} ${waitingCount === 1 ? 'vídeo esperando' : 'vídeos esperando'} seu check`
+                : count > 0
+                  ? 'Tudo checado'
+                  : 'Galeria do projeto'}
             </p>
-            <h1 className="mt-1 font-display text-4xl leading-none tracking-wide sm:text-5xl">
-              {gallery.projectName || 'Vídeos'}
+            <h1 className="mt-4 font-display text-4xl leading-[1.05] sm:text-6xl">
+              {[gallery.projectName || 'Vídeos', gallery.clientName].filter(Boolean).join(', ')}
             </h1>
+            <p className="mt-4 text-base text-deep-muted sm:text-lg">
+              Assista, comente no ponto exato e dê seu check em cada vídeo. Se algo precisar mudar, é só pedir
+              ajuste.
+            </p>
+            {count > 0 && (
+              <>
+                <div className="mt-6 flex max-w-sm gap-1.5" aria-hidden="true">
+                  {gallery.videos.map((v, i) => (
+                    <span
+                      key={v.link}
+                      className={cn('h-1.5 flex-1 rounded-full', i < checkedCount ? 'bg-primary' : 'bg-white/15')}
+                    />
+                  ))}
+                </div>
+                <p className="mt-3 text-sm text-deep-muted">
+                  <span className="font-semibold text-primary">
+                    {checkedCount} de {count}
+                  </span>{' '}
+                  já {checkedCount === 1 ? 'checado' : 'checados'}
+                </p>
+              </>
+            )}
           </div>
+          <Gesture
+            state="approved"
+            onDeep
+            className="pointer-events-none absolute -bottom-6 right-6 hidden h-64 w-auto opacity-95 md:block lg:right-16"
+          />
+        </section>
+
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
+          <ol className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-foreground">
+            <li className="flex items-center gap-2">
+              <span className="grid size-7 place-items-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">1</span>
+              Toque no vídeo para assistir
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="grid size-7 place-items-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">2</span>
+              Comente no ponto exato
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="grid size-7 place-items-center rounded-full bg-primary text-primary-foreground">
+                <Check className="size-3.5" strokeWidth={3} />
+              </span>
+              Avalie e dê seu check
+            </li>
+          </ol>
           {count > 0 && (
             <div className="flex flex-wrap items-center gap-3">
               <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
                 <input
                   type="checkbox"
-                  className="size-4 accent-primary"
+                  className="size-4 accent-primary-ink"
                   checked={selected.size > 0 && selected.size === selectableVideos.length}
                   onChange={toggleSelectAll}
                 />
@@ -399,7 +458,7 @@ export function ProjectGalleryView({
                 <button
                   type="button"
                   onClick={selectApproved}
-                  className="inline-flex min-h-9 items-center justify-center rounded-lg bg-secondary px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70"
+                  className="inline-flex min-h-10 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
                 >
                   Selecionar aprovados ({approvedVideos.length})
                 </button>
@@ -467,10 +526,10 @@ export function ProjectGalleryView({
                 <motion.div
                   key={v.link}
                   variants={staggerItem}
-                  className={`group relative overflow-hidden rounded-xl border bg-card transition-colors ${
+                  className={`group relative overflow-hidden rounded-2xl border bg-card transition-colors ${
                     selected.has(v.link)
-                      ? 'border-primary ring-2 ring-primary/50'
-                      : 'border-border hover:border-primary/50'
+                      ? 'border-primary-ink ring-2 ring-primary-ink/50'
+                      : 'border-border hover:border-primary-ink/50'
                   }`}
                 >
                   {/*
@@ -493,7 +552,7 @@ export function ProjectGalleryView({
                     onTouchMove={handlePressEnd}
                     onContextMenu={(e) => e.preventDefault()}
                   />
-                  <div className="relative aspect-video w-full overflow-hidden bg-secondary">
+                  <div className="relative aspect-video w-full overflow-hidden bg-[#3c533c]">
                     {v.posterUrl ? (
                       <Image
                         src={v.posterUrl}
@@ -504,8 +563,10 @@ export function ProjectGalleryView({
                         unoptimized
                       />
                     ) : (
-                      <span className="grid h-full w-full place-items-center text-muted-foreground/60">
-                        <Film className="size-6" />
+                      <span className="grid h-full w-full place-items-center">
+                        <span className="grid size-14 place-items-center rounded-full bg-[#ebece7] text-[#253326] shadow-sm">
+                          <Play className="ml-0.5 size-5 fill-current" />
+                        </span>
                       </span>
                     )}
                     {v.processingStatus === 'processando' && (
@@ -523,20 +584,20 @@ export function ProjectGalleryView({
                         aria-label={`Selecionar ${v.title} para baixar`}
                         checked={selected.has(v.link)}
                         onChange={() => toggleSelected(v.link)}
-                        className="absolute right-2 top-2 z-[2] size-4 cursor-pointer accent-primary"
+                        className="absolute right-3 top-3 z-[2] size-5 cursor-pointer accent-primary-ink"
                       />
                     )}
-                    <div className="absolute left-2 top-2">
-                      <StatusBadge status={v.status} />
+                    <div className="absolute left-3 top-3">
+                      <GalleryStatusPill status={v.status} />
                     </div>
                     {v.version > 1 && (
-                      <span className="absolute bottom-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                      <span className="absolute bottom-3 right-3 rounded-md bg-[#17201a] px-1.5 py-0.5 text-[11px] font-semibold text-white">
                         v{v.version}
                       </span>
                     )}
                   </div>
-                  <div className="p-3">
-                    <h3 className="truncate text-sm font-medium text-foreground" title={v.title}>
+                  <div className="px-5 py-4">
+                    <h3 className="truncate font-display text-base font-bold text-foreground" title={v.title}>
                       {v.title}
                     </h3>
                   </div>
@@ -570,7 +631,7 @@ export function ProjectGalleryView({
               transition={{ duration: 0.2 }}
             >
               <div className="flex items-start gap-3">
-                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary-ink">
                   <Package className="size-5" />
                 </span>
                 <div>
@@ -609,5 +670,28 @@ export function ProjectGalleryView({
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+/** Selo do card na galeria do cliente — linguagem do check ("Deu check", "Esperando seu check"). */
+function GalleryStatusPill({ status }: { status: GalleryVideoItem['status'] }) {
+  if (status === 'aprovado') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">
+        <Check className="size-3" strokeWidth={3} /> Deu check
+      </span>
+    )
+  }
+  if (status === 'ajuste') {
+    return (
+      <span className="inline-flex items-center rounded-full bg-danger px-3 py-1 text-xs font-semibold text-danger-foreground">
+        Ajuste pedido
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center rounded-full bg-[#ebece7] px-3 py-1 text-xs font-semibold text-[#253326]">
+      Esperando seu check
+    </span>
   )
 }

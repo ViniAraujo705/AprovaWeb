@@ -20,7 +20,7 @@ import { useQuery } from '@/lib/use-query'
 export function IntegrationsView() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-10">
-      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">INTEGRAÇÕES</h1>
+      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">Integrações</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         O Check conversa com as ferramentas que já fazem parte da rotina da sua equipe, reduzindo
         a necessidade de alternar entre várias plataformas.
@@ -93,7 +93,7 @@ function StatusBadge({ connected }: { connected: boolean }) {
 
 function ComingSoonBadge() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+    <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-ink">
       <Clock className="size-3" /> Em breve
     </span>
   )
@@ -177,7 +177,7 @@ function WhatsAppCard() {
               >
                 <input
                   type="checkbox"
-                  className="size-4 accent-primary"
+                  className="size-4 accent-primary-ink"
                   checked={notify[item.key]}
                   onChange={(e) => setNotify((prev) => ({ ...prev, [item.key]: e.target.checked }))}
                 />

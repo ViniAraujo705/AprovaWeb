@@ -340,7 +340,7 @@ function CpfCnpjModal({
       >
         <div className="border-b border-border px-5 py-5 sm:px-6">
           <div className="flex items-center gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/15 text-primary">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/15 text-primary-ink">
               <CreditCard className="size-5" />
             </span>
             <div>
@@ -359,11 +359,11 @@ function CpfCnpjModal({
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-foreground" htmlFor="checkout-cpf-cnpj">CPF ou CNPJ</label>
-                <input id="checkout-cpf-cnpj" type="text" inputMode="numeric" autoFocus value={payer.cpfCnpj} onChange={(e) => updatePayer('cpfCnpj', e.target.value)} placeholder="Somente números" disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+                <input id="checkout-cpf-cnpj" type="text" inputMode="numeric" autoFocus value={payer.cpfCnpj} onChange={(e) => updatePayer('cpfCnpj', e.target.value)} placeholder="Somente números" disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground" htmlFor="checkout-phone-number">Telefone com DDD</label>
-                <input id="checkout-phone-number" type="tel" inputMode="tel" value={payer.phoneNumber} onChange={(e) => updatePayer('phoneNumber', e.target.value)} placeholder="Ex.: 85999999999" disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+                <input id="checkout-phone-number" type="tel" inputMode="tel" value={payer.phoneNumber} onChange={(e) => updatePayer('phoneNumber', e.target.value)} placeholder="Ex.: 85999999999" disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
               </div>
             </div>
           </section>
@@ -376,23 +376,23 @@ function CpfCnpjModal({
             <div className="mt-3 grid gap-4 sm:grid-cols-6">
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-foreground" htmlFor="checkout-postal-code">CEP</label>
-                <input id="checkout-postal-code" type="text" inputMode="numeric" value={payer.postalCode} onChange={(e) => updatePayer('postalCode', e.target.value)} placeholder="Somente números" disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+                <input id="checkout-postal-code" type="text" inputMode="numeric" value={payer.postalCode} onChange={(e) => updatePayer('postalCode', e.target.value)} placeholder="Somente números" disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
               </div>
               <div className="sm:col-span-4">
                 <label className="block text-sm font-medium text-foreground" htmlFor="checkout-address">Rua, avenida ou logradouro</label>
-                <input id="checkout-address" type="text" value={payer.address} onChange={(e) => updatePayer('address', e.target.value)} disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+                <input id="checkout-address" type="text" value={payer.address} onChange={(e) => updatePayer('address', e.target.value)} disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-foreground" htmlFor="checkout-address-number">Número</label>
-                <input id="checkout-address-number" type="text" value={payer.addressNumber} onChange={(e) => updatePayer('addressNumber', e.target.value)} disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+                <input id="checkout-address-number" type="text" value={payer.addressNumber} onChange={(e) => updatePayer('addressNumber', e.target.value)} disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
               </div>
               <div className="sm:col-span-4">
                 <label className="block text-sm font-medium text-foreground" htmlFor="checkout-province">Bairro</label>
-                <input id="checkout-province" type="text" value={payer.province} onChange={(e) => updatePayer('province', e.target.value)} disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+                <input id="checkout-province" type="text" value={payer.province} onChange={(e) => updatePayer('province', e.target.value)} disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
               </div>
               <div className="sm:col-span-6">
                 <label className="block text-sm font-medium text-foreground" htmlFor="checkout-complement">Complemento <span className="font-normal text-muted-foreground">(opcional)</span></label>
-                <input id="checkout-complement" type="text" value={payer.complement} onChange={(e) => updatePayer('complement', e.target.value)} placeholder="Apartamento, bloco, sala..." disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+                <input id="checkout-complement" type="text" value={payer.complement} onChange={(e) => updatePayer('complement', e.target.value)} placeholder="Apartamento, bloco, sala..." disabled={busy} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-ink disabled:opacity-50" />
               </div>
             </div>
           </section>

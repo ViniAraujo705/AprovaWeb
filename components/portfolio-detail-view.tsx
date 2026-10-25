@@ -135,7 +135,7 @@ function PortfolioDetailBody({
 
       <div className="mt-4 flex flex-col gap-2 rounded-xl border border-border bg-card p-3 sm:flex-row sm:items-center">
         <div className="flex min-w-0 items-center gap-2 text-sm">
-          <Link2 className="size-4 shrink-0 text-primary" />
+          <Link2 className="size-4 shrink-0 text-primary-ink" />
           <span className="truncate text-muted-foreground">Link público: {publicPath}</span>
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
@@ -159,7 +159,7 @@ function PortfolioDetailBody({
       </div>
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-2xl tracking-wide">ITENS DO PORTFÓLIO</h2>
+        <h2 className="font-display text-2xl tracking-wide">Itens do portfólio</h2>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -378,7 +378,7 @@ function PortfolioDetailsForm({
             onClick={() => !coverBusy && inputRef.current?.click()}
             disabled={coverBusy}
             aria-label="Alterar capa do portfólio"
-            className="group relative mt-1.5 block aspect-video w-40 overflow-hidden rounded-lg border border-border bg-secondary disabled:opacity-70"
+            className="group relative mt-1.5 block aspect-video w-40 overflow-hidden rounded-xl border border-border bg-card disabled:opacity-70"
           >
             {portfolio.coverUrl ? (
               <Image src={portfolio.coverUrl} alt="" fill className="object-contain" sizes="160px" unoptimized />
@@ -425,7 +425,7 @@ function PortfolioDetailsForm({
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary sm:max-w-md"
+              className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink sm:max-w-md"
             />
           </label>
           <label className="mt-4 flex flex-col gap-1.5">
@@ -437,7 +437,7 @@ function PortfolioDetailsForm({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Apresente este álbum para quem o visitar."
               rows={3}
-              className="resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary sm:max-w-md"
+              className="resize-none rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink sm:max-w-md"
             />
           </label>
           {!categories.loading && !categories.error && (categories.data ?? []).length > 0 && (
@@ -447,7 +447,7 @@ function PortfolioDetailsForm({
                 value={portfolio.categoryId ?? ''}
                 onChange={(e) => changeCategory(e.target.value)}
                 disabled={categoryBusy}
-                className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-50"
+                className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink disabled:opacity-50"
               >
                 <option value="">Sem categoria</option>
                 {(categories.data ?? []).map((c) => (
@@ -465,7 +465,7 @@ function PortfolioDetailsForm({
                 value={portfolio.clientId ?? ''}
                 onChange={(e) => changeClient(e.target.value)}
                 disabled={clientBusy}
-                className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-50"
+                className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink disabled:opacity-50"
               >
                 <option value="">Vitrine geral (sem cliente)</option>
                 {(clients.data ?? []).map((c) => (
@@ -653,7 +653,7 @@ function SelectExistingVideoModal({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar por título ou cliente"
-            className="min-h-10 w-full rounded-lg border border-border bg-secondary pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+            className="min-h-10 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
           />
         </div>
         {error && (
@@ -682,7 +682,7 @@ function SelectExistingVideoModal({
                     type="button"
                     onClick={() => add(v)}
                     disabled={addingId === v.id}
-                    className="flex w-full items-center gap-3 rounded-lg border border-border bg-background p-2 text-left transition-colors hover:border-primary/50 disabled:opacity-50"
+                    className="flex w-full items-center gap-3 rounded-lg border border-border bg-background p-2 text-left transition-colors hover:border-primary-ink/50 disabled:opacity-50"
                   >
                     <div className="relative size-12 shrink-0 overflow-hidden rounded-md bg-secondary">
                       {v.posterUrl ? (
@@ -890,7 +890,7 @@ function UploadPortfolioMediaForm({
       <div
         onClick={() => !busy && inputRef.current?.click()}
         className={cn(
-          'mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary/50 bg-background text-center transition-colors hover:border-primary hover:bg-primary/5',
+          'mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary-ink/50 bg-background text-center transition-colors hover:border-primary-ink hover:bg-primary/5',
           items.length > 0 ? 'p-4' : 'p-6',
           busy && 'cursor-not-allowed opacity-70',
         )}
@@ -906,7 +906,7 @@ function UploadPortfolioMediaForm({
             e.target.value = ''
           }}
         />
-        <span className="grid size-10 place-items-center rounded-full bg-primary/15 text-primary">
+        <span className="grid size-10 place-items-center rounded-full bg-primary/15 text-primary-ink">
           {items.length > 0 ? <Plus className="size-5" /> : <UploadCloud className="size-5" />}
         </span>
         <p className="mt-2 text-sm font-medium text-foreground">
@@ -949,7 +949,7 @@ function UploadPortfolioMediaForm({
                       ? 'bg-emerald-500/15 text-emerald-400'
                       : item.status === 'error'
                         ? 'bg-destructive/15 text-destructive'
-                        : 'bg-primary/15 text-primary',
+                        : 'bg-primary/15 text-primary-ink',
                   )}
                 >
                   {item.status === 'done' ? (
@@ -972,7 +972,7 @@ function UploadPortfolioMediaForm({
                     onChange={(e) => updateItem(item.id, { title: e.target.value })}
                     aria-label={`Título de ${item.file.name}`}
                     placeholder={item.file.name}
-                    className="min-h-8 w-full rounded-md border border-transparent bg-transparent -mx-1 px-1 text-sm font-medium text-foreground outline-none hover:border-border focus:border-primary focus:bg-secondary"
+                    className="min-h-8 w-full rounded-md border border-transparent bg-transparent -mx-1 px-1 text-sm font-medium text-foreground outline-none hover:border-border focus:border-primary-ink focus:bg-secondary"
                   />
                 ) : (
                   <p className="truncate text-sm font-medium text-foreground" title={item.title}>
@@ -1192,14 +1192,14 @@ function PortfolioItemCard({
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="min-h-9 w-full rounded-lg border border-border bg-secondary px-2.5 text-sm text-foreground outline-none focus:border-primary"
+              className="min-h-9 w-full rounded-xl border border-border bg-card px-2.5 text-sm text-foreground outline-none focus:border-primary-ink"
             />
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
               placeholder="Descrição (opcional)"
-              className="mt-2 w-full resize-none rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+              className="mt-2 w-full resize-none rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
             />
             {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
             <div className="mt-2 flex items-center gap-2">

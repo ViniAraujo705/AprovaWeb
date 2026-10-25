@@ -140,7 +140,7 @@ export function AccountSwitcher({
                         {switching === acc.accountId ? (
                           <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />
                         ) : acc.isCurrent ? (
-                          <Check className="size-4 shrink-0 text-primary" />
+                          <Check className="size-4 shrink-0 text-primary-ink" />
                         ) : null}
                       </button>
                     </li>

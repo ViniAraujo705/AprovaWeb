@@ -39,6 +39,8 @@ import { useQuery } from '@/lib/use-query'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
 import { cn } from '@/lib/utils'
+import { Gesture } from '@/components/gestures'
+import { GestureCallout, PageHeader } from '@/components/page-header'
 import { RatingsReportView } from '@/components/ratings-report'
 
 type Period = '30' | '90' | '180' | 'all'
@@ -132,14 +134,17 @@ export function ReportsView() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">RELATÓRIOS</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {tab === 'produtividade'
-          ? 'Produtividade, prazos e volume de trabalho da operação.'
-          : 'Notas que os clientes deram às entregas — inclusive de projetos já excluídos.'}
-      </p>
+      <PageHeader
+        eyebrow="Equipe e resultados"
+        title="Relatórios"
+        description={
+          tab === 'produtividade'
+            ? 'Produtividade, prazos e volume de trabalho da operação.'
+            : 'Notas que os clientes deram às entregas — inclusive de projetos já excluídos.'
+        }
+      />
 
-      <div role="tablist" aria-label="Tipo de relatório" className="mt-5 flex gap-1 border-b border-border print:hidden">
+      <div role="tablist" aria-label="Tipo de relatório" className="mt-6 flex gap-2 border-b border-border print:hidden">
         {REPORT_TABS.map((t) => (
           <button
             key={t.value}
@@ -148,9 +153,9 @@ export function ReportsView() {
             aria-selected={tab === t.value}
             onClick={() => changeTab(t.value)}
             className={cn(
-              '-mb-px min-h-11 border-b-2 px-3 text-sm font-medium transition-colors',
+              '-mb-px min-h-12 border-b-2 px-4 text-sm font-medium transition-colors',
               tab === t.value
-                ? 'border-primary text-foreground'
+                ? 'border-primary font-semibold text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >
@@ -321,21 +326,21 @@ function ProductivityReport() {
           <button
             type="button"
             onClick={exportCsv}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-secondary px-3 text-sm font-medium text-foreground hover:bg-secondary/70"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-secondary/70"
           >
             <Download className="size-4" /> CSV
           </button>
           <button
             type="button"
             onClick={exportPdf}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-secondary px-3 text-sm font-medium text-foreground hover:bg-secondary/70"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-secondary/70"
           >
             <Printer className="size-4" /> PDF
           </button>
           <select
             value={period}
             onChange={(e) => setPeriod(e.target.value as Period)}
-            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+            className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
           >
             {PERIOD_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -366,7 +371,7 @@ function ProductivityReport() {
         </div>
       ) : (
         <>
-          <StaggerList className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StaggerList className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Kpi
               icon={<Film className="size-4" />}
               label="Produzidos no período"
@@ -391,7 +396,7 @@ function ProductivityReport() {
                 transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
                 className="overflow-hidden"
               >
-                <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-2">
+                <div className="mt-3 rounded-2xl border border-danger-border bg-danger-soft p-2">
                   <ul className="flex flex-col">
                     {overdueVideos.map((v) => (
                       <li key={v.id}>
@@ -411,38 +416,37 @@ function ProductivityReport() {
           </AnimatePresence>
 
           {/* Comparativo mensal */}
-          <div className="mt-6 rounded-xl border border-border bg-card p-4">
-            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-              <FileBarChart className="size-4 text-muted-foreground" /> Volume mensal
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
+          <div className="mt-6 rounded-2xl border border-border bg-card p-6">
+            <h2 className="font-display text-xl text-foreground">Volume mensal</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
               Vídeos criados por mês, últimos 6 meses — indicador de volume, não de aprovação.
             </p>
             <div className="mt-4 flex items-end gap-3 sm:gap-5">
               {(() => {
                 const max = Math.max(1, ...monthly.map((m) => m.count))
-                return monthly.map((m) => {
+                return monthly.map((m, i) => {
                   const hasData = m.count > 0
+                  const isCurrent = i === monthly.length - 1
                   return (
                     <div
                       key={m.key}
-                      className={cn('flex flex-1 flex-col items-center gap-1.5', !hasData && 'opacity-30')}
+                      className="flex flex-1 flex-col items-center gap-2"
                       title={`${m.label}: ${m.count}`}
                     >
-                      <span className={cn('text-xs', hasData ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
+                      <span className={cn('text-sm', hasData ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
                         {m.count}
                       </span>
-                      <div className="flex h-24 w-full items-end overflow-hidden rounded-md bg-secondary">
+                      <div className="flex h-36 w-full items-end overflow-hidden rounded-xl bg-secondary">
                         {hasData && (
                           <div
-                            className="w-full rounded-t-md bg-primary transition-all"
+                            className={cn('w-full rounded-xl transition-all', isCurrent ? 'bg-primary' : 'bg-chart-2')}
                             style={{ height: `${(m.count / max) * 100}%` }}
                           />
                         )}
                       </div>
                       <span
                         className={cn(
-                          'text-[11px] capitalize',
+                          'text-sm capitalize',
                           hasData ? 'font-medium text-foreground' : 'text-muted-foreground',
                         )}
                       >
@@ -457,29 +461,31 @@ function ProductivityReport() {
 
           {/* Gargalos */}
           {(stageBottleneck || overdueVideos.length > 0) && (
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {stageBottleneck && (
-                <BottleneckCard
-                  icon={<Flame className="size-4" />}
-                  title="Maior fila"
-                  description={`"${productionStageLabel[stageBottleneck.stage]}" concentra ${stageBottleneck.count} vídeo${stageBottleneck.count === 1 ? '' : 's'} — a etapa com mais gente parada.`}
+                <GestureCallout
+                  tone="warning"
+                  gesture={<Gesture state="attention" className="h-20 w-auto" />}
+                  eyebrow="Maior fila · Vale um check"
+                  title={`“${productionStageLabel[stageBottleneck.stage]}” concentra ${stageBottleneck.count} vídeo${stageBottleneck.count === 1 ? '' : 's'}`}
+                  description="É a etapa com mais coisa parada."
                 />
               )}
               {overdueVideos.length > 0 && (
-                <BottleneckCard
-                  icon={<AlertTriangle className="size-4" />}
-                  title="Prazos vencidos"
-                  tone="destructive"
-                  description={`${overdueVideos.length} vídeo${overdueVideos.length === 1 ? '' : 's'} ativo${overdueVideos.length === 1 ? '' : 's'} com prazo já vencido.`}
+                <GestureCallout
+                  tone="danger"
+                  gesture={<Gesture state="critical" className="h-20 w-auto" />}
+                  eyebrow="Prazos vencidos"
+                  title={`${overdueVideos.length} vídeo${overdueVideos.length === 1 ? '' : 's'} ativo${overdueVideos.length === 1 ? '' : 's'} com prazo já vencido`}
+                  description="Hora de um check-up nessas entregas."
                 />
               )}
             </div>
           )}
 
           {/* Volume por cliente */}
-          <div className="mt-6 rounded-xl border border-border bg-card p-4">
-            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-              <Contact className="size-4 text-muted-foreground" /> Volume por cliente
+          <div className="mt-6 rounded-2xl border border-border bg-card p-6">
+            <h2 className="font-display text-xl text-foreground">Volume por cliente
             </h2>
             <div className="mt-3 flex flex-col gap-1.5">
               {clientVolume.map((c) => {
@@ -513,9 +519,8 @@ function ProductivityReport() {
 
           {/* Produtividade por profissional */}
           {teamRows.length > 0 && (
-            <div className="mt-6 rounded-xl border border-border bg-card p-4">
-              <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                <UserCog className="size-4 text-muted-foreground" /> Produtividade por profissional
+            <div className="mt-6 rounded-2xl border border-border bg-card p-6">
+              <h2 className="font-display text-xl text-foreground">Produtividade por profissional
               </h2>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Entregues e ativos são totais gerais; gravações seguem o período selecionado acima.
@@ -573,18 +578,15 @@ function Kpi({
   comparison?: { delta: number } | null
 }) {
   return (
-    <motion.div variants={staggerItem} className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-        <span className="text-muted-foreground">{icon}</span>
-        {label}
-      </div>
-      <p className="mt-2 font-display text-3xl leading-none tracking-wide text-foreground sm:text-4xl">{value}</p>
+    <motion.div variants={staggerItem} className="rounded-2xl border border-border bg-card p-5">
+      <div className="text-sm text-muted-foreground">{label}</div>
+      <p className="mt-2 font-display text-3xl leading-none text-foreground sm:text-4xl">{value}</p>
       {comparison ? (
         <p
           className={cn(
             'mt-1.5 flex items-center gap-1 text-xs font-medium',
             comparison.delta > 0
-              ? 'text-emerald-600 dark:text-emerald-400'
+              ? 'text-success-ink'
               : comparison.delta < 0
                 ? 'text-muted-foreground'
                 : 'text-muted-foreground',
@@ -626,31 +628,30 @@ function OverdueKpi({
       onClick={hasOverdue ? onToggle : undefined}
       aria-expanded={hasOverdue ? expanded : undefined}
       className={cn(
-        'rounded-xl border p-4 text-left transition-colors',
+        'rounded-2xl border p-5 text-left transition-colors',
         hasOverdue
-          ? 'cursor-pointer border-destructive/30 bg-destructive/10 hover:bg-destructive/15'
+          ? 'cursor-pointer border-danger-border bg-danger-soft hover:bg-danger-soft/70'
           : 'cursor-default border-border bg-card',
       )}
     >
       <div
         className={cn(
-          'flex items-center gap-1.5 text-xs font-medium',
-          hasOverdue ? 'text-destructive' : 'text-muted-foreground',
+          'text-sm',
+          hasOverdue ? 'text-danger-ink' : 'text-muted-foreground',
         )}
       >
-        <AlertTriangle className="size-4" />
         Atrasados agora
       </div>
       <p
         className={cn(
-          'mt-2 font-display text-3xl leading-none tracking-wide sm:text-4xl',
-          hasOverdue ? 'text-destructive' : 'text-foreground',
+          'mt-2 font-display text-3xl leading-none sm:text-4xl',
+          hasOverdue ? 'text-danger-ink' : 'text-foreground',
         )}
       >
         {count}
       </p>
       {hasOverdue ? (
-        <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-destructive underline underline-offset-2">
+        <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-danger-ink underline underline-offset-2">
           {expanded ? 'Ocultar lista' : 'Ver lista'} <ArrowRight className="size-3" />
         </p>
       ) : (

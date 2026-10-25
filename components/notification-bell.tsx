@@ -181,7 +181,7 @@ export function NotificationBell({
                     <button
                       type="button"
                       onClick={markAllRead}
-                      className="text-xs font-medium text-primary hover:underline"
+                      className="text-xs font-medium text-primary-ink hover:underline"
                     >
                       Marcar tudo como lido
                     </button>
@@ -254,7 +254,7 @@ export function NotificationBell({
                 <Link
                   href="/notificacoes"
                   onClick={() => setOpen(false)}
-                  className="block border-t border-border px-3 py-2.5 text-center text-xs font-medium text-primary hover:underline"
+                  className="block border-t border-border px-3 py-2.5 text-center text-xs font-medium text-primary-ink hover:underline"
                 >
                   Ver todas as notificações
                 </Link>

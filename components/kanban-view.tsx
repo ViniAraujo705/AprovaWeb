@@ -48,14 +48,16 @@ import { formatDuration } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from '@/components/motion'
 import { toast } from '@/lib/toast'
+import { Gesture } from '@/components/gestures'
+import { PageHeader } from '@/components/page-header'
 
 const COLUMNS: { stage: ProductionStage; dot: string }[] = [
   { stage: 'planejado', dot: 'bg-muted-foreground' },
   { stage: 'producao', dot: 'bg-sky-500' },
   { stage: 'edicao', dot: 'bg-violet-500' },
-  { stage: 'aguardando_aprovacao', dot: 'bg-amber-500' },
-  { stage: 'ajustes', dot: 'bg-orange-500' },
-  { stage: 'aprovado', dot: 'bg-emerald-500' },
+  { stage: 'aguardando_aprovacao', dot: 'bg-warning' },
+  { stage: 'ajustes', dot: 'bg-danger' },
+  { stage: 'aprovado', dot: 'bg-primary' },
   { stage: 'entregue', dot: 'bg-foreground' },
 ]
 
@@ -63,9 +65,9 @@ const stageBadgeStyles: Record<ProductionStage, string> = {
   planejado: 'bg-secondary text-foreground',
   producao: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
   edicao: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
-  aguardando_aprovacao: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-  ajustes: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
-  aprovado: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  aguardando_aprovacao: 'bg-warning-soft text-warning-ink',
+  ajustes: 'bg-danger-soft text-danger-ink',
+  aprovado: 'bg-success text-success-foreground',
   entregue: 'bg-foreground text-background',
 }
 
@@ -449,44 +451,39 @@ export function KanbanView() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-display text-4xl tracking-wide sm:text-5xl">KANBAN</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Organize as demandas de cada cliente do planejamento à entrega.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        eyebrow="Fluxo de produção"
+        title="Kanban"
+        description="Organize as demandas de cada cliente do planejamento à entrega."
+        actions={
           <button
             type="button"
             onClick={() => setCreatingStage('planejado')}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 font-display text-lg tracking-wide text-primary-foreground transition-opacity hover:opacity-90"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-base text-primary-foreground transition-opacity hover:opacity-90"
           >
             <Plus className="size-5" />
-            NOVA DEMANDA
+            Nova demanda
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Cards de resumo */}
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <SummaryCard
-          dot="bg-amber-500"
+          dot="bg-warning"
           label="Aguardando aprovação"
           value={counts.aguardando_aprovacao}
           hint="depende do cliente"
           loading={boardLoading}
         />
-        <SummaryCard dot="bg-orange-500" label="Em ajustes" value={counts.ajustes} hint="voltou pra equipe" loading={boardLoading} />
-        <SummaryCard dot="bg-foreground" label="Entregues" value={counts.entregue} hint="ciclo completo" loading={boardLoading} />
+        <SummaryCard dot="bg-danger" label="Em ajustes" value={counts.ajustes} hint="voltou pra equipe" loading={boardLoading} />
+        <SummaryCard dot="bg-primary" tone="success" label="Entregues" value={counts.entregue} hint="ciclo completo" loading={boardLoading} />
         <SummaryCard dot="bg-muted-foreground" label="Total no quadro" value={items.length} hint="todas as etapas" loading={boardLoading} />
       </div>
 
       {/* Quadro */}
       <div className="mt-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Fluxo de produção
-        </h2>
+        <h2 className="sr-only">Quadro de produção</h2>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -495,13 +492,13 @@ export function KanbanView() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar..."
-              className="min-h-11 w-full rounded-lg border border-border bg-secondary pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary sm:w-52"
+              className="min-h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink sm:w-52"
             />
           </div>
           <select
             value={kindFilter}
             onChange={(e) => setKindFilter(e.target.value as CardKind | typeof ALL_KINDS)}
-            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+            className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
           >
             <option value={ALL_KINDS}>{ALL_KINDS}</option>
             {DEMAND_KINDS.map((k) => (
@@ -513,7 +510,7 @@ export function KanbanView() {
           <button
             type="button"
             onClick={() => setManagingLabels(true)}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border bg-secondary px-3 text-sm font-medium text-foreground transition-colors hover:border-primary/50"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:border-primary-ink/50"
           >
             <Tag className="size-4" />
             Labels
@@ -528,10 +525,10 @@ export function KanbanView() {
             type="button"
             onClick={() => setClient(name)}
             className={cn(
-              'min-h-9 shrink-0 rounded-full px-3 text-xs font-semibold transition-colors',
+              'min-h-10 shrink-0 rounded-full border px-4 text-sm font-medium transition-colors',
               client === name
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-muted-foreground hover:text-foreground',
+                ? 'border-primary bg-primary font-semibold text-primary-foreground'
+                : 'border-border bg-card text-foreground hover:border-primary-ink/40',
             )}
           >
             {name}
@@ -606,8 +603,8 @@ export function KanbanView() {
                   onDrop={handleColumnDrop}
                   title={`Expandir ${productionStageLabel[col.stage]}`}
                   className={cn(
-                    'flex w-11 shrink-0 flex-col items-center gap-2 rounded-2xl border border-transparent bg-card py-3 transition-colors hover:border-primary/50',
-                    dragOverColumn === col.stage && 'border-primary/40 bg-primary/5',
+                    'flex w-11 shrink-0 flex-col items-center gap-2 rounded-2xl border border-transparent bg-card py-3 transition-colors hover:border-primary-ink/50',
+                    dragOverColumn === col.stage && 'border-primary-ink/40 bg-primary/5',
                   )}
                 >
                   <ChevronRight className="size-3.5 text-muted-foreground" />
@@ -630,7 +627,7 @@ export function KanbanView() {
                 onDrop={handleColumnDrop}
                 className={cn(
                   'flex w-72 shrink-0 flex-col gap-3 rounded-2xl border border-transparent p-2 transition-colors',
-                  dragOverColumn === col.stage && 'border-primary/40 bg-primary/5',
+                  dragOverColumn === col.stage && 'border-primary-ink/40 bg-primary/5',
                 )}
               >
                 <div className="flex items-center gap-2 px-1">
@@ -682,11 +679,18 @@ export function KanbanView() {
                       }}
                     />
                   ))}
-                  {columnItems.length === 0 && (
-                    <div className="grid min-h-24 place-items-center rounded-xl border border-dashed border-border text-xs text-muted-foreground">
-                      Arraste um card pra cá
-                    </div>
-                  )}
+                  {columnItems.length === 0 &&
+                    (col.stage === 'aguardando_aprovacao' ? (
+                      <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border px-4 py-5 text-center">
+                        <Gesture state="empty" className="h-16 w-auto" />
+                        <p className="font-display text-sm text-foreground">Nada pra checar com o cliente</p>
+                        <p className="text-xs text-muted-foreground">Arraste um card pra cá quando enviar.</p>
+                      </div>
+                    ) : (
+                      <div className="grid min-h-28 place-items-center rounded-2xl border border-dashed border-border text-sm text-muted-foreground">
+                        Arraste um card pra cá
+                      </div>
+                    ))}
                 </div>
 
                 <button
@@ -751,27 +755,29 @@ export function KanbanView() {
 
 function SummaryCard({
   dot,
+  tone,
   label,
   value,
   hint,
   loading,
 }: {
   dot: string
+  tone?: 'success'
   label: string
   value: number
   hint: string
   loading: boolean
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span className={cn('size-2 shrink-0 rounded-full', dot)} aria-hidden="true" />
         {label}
       </div>
       {loading ? (
         <Skeleton className="mt-2 h-8 w-12" />
       ) : (
-        <p className="mt-2 font-display text-3xl leading-none tracking-wide text-foreground sm:text-4xl">
+        <p className={cn('mt-3 font-display text-3xl leading-none sm:text-4xl', tone === 'success' ? 'text-success-ink' : 'text-foreground')}>
           {value}
         </p>
       )}
@@ -856,16 +862,24 @@ function BoardCard({
       onDragEnd={onDragEndCard}
       onDragOver={onCardDragOver}
       onClick={onOpen}
-      className="group flex cursor-grab flex-col rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:border-primary/50 active:cursor-grabbing"
+      className={cn(
+        'group flex cursor-grab flex-col rounded-2xl border bg-card p-4 text-left transition-colors hover:border-primary-ink/50 active:cursor-grabbing',
+        item.stage === 'ajustes' ? 'border-danger-border' : 'border-border',
+      )}
     >
-      <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+      <div
+        className={cn(
+          'flex items-center gap-1.5 text-xs font-medium',
+          item.stage === 'ajustes' ? 'text-danger-ink' : 'text-muted-foreground',
+        )}
+      >
         <KindIcon className="size-3" />
         {KIND_META[item.kind].label}
         {item.kind === 'video' && item.duration > 0 && <span>· {formatDuration(item.duration)}</span>}
       </div>
 
       <div className="mt-2 flex items-start justify-between gap-2">
-        <h4 className="min-w-0 truncate text-sm font-semibold text-foreground" title={item.title}>
+        <h4 className="min-w-0 truncate font-display text-[15px] font-bold text-foreground" title={item.title}>
           {item.title}
         </h4>
         <span
@@ -877,7 +891,9 @@ function BoardCard({
           {productionStageLabel[item.stage]}
         </span>
       </div>
-      <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.clientName || 'Sem cliente'}</p>
+      <p className="mt-1 truncate text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+        {item.clientName || 'Sem cliente'}
+      </p>
 
       {itemLabels.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
@@ -1060,7 +1076,7 @@ function VideoDetailModal({
           <div className="mt-4 flex flex-col gap-2">
             <Link
               href={`/videos/${video.id}/revisao`}
-              className="flex items-center justify-between rounded-xl border border-border px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:border-primary/50"
+              className="flex items-center justify-between rounded-xl border border-border px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:border-primary-ink/50"
             >
               <span className="flex items-center gap-2">
                 <Lock className="size-4 text-muted-foreground" />
@@ -1071,7 +1087,7 @@ function VideoDetailModal({
             {isOwner && (
               <Link
                 href={`/videos/${video.id}/canal-cliente`}
-                className="flex items-center justify-between rounded-xl border border-border px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:border-primary/50"
+                className="flex items-center justify-between rounded-xl border border-border px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:border-primary-ink/50"
               >
                 <span className="flex items-center gap-2">
                   <Users className="size-4 text-muted-foreground" />
@@ -1088,18 +1104,18 @@ function VideoDetailModal({
               <button
                 type="button"
                 onClick={() => onUpdateStage('ajustes')}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-primary bg-transparent font-display text-lg tracking-wide text-primary transition-colors hover:bg-primary/10"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-primary-ink bg-transparent font-display text-lg tracking-wide text-primary-ink transition-colors hover:bg-primary/10"
               >
                 <RotateCcw className="size-4" />
-                PEDIR AJUSTES
+                Pedir ajustes
               </button>
               <button
                 type="button"
                 onClick={() => onUpdateStage('aprovado')}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary font-display text-lg tracking-wide text-primary-foreground transition-opacity hover:opacity-90"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary font-display text-base text-primary-foreground transition-opacity hover:opacity-90"
               >
                 <Check className="size-4" />
-                APROVAR
+                Aprovar
               </button>
             </div>
           )}
@@ -1132,7 +1148,7 @@ function VideoDetailModal({
 }
 
 const fieldInputClass =
-  'min-h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary'
+  'min-h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink'
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -1371,7 +1387,7 @@ function LabelPicker({
     <div className="mt-4">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium text-muted-foreground">Labels</p>
-        <button type="button" onClick={onManage} className="text-xs font-medium text-primary hover:underline">
+        <button type="button" onClick={onManage} className="text-xs font-medium text-primary-ink hover:underline">
           Gerenciar
         </button>
       </div>
@@ -1539,7 +1555,7 @@ function LabelManagerModal({
                   onChange={(e) => setEditingText(e.target.value)}
                   onBlur={commitEditing}
                   onKeyDown={(e) => e.key === 'Enter' && commitEditing()}
-                  className="min-w-0 flex-1 rounded-md border border-border bg-secondary px-2 py-1 text-sm text-foreground outline-none focus:border-primary"
+                  className="min-w-0 flex-1 rounded-md border border-border bg-secondary px-2 py-1 text-sm text-foreground outline-none focus:border-primary-ink"
                 />
               ) : (
                 <button
@@ -1585,7 +1601,7 @@ function LabelManagerModal({
             onChange={(e) => setNewText(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addLabel()}
             placeholder="Nova label"
-            className="min-w-0 flex-1 rounded-md border border-border bg-secondary px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+            className="min-w-0 flex-1 rounded-md border border-border bg-secondary px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary-ink"
           />
           <button
             type="button"

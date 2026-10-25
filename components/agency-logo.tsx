@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import type { Branding } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { CheckLogo } from '@/components/page-header'
 
 /**
  * Logo exibido no topo da tela pública do cliente.
@@ -60,22 +61,13 @@ export function AgencyLogo({
     )
   }
 
-  // Fallback: logo padrão do sistema.
+  // Fallback: logo padrão do sistema (identidade Check).
   if (icon) {
     return (
       <span className="relative size-8 shrink-0 overflow-hidden rounded-lg">
-        <Image src="/logo-check.png" alt="Check" fill className="object-cover" sizes="32px" />
+        <Image src="/brand/check-mark.png" alt="Check" fill className="object-contain" sizes="32px" />
       </span>
     )
   }
-  return (
-    <div className="flex min-w-0 items-center gap-2">
-      <span className={cn('relative shrink-0 overflow-hidden rounded-md', lg ? 'size-11 rounded-lg' : 'size-7')}>
-        <Image src="/logo-check.png" alt="Check" fill className="object-cover" sizes={lg ? '44px' : '28px'} />
-      </span>
-      <span className={cn('font-display leading-none tracking-wide', lg ? 'text-2xl' : 'text-xl')}>
-        CHECK
-      </span>
-    </div>
-  )
+  return <CheckLogo className={lg ? 'h-11 w-[180px]' : undefined} />
 }

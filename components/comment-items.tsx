@@ -28,7 +28,7 @@ export function RoleBadge({ role }: { role: CommentAuthorRole }) {
       className={cn(
         'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
         agency
-          ? 'bg-primary/15 text-primary ring-1 ring-primary/30'
+          ? 'bg-primary/15 text-primary-ink ring-1 ring-primary-ink/30'
           : 'bg-secondary text-muted-foreground ring-1 ring-border',
       )}
     >
@@ -52,7 +52,7 @@ export function TimestampChip({
       type="button"
       onClick={() => onSeek(seconds)}
       className={cn(
-        'h-fit shrink-0 rounded-md bg-primary/15 px-2 py-1 text-xs font-semibold text-primary',
+        'h-fit shrink-0 rounded-md bg-primary/15 px-2 py-1 text-xs font-semibold text-primary-ink',
         className,
       )}
     >
@@ -190,9 +190,9 @@ export function AgencyReplyItem({
 }) {
   return (
     <li className="flex flex-col items-end">
-      <div className="ml-auto max-w-[85%] rounded-xl border border-primary/40 bg-primary/10 p-3">
+      <div className="ml-auto max-w-[85%] rounded-xl border border-primary-ink/40 bg-primary/10 p-3">
         <div className="flex items-center justify-end gap-2">
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-primary-ink">
             <CornerDownRight className="size-3" />
             Resposta da agência
           </span>

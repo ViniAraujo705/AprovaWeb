@@ -6,7 +6,7 @@
 
 @theme inline {
   --font-sans: var(--font-inter);
-  --font-display: var(--font-bebas);
+  --font-display: var(--font-manrope);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -41,6 +41,46 @@
   --color-plan-featured: var(--plan-featured);
   --color-plan-featured-foreground: var(--plan-featured-foreground);
   --color-plan-featured-muted: var(--plan-featured-muted);
+  --color-primary-ink: var(--primary-ink);
+  --color-deep: var(--deep);
+  --color-deep-foreground: var(--deep-foreground);
+  --color-deep-muted: var(--deep-muted);
+  --color-avatar: var(--avatar);
+  --color-avatar-foreground: var(--avatar-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-success-ink: var(--success-ink);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-border: var(--warning-border);
+  --color-warning-ink: var(--warning-ink);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-border: var(--danger-border);
+  --color-danger-ink: var(--danger-ink);
+  /*
+   * Paleta padrão do Tailwind afinada pra identidade: os verdes/âmbar/vermelho
+   * espalhados pelas telas (badges, pontos de status) passam a usar o lima, o
+   * âmbar #F2C14E e o coral #E8674F do sistema de gestos. Os tons "de texto"
+   * (400) acompanham o tema, pra continuarem legíveis no claro e no escuro.
+   */
+  --color-emerald-300: #d6f593;
+  --color-emerald-400: var(--success-ink);
+  --color-emerald-500: #7ea33b;
+  --color-emerald-600: #4e6b12;
+  --color-emerald-700: #3d5410;
+  --color-emerald-950: #1d2a07;
+  --color-amber-300: #f6d581;
+  --color-amber-400: var(--warning-ink);
+  --color-amber-500: #f2c14e;
+  --color-amber-600: #8a6400;
+  --color-red-500: #e8674f;
+  --color-orange-400: #f4a774;
+  --color-orange-500: #ef8f55;
+  --color-orange-600: #b4541c;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -51,80 +91,145 @@
 }
 
 :root {
+  /*
+   * Identidade Check (out/2026): verde profundo + off-white + lima. Âmbar e
+   * coral existem só como cor de status. Os valores vêm do PDF "ID NOVA -
+   * LAYOUT NO SISTEMA" — mudar o tema é editar aqui, não varrer componentes.
+   */
   color-scheme: light;
-  --background: #f5f5f7;
-  --foreground: #0b0b0d;
-  --card: #ffffff;
-  --card-foreground: #0b0b0d;
-  --popover: #ffffff;
-  --popover-foreground: #0b0b0d;
-  --primary: #0b0b0d;
-  --primary-foreground: #ffffff;
-  --secondary: #e8e8ec;
-  --secondary-foreground: #0b0b0d;
-  --muted: #e8e8ec;
-  --muted-foreground: #6b6b74;
-  --accent: #0b0b0d;
-  --accent-foreground: #ffffff;
-  --destructive: #dc2626;
-  --border: rgba(0, 0, 0, 0.1);
-  --input: rgba(0, 0, 0, 0.14);
-  --ring: #0b0b0d;
-  --chart-1: #0b0b0d;
-  --chart-2: #3f3f46;
-  --chart-3: #6b6b74;
-  --chart-4: #a1a1ab;
-  --chart-5: #d4d4d8;
-  --radius: 0.75rem;
-  --plan-featured: #101011;
-  --plan-featured-foreground: #ffffff;
-  --plan-featured-muted: #a1a1aa;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #0b0b0d;
-  --sidebar-primary: #0b0b0d;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e8e8ec;
-  --sidebar-accent-foreground: #0b0b0d;
-  --sidebar-border: rgba(0, 0, 0, 0.08);
-  --sidebar-ring: #0b0b0d;
+  --background: #ebece7;
+  --foreground: #253326;
+  --card: #f5f6f2;
+  --card-foreground: #253326;
+  --popover: #f8f9f5;
+  --popover-foreground: #253326;
+  /* Lima é preenchimento (CTA, selo "Deu check"), nunca texto sobre fundo claro. */
+  --primary: #d6f593;
+  --primary-foreground: #253326;
+  /* Versão "tinta" do destaque: textos, links e bordas ativas. */
+  --primary-ink: #4e6b12;
+  --secondary: #e2e5dc;
+  --secondary-foreground: #253326;
+  --muted: #e2e5dc;
+  --muted-foreground: #55654f;
+  --accent: #253326;
+  --accent-foreground: #f5f6f2;
+  --destructive: #c8462d;
+  --border: #d5d8cf;
+  --input: #d5d8cf;
+  --ring: #4e6b12;
+  --chart-1: #253326;
+  --chart-2: #7ea67c;
+  --chart-3: #d6f593;
+  --chart-4: #a9b3a5;
+  --chart-5: #d5d8cf;
+  --radius: 0.875rem;
+  --plan-featured: #253326;
+  --plan-featured-foreground: #ebece7;
+  --plan-featured-muted: #a9b3a5;
+  --sidebar: #f5f6f2;
+  --sidebar-foreground: #253326;
+  --sidebar-primary: #d6f593;
+  --sidebar-primary-foreground: #253326;
+  --sidebar-accent: #e2e5dc;
+  --sidebar-accent-foreground: #253326;
+  --sidebar-border: #d5d8cf;
+  --sidebar-ring: #4e6b12;
+
+  /* Superfície "verde profundo" (banners de check, toast de link gerado). */
+  --deep: #253326;
+  --deep-foreground: #ebece7;
+  --deep-muted: #a9b3a5;
+
+  /* Avatares de iniciais. */
+  --avatar: #c8d8be;
+  --avatar-foreground: #253326;
+
+  /* Status — gestos do check: aprovado / atenção / crítico. */
+  --success: #d6f593;
+  --success-foreground: #253326;
+  --success-soft: #e9f1d3;
+  --success-ink: #4e6b12;
+  --warning: #f2c14e;
+  --warning-foreground: #253326;
+  --warning-soft: #f8eecf;
+  --warning-border: #ecd78f;
+  --warning-ink: #8a6400;
+  --danger: #e8674f;
+  --danger-foreground: #ffffff;
+  --danger-soft: #f6dbd5;
+  --danger-border: #eeb1a5;
+  --danger-ink: #b23a22;
+
+  /* Traço dos gestos: verde profundo no claro, off-white no escuro. */
+  --gesture-stroke: #253325;
+  --gesture-spark: #3c533c;
+  --gesture-muted: #54654e;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #0b0b0d;
-  --foreground: #f5f5f7;
-  --card: #141417;
-  --card-foreground: #f5f5f7;
-  --popover: #16161a;
-  --popover-foreground: #f5f5f7;
-  --primary: #ffffff;
-  --primary-foreground: #0b0b0d;
-  --secondary: #1c1c21;
-  --secondary-foreground: #f5f5f7;
-  --muted: #1c1c21;
-  --muted-foreground: #a1a1ab;
-  --accent: #ffffff;
-  --accent-foreground: #0b0b0d;
-  --destructive: #ff4d4d;
-  --border: rgba(255, 255, 255, 0.1);
-  --input: rgba(255, 255, 255, 0.14);
-  --ring: #ffffff;
-  --chart-1: #ffffff;
-  --chart-2: #d4d4d8;
-  --chart-3: #a1a1ab;
-  --chart-4: #52525b;
-  --chart-5: #27272a;
-  --plan-featured: #101011;
-  --plan-featured-foreground: #ffffff;
-  --plan-featured-muted: #a1a1aa;
-  --sidebar: #101013;
-  --sidebar-foreground: #f5f5f7;
-  --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #0b0b0d;
-  --sidebar-accent: #1c1c21;
-  --sidebar-accent-foreground: #f5f5f7;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #ffffff;
+  --background: #17201a;
+  --foreground: #ebece7;
+  --card: #202a20;
+  --card-foreground: #ebece7;
+  --popover: #232e23;
+  --popover-foreground: #ebece7;
+  --primary: #d6f593;
+  --primary-foreground: #253326;
+  --primary-ink: #d7f593;
+  --secondary: #2b372b;
+  --secondary-foreground: #ebece7;
+  --muted: #2b372b;
+  --muted-foreground: #a9b3a5;
+  --accent: #ebece7;
+  --accent-foreground: #17201a;
+  --destructive: #e8674f;
+  --border: #2e3b2e;
+  --input: #34433a;
+  --ring: #d7f593;
+  --chart-1: #ebece7;
+  --chart-2: #7ea67c;
+  --chart-3: #d6f593;
+  --chart-4: #54654e;
+  --chart-5: #2e3b2e;
+  --plan-featured: #0f1711;
+  --plan-featured-foreground: #ebece7;
+  --plan-featured-muted: #a9b3a5;
+  --sidebar: #131b15;
+  --sidebar-foreground: #ebece7;
+  --sidebar-primary: #d6f593;
+  --sidebar-primary-foreground: #253326;
+  --sidebar-accent: #2b372b;
+  --sidebar-accent-foreground: #ebece7;
+  --sidebar-border: #2e3b2e;
+  --sidebar-ring: #d7f593;
+
+  --deep: #0f1711;
+  --deep-foreground: #ebece7;
+  --deep-muted: #a9b3a5;
+
+  --avatar: #3c533c;
+  --avatar-foreground: #ebece7;
+
+  --success: #d6f593;
+  --success-foreground: #253326;
+  --success-soft: #2c3a22;
+  --success-ink: #d7f593;
+  --warning: #f2c14e;
+  --warning-foreground: #253326;
+  --warning-soft: #352f1d;
+  --warning-border: #5a4b22;
+  --warning-ink: #f2c14e;
+  --danger: #e8674f;
+  --danger-foreground: #ffffff;
+  --danger-soft: #3a2420;
+  --danger-border: #6b3a30;
+  --danger-ink: #f19a88;
+
+  --gesture-stroke: #ebece7;
+  --gesture-spark: #a9b3a5;
+  --gesture-muted: #a8b3a5;
 }
 
 @layer base {
@@ -154,6 +259,26 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/*
+ * Títulos: Manrope ExtraBold em caixa normal, com tracking levemente fechado.
+ * Fica fora de @layer de propósito — vence o `tracking-wide` que as telas
+ * herdaram da fonte antiga (Bebas Neue, toda em caixa alta).
+ */
+.font-display {
+  font-family: var(--font-manrope), var(--font-inter), system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+/* Rótulo pequeno acima do título ("VISÃO GERAL DA OPERAÇÃO"). */
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--primary-ink);
 }
 
 /*

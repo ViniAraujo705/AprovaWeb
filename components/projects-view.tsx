@@ -336,9 +336,10 @@ export function ProjectsView() {
   return (
     <div className="flex flex-1 flex-col px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="xl:max-w-sm">
-          <h1 className="font-display text-4xl tracking-wide sm:text-5xl">PROJETOS</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <div className="xl:max-w-md">
+          <p className="eyebrow">Galerias de entrega</p>
+          <h1 className="mt-3 font-display text-4xl leading-[1.05] sm:text-5xl">Projetos</h1>
+          <p className="mt-3 text-base text-muted-foreground">
             Cada projeto agrupa os vídeos de uma entrega — mande o link da galeria pro cliente ver
             todos de uma vez.
           </p>
@@ -352,7 +353,7 @@ export function ProjectsView() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar projeto ou cliente..."
-                  className="min-h-11 w-56 rounded-lg border border-border bg-secondary py-2 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                  className="min-h-11 w-56 rounded-xl border border-border bg-card py-2 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
                 />
               </div>
               <label className="flex items-center gap-2 text-sm">
@@ -360,7 +361,7 @@ export function ProjectsView() {
                 <select
                   value={sortMode}
                   onChange={(e) => changeSortMode(e.target.value as SortMode)}
-                  className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+                  className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
                 >
                   <option value="prazo">Prazo de entrega</option>
                   <option value="atividade">Atividade recente</option>
@@ -371,7 +372,7 @@ export function ProjectsView() {
                 <select
                   value={client}
                   onChange={(e) => setClient(e.target.value)}
-                  className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+                  className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
                 >
                   {clientNames.map((c) => (
                     <option key={c} value={c}>
@@ -388,8 +389,8 @@ export function ProjectsView() {
               onClick={() => setShowArchived((v) => !v)}
               className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors ${
                 showArchived
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border bg-secondary text-foreground hover:bg-secondary/70'
+                  ? 'border-primary-ink bg-primary/10 text-primary-ink'
+                  : 'border-border bg-card text-foreground hover:bg-secondary'
               }`}
             >
               <Archive className="size-4" />
@@ -400,7 +401,7 @@ export function ProjectsView() {
             <button
               type="button"
               onClick={openProjectForm}
-              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-base text-primary-foreground hover:opacity-90"
             >
               <Plus className="size-4" /> Novo projeto
             </button>
@@ -429,7 +430,7 @@ export function ProjectsView() {
                 onClick={() => photoInputRef.current?.click()}
                 aria-label={photoPreview ? 'Trocar a foto do projeto' : 'Escolher uma foto do projeto'}
                 title="Foto do projeto (opcional)"
-                className={`group relative grid size-14 place-items-center overflow-hidden rounded-lg border border-border bg-secondary text-muted-foreground/70 transition-colors hover:border-primary/50 hover:text-foreground ${
+                className={`group relative grid size-14 place-items-center overflow-hidden rounded-xl border border-border bg-card text-muted-foreground/70 transition-colors hover:border-primary-ink/50 hover:text-foreground ${
                   photoPreview ? '' : 'border-dashed'
                 }`}
               >
@@ -476,7 +477,7 @@ export function ProjectsView() {
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
               placeholder="Nome do projeto (ex: Reel lançamento batom)"
-              className="min-h-11 self-start rounded-lg sm:mt-[1.625rem] w-full border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+              className="min-h-11 self-start rounded-lg sm:mt-[1.625rem] w-full border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
             />
             <div className="flex flex-col gap-1.5">
               {/* Criar cliente segue sendo do owner — o editor escolhe entre
@@ -506,7 +507,7 @@ export function ProjectsView() {
                   value={projectClientId}
                   onChange={(e) => setProjectClientId(e.target.value)}
                   disabled={clients.loading}
-                  className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-60"
+                  className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink disabled:opacity-60"
                 >
                   <option value="" disabled>
                     {clients.loading ? 'Carregando…' : 'Selecione o cliente'}
@@ -524,7 +525,7 @@ export function ProjectsView() {
                     value={newClientName}
                     onChange={(e) => setNewClientName(e.target.value)}
                     placeholder="Nome do cliente"
-                    className="min-h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                    className="min-h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
                   />
                   <button
                     type="button"
@@ -542,7 +543,7 @@ export function ProjectsView() {
                   onChange={(e) => setContactName(e.target.value)}
                   maxLength={120}
                   placeholder="Para quem é o link? (opcional)"
-                  className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                  className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
                 />
               )}
             </div>
@@ -642,16 +643,16 @@ export function ProjectsView() {
                     name={g.client?.name ?? AVULSOS}
                     photoUrl={g.client?.photoUrl}
                     seed={g.clientId}
-                    size="sm"
+                    size="md"
                   />
-                  <h2 className="text-sm font-semibold text-foreground">
+                  <h2 className="font-display text-lg text-foreground">
                     {g.client?.name ?? AVULSOS}
                   </h2>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-sm text-muted-foreground">
                     {g.projects.length} {g.projects.length === 1 ? 'projeto' : 'projetos'}
                   </span>
                 </div>
-                <StaggerList className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <StaggerList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {g.projects.map((p) => (
                     <ProjectCard
                       key={p.id}
@@ -724,13 +725,13 @@ function ProjectCard({
   return (
     <motion.div
       variants={staggerItem}
-      className="group relative flex flex-col gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"
+      className="group relative flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary-ink/50"
     >
       {/* Card inteiro clicável (stretched link) — só o botão de copiar fica acima, com z-index maior. */}
       <Link
         href={`/projetos/${project.id}`}
         aria-label={`Abrir projeto ${project.name}`}
-        className="absolute inset-0 z-[1] rounded-xl"
+        className="absolute inset-0 z-[1] rounded-2xl"
       />
 
       {/*
@@ -752,10 +753,10 @@ function ProjectCard({
             }
           />
           <div className="min-w-0">
-            <p className="truncate text-xs text-muted-foreground" title={clientLabel}>
+            <p className="truncate text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground" title={clientLabel}>
               {clientLabel}
             </p>
-            <h3 className="mt-0.5 truncate text-lg font-bold tracking-tight" title={project.name}>
+            <h3 className="mt-1 truncate font-display text-xl font-bold" title={project.name}>
               {project.name}
             </h3>
           </div>
@@ -763,7 +764,7 @@ function ProjectCard({
         {project.isExample && (
           <span
             title="Projeto de exemplo — explore e delete quando quiser."
-            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary"
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary-ink"
           >
             <Sparkles className="size-3" /> Exemplo
           </span>
@@ -771,8 +772,7 @@ function ProjectCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
-          <Film className="size-3.5" />
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
           {videoCount} {videoCount === 1 ? 'vídeo' : 'vídeos'}
         </span>
         {nextDeadline && <DeadlineBadge deadline={nextDeadline} />}
@@ -789,9 +789,9 @@ function ProjectCard({
           <button
             type="button"
             onClick={copyGalleryLink}
-            className="relative z-[2] inline-flex min-h-9 w-fit items-center justify-center gap-2 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground transition-colors hover:bg-secondary/70"
+            className="relative z-[2] inline-flex min-h-10 w-fit items-center justify-center gap-2 rounded-xl border border-border bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70"
           >
-            {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
             {copied ? 'Copiado' : 'Copiar link da galeria'}
           </button>
         )}
@@ -799,7 +799,7 @@ function ProjectCard({
           <button
             type="button"
             onClick={onUnarchive}
-            className="relative z-[2] inline-flex min-h-9 w-fit items-center justify-center gap-2 rounded-lg border border-primary/40 px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+            className="relative z-[2] inline-flex min-h-9 w-fit items-center justify-center gap-2 rounded-lg border border-primary-ink/40 px-3 text-xs font-medium text-primary-ink transition-colors hover:bg-primary/10"
           >
             <ArchiveRestore className="size-3.5" />
             Desarquivar

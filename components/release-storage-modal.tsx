@@ -120,8 +120,8 @@ export function ReleaseStorageModal({
               precisar deles, baixe antes.
             </p>
 
-            <div className="mt-4 flex items-center gap-3 rounded-lg border border-border bg-secondary/50 p-3">
-              <HardDrive className="size-5 shrink-0 text-primary" />
+            <div className="mt-4 flex items-center gap-3 rounded-xl border border-border bg-card/50 p-3">
+              <HardDrive className="size-5 shrink-0 text-primary-ink" />
               <div className="text-sm">
                 <p className="font-medium text-foreground">Libera {formatBytes(summary.bytes)}</p>
                 <p className="text-xs text-muted-foreground">

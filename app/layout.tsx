@@ -1,6 +1,6 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
-import { Bebas_Neue, Inter } from 'next/font/google'
+import { Inter, Manrope } from 'next/font/google'
 import { AuthProvider } from '@/components/auth-provider'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/toaster'
@@ -11,10 +11,11 @@ const inter = Inter({
   variable: '--font-inter',
 })
 
-const bebasNeue = Bebas_Neue({
-  weight: '400',
+// Títulos da identidade Check (Manrope ExtraBold); o corpo segue em Inter.
+const manrope = Manrope({
+  weight: ['600', '700', '800'],
   subsets: ['latin'],
-  variable: '--font-bebas',
+  variable: '--font-manrope',
 })
 
 export const metadata: Metadata = {
@@ -42,8 +43,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   colorScheme: 'dark light',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f5f5f7' },
-    { media: '(prefers-color-scheme: dark)', color: '#0b0b0d' },
+    { media: '(prefers-color-scheme: light)', color: '#ebece7' },
+    { media: '(prefers-color-scheme: dark)', color: '#17201a' },
   ],
 }
 
@@ -55,7 +56,7 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${inter.variable} ${bebasNeue.variable}`}
+      className={`${inter.variable} ${manrope.variable}`}
       suppressHydrationWarning
     >
       <body className="bg-background font-sans antialiased" suppressHydrationWarning>

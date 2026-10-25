@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Loader2, Lock, User as UserIcon, Eye, EyeOff } from 'lucide-react'
@@ -10,6 +9,7 @@ import { useAuth } from '@/components/auth-provider'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { CheckLogo } from '@/components/page-header'
 
 export function AcceptInviteView({ token }: { token: string }) {
   const router = useRouter()
@@ -65,14 +65,11 @@ export function AcceptInviteView({ token }: { token: string }) {
       <ThemeToggle className="fixed right-4 top-4" />
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2">
-          <span className="relative size-9 shrink-0 overflow-hidden rounded-lg">
-            <Image src="/logo-check.png" alt="Check" fill className="object-cover" sizes="36px" />
-          </span>
-          <span className="font-display text-3xl leading-none tracking-wide">CHECK</span>
+        <div className="flex items-center justify-center">
+          <CheckLogo className="h-10 w-[164px]" priority />
         </div>
 
-        <h1 className="mt-8 text-center font-display text-4xl tracking-wide">ACEITAR CONVITE</h1>
+        <h1 className="mt-8 text-center font-display text-4xl tracking-wide">Aceitar convite</h1>
         <p className="mt-1 text-center text-sm text-muted-foreground">
           Já tem conta com este e-mail em outra agência? Informe só sua senha
           atual. Se não, preencha seu nome e crie uma senha.
@@ -91,7 +88,7 @@ export function AcceptInviteView({ token }: { token: string }) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Seu nome"
-                className="min-h-11 w-full rounded-lg border border-border bg-secondary pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                className="min-h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
               />
             </div>
           </label>
@@ -108,7 +105,7 @@ export function AcceptInviteView({ token }: { token: string }) {
                 aria-invalid={!!errors.password}
                 placeholder="Nova senha (ou senha atual, se já tiver conta)"
                 className={cn(
-                  'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary',
+                  'min-h-11 w-full rounded-lg border bg-secondary pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
                   errors.password ? 'border-destructive' : 'border-border',
                 )}
               />
@@ -136,14 +133,14 @@ export function AcceptInviteView({ token }: { token: string }) {
           <button
             type="submit"
             disabled={submitting}
-            className="mt-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-5 font-display text-xl tracking-wide text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-base text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? (
               <>
                 <Loader2 className="size-5 animate-spin" /> ACEITANDO…
               </>
             ) : (
-              'ACEITAR CONVITE'
+              'Aceitar convite'
             )}
           </button>
         </form>

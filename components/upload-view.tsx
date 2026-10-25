@@ -24,6 +24,8 @@ import { UploadError, uploadToPresignedUrl, validateVideoFile, resolveContentTyp
 import { UPLOAD_ACCEPTED_LABEL } from '@/lib/config'
 import { DEMO_LINK, isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
+import { Gesture } from '@/components/gestures'
+import { PageHeader } from '@/components/page-header'
 import { publicUrl } from '@/lib/site'
 import { usePlanLimit } from '@/components/plan-limit-provider'
 import { useAuth } from '@/components/auth-provider'
@@ -625,26 +627,25 @@ export function UploadView() {
     : 0
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-10">
-      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">ENVIAR VÍDEOS</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Suba os arquivos, identifique o projeto e gere um link para o cliente.
-      </p>
+    <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 lg:py-10">
+      <PageHeader
+        eyebrow="Nova entrega"
+        title="Enviar vídeos"
+        description="Suba os arquivos, identifique o projeto e gere um link para o cliente."
+      />
 
       {/* Sucesso / resumo do lote */}
       {phase === 'done' ? (
-        <div className="mt-8 rounded-2xl border border-primary/40 bg-primary/10 p-6 text-center">
-          <span className="mx-auto grid size-14 place-items-center rounded-full bg-primary/15 text-primary">
-            <Check className="size-7" />
-          </span>
-          <p className="mt-3 font-display text-2xl tracking-wide">
+        <div className="mt-8 rounded-2xl bg-deep p-6 text-center text-deep-foreground">
+          <Gesture state={errorCount > 0 ? 'attention' : 'check'} onDeep className="mx-auto h-24 w-auto" />
+          <p className="mt-4 font-display text-2xl">
             {errorCount > 0
-              ? `${doneCount} DE ${items.length} VÍDEOS ENVIADOS`
+              ? `${doneCount} de ${items.length} vídeos enviados`
               : items.length > 1
-                ? `${items.length} VÍDEOS ENVIADOS!`
-                : 'VÍDEO ENVIADO!'}
+                ? `Deu check! ${items.length} vídeos enviados`
+                : 'Deu check! Vídeo enviado'}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-deep-muted">
             {errorCount > 0
               ? 'Alguns vídeos falharam — veja abaixo e tente novamente.'
               : galleryLink
@@ -656,14 +657,12 @@ export function UploadView() {
             {items.map((item) => (
               <li
                 key={item.id}
-                className="flex items-center gap-3 rounded-lg border border-border bg-background/50 p-3"
+                className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3"
               >
                 <span
                   className={cn(
                     'grid size-8 shrink-0 place-items-center rounded-lg',
-                    item.status === 'done'
-                      ? 'bg-emerald-500/15 text-emerald-400'
-                      : 'bg-destructive/15 text-destructive',
+                    item.status === 'done' ? 'bg-primary text-primary-foreground' : 'bg-danger text-danger-foreground',
                   )}
                 >
                   {item.status === 'done' ? (
@@ -673,10 +672,10 @@ export function UploadView() {
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground" title={item.name}>
+                  <p className="truncate text-sm font-medium text-deep-foreground" title={item.name}>
                     {item.name}
                   </p>
-                  {item.error && <p className="text-xs text-destructive">{item.error}</p>}
+                  {item.error && <p className="text-xs text-[#f19a88]">{item.error}</p>}
                 </div>
               </li>
             ))}
@@ -684,13 +683,13 @@ export function UploadView() {
 
           {galleryLink && (
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-              <code className="flex-1 truncate rounded-lg bg-background px-3 py-2.5 text-left text-sm text-primary">
+              <code className="flex-1 truncate rounded-xl bg-white/10 px-3 py-2.5 text-left text-sm text-primary">
                 {galleryLink}
               </code>
               <button
                 type="button"
                 onClick={copyLink}
-                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:opacity-90"
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90"
               >
                 {copied ? (
                   <>
@@ -750,8 +749,8 @@ export function UploadView() {
               fileError
                 ? 'border-destructive/60 bg-destructive/5'
                 : dragging
-                  ? 'border-primary bg-primary/10'
-                  : 'border-primary/50 bg-card hover:border-primary hover:bg-primary/5',
+                  ? 'border-primary-ink bg-primary/10'
+                  : 'border-primary-ink/50 bg-primary/10 hover:border-primary-ink hover:bg-primary/15',
             )}
           >
             <input
@@ -767,10 +766,10 @@ export function UploadView() {
             />
             {selecting ? (
               <>
-                <span className="grid size-14 place-items-center rounded-full bg-primary/15 text-primary">
+                <span className="grid size-14 place-items-center rounded-full bg-primary/15 text-primary-ink">
                   <Loader2 className="size-7 animate-spin" />
                 </span>
-                <p className="mt-3 font-display text-2xl tracking-wide">PROCESSANDO SELEÇÃO…</p>
+                <p className="mt-3 font-display text-2xl">Processando seleção…</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   No celular, o aparelho prepara cada vídeo antes de liberar — com vários ou
                   vídeos longos pode levar mais de um minuto. Aguarde nesta tela.
@@ -788,17 +787,17 @@ export function UploadView() {
               </>
             ) : items.length === 0 ? (
               <>
-                <span className="grid size-14 place-items-center rounded-full bg-primary/15 text-primary">
+                <span className="grid size-16 place-items-center rounded-full bg-primary/40 text-primary-ink">
                   <UploadCloud className="size-7" />
                 </span>
-                <p className="mt-3 font-display text-2xl tracking-wide">ARRASTE OS VÍDEOS AQUI</p>
+                <p className="mt-4 font-display text-2xl">Arraste os vídeos aqui</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   ou clique para selecionar (pode escolher vários) — {UPLOAD_ACCEPTED_LABEL}
                 </p>
               </>
             ) : (
               <>
-                <span className="grid size-10 place-items-center rounded-full bg-primary/15 text-primary">
+                <span className="grid size-10 place-items-center rounded-full bg-primary/15 text-primary-ink">
                   <Plus className="size-5" />
                 </span>
                 <p className="mt-2 text-sm font-medium text-foreground">
@@ -829,7 +828,7 @@ export function UploadView() {
                         onChange={(e) => updateItem(item.id, { name: e.target.value })}
                         aria-label={`Nome do vídeo (${item.file.name})`}
                         placeholder={item.file.name}
-                        className="min-h-8 w-full rounded-md border border-transparent bg-transparent px-1 -mx-1 text-sm font-medium text-foreground outline-none hover:border-border focus:border-primary focus:bg-secondary"
+                        className="min-h-8 w-full rounded-md border border-transparent bg-transparent px-1 -mx-1 text-sm font-medium text-foreground outline-none hover:border-border focus:border-primary-ink focus:bg-secondary"
                       />
                     ) : (
                       <p className="truncate text-sm font-medium text-foreground" title={item.name}>
@@ -891,7 +890,7 @@ export function UploadView() {
               // por aqui (evita mandar o vídeo pro lugar errado por engano).
               <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
                 <span className="text-sm font-medium text-foreground">Enviando para</span>
-                <div className="rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground">
+                <div className="rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground">
                   <span className="font-medium">{prefilledProject.name}</span>
                   {prefilledProject.client?.name && (
                     <span className="text-muted-foreground"> · {prefilledProject.client.name}</span>
@@ -933,7 +932,7 @@ export function UploadView() {
                       disabled={busy || clients.loading}
                       aria-invalid={!!fieldErrors.client}
                       className={cn(
-                        'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-60',
+                        'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary-ink disabled:opacity-60',
                         fieldErrors.client ? 'border-destructive' : 'border-border',
                       )}
                     >
@@ -957,7 +956,7 @@ export function UploadView() {
                         value={newClient}
                         onChange={(e) => setNewClient(e.target.value)}
                         placeholder="Nome do cliente"
-                        className="min-h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                        className="min-h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
                       />
                       <button
                         type="button"
@@ -1021,7 +1020,7 @@ export function UploadView() {
                       placeholder="Ex: Reel lançamento batom"
                       aria-invalid={!!fieldErrors.title}
                       className={cn(
-                        'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary disabled:opacity-60',
+                        'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink disabled:opacity-60',
                         fieldErrors.title ? 'border-destructive' : 'border-border',
                       )}
                     />
@@ -1046,7 +1045,7 @@ export function UploadView() {
                       disabled={busy}
                       aria-invalid={!!fieldErrors.project}
                       className={cn(
-                        'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-60',
+                        'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary-ink disabled:opacity-60',
                         fieldErrors.project ? 'border-destructive' : 'border-border',
                       )}
                     >
@@ -1095,7 +1094,7 @@ export function UploadView() {
                   value={editorId}
                   onChange={(e) => setEditorId(e.target.value)}
                   disabled={busy}
-                  className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-60"
+                  className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink disabled:opacity-60"
                 >
                   <option value="">Sem editor responsável</option>
                   {assignableMembers.map((m) => (
@@ -1151,16 +1150,16 @@ export function UploadView() {
             type="button"
             disabled={busy}
             onClick={handleSubmit}
-            className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 font-display text-xl tracking-wide text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-base text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             {busy ? (
               <>
-                <Loader2 className="size-5 animate-spin" /> ENVIANDO…
+                <Loader2 className="size-5 animate-spin" /> Enviando…
               </>
             ) : (
               <>
                 <Link2 className="size-5" />
-                {items.length > 1 ? `ENVIAR ${items.length} VÍDEOS` : 'GERAR LINK DE COMPARTILHAMENTO'}
+                {items.length > 1 ? `Enviar ${items.length} vídeos` : 'Gerar link de compartilhamento'}
               </>
             )}
           </button>

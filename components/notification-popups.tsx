@@ -123,7 +123,7 @@ export function NotificationPopups() {
                   {n.video?.posterUrl ? (
                     <Image src={n.video.posterUrl} alt="" fill className="object-cover" sizes="44px" unoptimized />
                   ) : (
-                    <span className="grid h-full w-full place-items-center text-primary">
+                    <span className="grid h-full w-full place-items-center text-primary-ink">
                       <Icon className="size-5" />
                     </span>
                   )}

@@ -39,13 +39,16 @@ import {
   demandService,
   projectService,
   reportService,
+  teamPerformanceService,
   teamService,
   videoService,
 } from '@/lib/services'
-import type { CalendarActivity, Demand, Project, RatingsReport, TeamMember, Video } from '@/lib/types'
+import type { CalendarActivity, Demand, EditorPerformance, Project, RatingsReport, TeamMember, Video } from '@/lib/types'
 import { useQuery } from '@/lib/use-query'
 import { CALENDAR_ACTIVITY_TYPE_LABEL } from '@/lib/calendar-format'
 import { ErrorState, Skeleton } from '@/components/states'
+import { Gesture } from '@/components/gestures'
+import { GestureCallout, PageHeader } from '@/components/page-header'
 import { cn } from '@/lib/utils'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -150,6 +153,8 @@ export function MonthlyDashboard() {
   const demandsQ = useQuery<Demand[]>((signal) => demandService.list(signal), [])
   const eventsQ = useQuery<CalendarActivity[]>((signal) => calendarService.list(signal), [])
   const membersQ = useQuery<TeamMember[]>((signal) => teamService.members(signal), [])
+  // Opcional: plano sem "desempenho da equipe" responde 403 — o card só some.
+  const performanceQ = useQuery<EditorPerformance[]>((signal) => teamPerformanceService.list(signal), [])
   // 13 meses: os 12 do gráfico mais o anterior ao primeiro, pro comparativo.
   const ratingsQ = useQuery<RatingsReport>(
     (signal) =>
@@ -328,16 +333,12 @@ export function MonthlyDashboard() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Visão geral da operação</p>
-          <h1 className="mt-1 font-display text-4xl tracking-wide sm:text-5xl">DASHBOARD MENSAL</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Acompanhe a performance da agência e os pontos de atenção do mês.
-          </p>
-        </div>
-        <MonthPicker value={selected} current={current} onChange={setSelected} />
-      </div>
+      <PageHeader
+        eyebrow="Visão geral da operação"
+        title="Dashboard mensal"
+        description="Acompanhe a performance da agência e os pontos de atenção do mês."
+        actions={<MonthPicker value={selected} current={current} onChange={setSelected} />}
+      />
 
       {error ? (
         <div className="mt-8">
@@ -352,7 +353,7 @@ export function MonthlyDashboard() {
       ) : (
         <>
           {/* KPIs */}
-          <div className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <div className="mt-8 grid grid-cols-2 gap-4 xl:grid-cols-4">
             <KpiCard
               loading={loading}
               icon={<FolderKanban className="size-5" />}
@@ -378,7 +379,7 @@ export function MonthlyDashboard() {
             <KpiCard
               loading={loading || ratingsQ.loading}
               icon={<VideoIcon className="size-5" />}
-              tone="primary"
+              tone="success"
               label={isCurrentMonth ? 'Conteúdos entregues' : `Entregues em ${MONTHS_SHORT[selected.month].toLowerCase()}`}
               value={metrics.delivered}
               hint={deltaText(metrics.deltaPct, metrics.previous)}
@@ -387,7 +388,8 @@ export function MonthlyDashboard() {
             <KpiCard
               loading={loading || demandsQ.loading}
               icon={<Clock className="size-5" />}
-              tone={metrics.overdue.length > 0 ? 'warning' : 'neutral'}
+              tone="neutral"
+              hintTone={metrics.overdue.length > 0 ? 'danger' : undefined}
               label="Pendências"
               value={metrics.pendingCount}
               hint={
@@ -399,8 +401,95 @@ export function MonthlyDashboard() {
             />
           </div>
 
-          {/* Desempenho + Saúde */}
-          <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-5">
+          {/* Check-up + Desempenho da equipe */}
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <HealthCard
+              loading={loading || demandsQ.loading || membersQ.loading}
+              score={metrics.healthScore}
+              capacityPct={metrics.capacityPct}
+              avgDeliveryDays={metrics.avgDeliveryDays}
+              riskProjects={metrics.riskProjects}
+              overdue={metrics.overdue.length}
+            />
+            <TeamCard loading={performanceQ.loading} error={!!performanceQ.error} rows={performanceQ.data ?? []} />
+          </div>
+
+          {/* Selos: cliente segurando vídeo + próximas gravações */}
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {metrics.waitingClient.length > 0 ? (
+              <GestureCallout
+                gesture={<Gesture state="attention" className="h-20 w-auto" />}
+                eyebrow="Vale um check"
+                title={`${plural(metrics.waitingClient.length, 'vídeo aguardando', 'vídeos aguardando')} o cliente há mais de 3 dias`}
+                description="Um lembrete agora evita atraso na próxima entrega."
+                action={
+                  <Link
+                    href={metrics.waitingClient.length === 1 ? `/videos/${metrics.waitingClient[0].id}/canal-cliente` : '/videos'}
+                    className="inline-flex min-h-11 items-center rounded-xl border border-foreground px-5 text-sm font-medium text-foreground transition-colors hover:bg-foreground hover:text-background"
+                  >
+                    Cobrar cliente
+                  </Link>
+                }
+              />
+            ) : (
+              <GestureCallout
+                gesture={<Gesture state="approved" className="h-20 w-auto" />}
+                eyebrow="Deu check"
+                title="Nenhum vídeo parado com o cliente"
+                description="Todos os envios tiveram retorno em até 3 dias."
+              />
+            )}
+            {metrics.recordingsNext7 === 0 && !eventsQ.loading ? (
+              <GestureCallout
+                gesture={<Gesture state="empty" className="h-20 w-auto" />}
+                eyebrow="Próximas gravações"
+                title="Nada pra checar nos próximos 7 dias"
+                description="Quando a equipe marcar uma gravação, ela aparece aqui."
+                action={
+                  <Link
+                    href="/calendario"
+                    className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+                  >
+                    Agendar gravação
+                  </Link>
+                }
+              />
+            ) : (
+            <section className="rounded-2xl border border-border bg-card p-5">
+              <CardHeader
+                icon={<CalendarDays className="size-5" />}
+                title="Próximas gravações"
+                subtitle="Agenda da equipe nos próximos dias"
+                action={{ href: '/calendario', label: 'Ver calendário' }}
+              />
+              <div className="mt-4">
+                {eventsQ.loading ? (
+                  <div className="flex flex-col gap-2">
+                    {[0, 1, 2].map((i) => (
+                      <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                    ))}
+                  </div>
+                ) : metrics.upcomingRecordings.length === 0 ? (
+                  <p className="border-t border-border pt-4 text-sm text-muted-foreground">
+                    Nenhuma gravação marcada.{' '}
+                    <Link href="/calendario" className="font-medium text-primary-ink hover:underline">
+                      Agendar no calendário
+                    </Link>
+                  </p>
+                ) : (
+                  <ul>
+                    {metrics.upcomingRecordings.map((ev) => (
+                      <RecordingRow key={ev.id} event={ev} />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </section>
+            )}
+          </div>
+
+          {/* Desempenho do mês + Feedback */}
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-5">
             <section className="rounded-2xl border border-border bg-card p-5 lg:col-span-3">
               <CardHeader
                 icon={<BarChart3 className="size-5" />}
@@ -422,50 +511,7 @@ export function MonthlyDashboard() {
                 </>
               )}
             </section>
-
-            <HealthCard
-              loading={loading || demandsQ.loading || membersQ.loading}
-              score={metrics.healthScore}
-              capacityPct={metrics.capacityPct}
-              avgDeliveryDays={metrics.avgDeliveryDays}
-              riskProjects={metrics.riskProjects}
-              overdue={metrics.overdue.length}
-            />
-          </div>
-
-          {/* Gravações + Feedback */}
-          <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <section className="rounded-2xl border border-border bg-card p-5">
-              <CardHeader
-                icon={<CalendarDays className="size-5" />}
-                title="Próximas gravações"
-                subtitle="Agenda da equipe nos próximos dias"
-                action={{ href: '/calendario', label: 'Ver calendário' }}
-              />
-              <div className="mt-4">
-                {eventsQ.loading ? (
-                  <div className="flex flex-col gap-2">
-                    {[0, 1, 2].map((i) => (
-                      <Skeleton key={i} className="h-16 w-full rounded-xl" />
-                    ))}
-                  </div>
-                ) : metrics.upcomingRecordings.length === 0 ? (
-                  <p className="border-t border-border pt-4 text-sm text-muted-foreground">
-                    Nenhuma gravação marcada.{' '}
-                    <Link href="/calendario" className="font-medium text-primary hover:underline">
-                      Agendar no calendário
-                    </Link>
-                  </p>
-                ) : (
-                  <ul>
-                    {metrics.upcomingRecordings.map((ev) => (
-                      <RecordingRow key={ev.id} event={ev} />
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </section>
-
+            <div className="lg:col-span-2 flex flex-col">
             <FeedbackCard
               loading={ratingsQ.loading}
               avg={metrics.avgRating}
@@ -476,6 +522,7 @@ export function MonthlyDashboard() {
               isCurrentMonth={isCurrentMonth}
               monthLabel={monthLabel}
             />
+            </div>
           </div>
 
           <AttentionCard
@@ -534,24 +581,19 @@ function MonthPicker({
   )
 }
 
-const TONE_CLASSES = {
-  primary: 'bg-primary/15 text-primary',
-  neutral: 'bg-secondary text-muted-foreground',
-  warning: 'bg-amber-500/15 text-amber-500',
-} as const
-
 function KpiCard({
   loading,
-  icon,
   tone,
+  hintTone,
   label,
   value,
   hint,
   href,
 }: {
   loading: boolean
-  icon: React.ReactNode
-  tone: keyof typeof TONE_CLASSES
+  icon?: React.ReactNode
+  tone: 'primary' | 'neutral' | 'success'
+  hintTone?: 'danger'
   label: string
   value: number
   hint: string
@@ -560,18 +602,24 @@ function KpiCard({
   return (
     <Link
       href={href}
-      className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary/40 sm:p-5"
+      className="group flex flex-col rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary-ink/40"
     >
-      <span className={cn('hidden size-12 shrink-0 place-items-center rounded-xl sm:grid', TONE_CLASSES[tone])}>{icon}</span>
-      <div className="min-w-0">
-        <p className="truncate text-sm text-muted-foreground">{label}</p>
-        {loading ? (
-          <Skeleton className="mt-1 h-9 w-14" />
-        ) : (
-          <p className="font-display text-4xl leading-tight tracking-wide tabular-nums">{pad2(value)}</p>
-        )}
-        <p className="line-clamp-2 text-xs text-muted-foreground sm:truncate">{loading ? ' ' : hint}</p>
-      </div>
+      <p className="truncate text-sm text-muted-foreground">{label}</p>
+      {loading ? (
+        <Skeleton className="mt-3 h-9 w-14" />
+      ) : (
+        <p
+          className={cn(
+            'mt-2 font-display text-4xl leading-tight tabular-nums',
+            tone === 'success' ? 'text-success-ink' : 'text-foreground',
+          )}
+        >
+          {pad2(value)}
+        </p>
+      )}
+      <p className={cn('mt-1 line-clamp-2 text-xs sm:truncate', hintTone === 'danger' ? 'text-danger' : 'text-muted-foreground')}>
+        {loading ? ' ' : hint}
+      </p>
     </Link>
   )
 }
@@ -583,25 +631,25 @@ function CardHeader({
   action,
   aside,
 }: {
-  icon: React.ReactNode
+  icon?: React.ReactNode
   title: string
-  subtitle: string
+  subtitle?: string
   action?: { href: string; label: string }
   aside?: React.ReactNode
 }) {
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
-        <h2 className="flex items-center gap-2 text-lg font-medium text-foreground">
-          <span className="text-muted-foreground">{icon}</span>
+        <h2 className="flex items-center gap-2 font-display text-xl text-foreground">
+          {icon && <span className="text-muted-foreground [&_svg]:size-5">{icon}</span>}
           {title}
         </h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
+        {subtitle && <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
       {action && (
         <Link
           href={action.href}
-          className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:underline"
+          className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary-ink hover:underline"
         >
           {action.label}
           <ArrowUpRight className="size-4" />
@@ -616,7 +664,7 @@ function DeltaBadge({ pct }: { pct: number }) {
   const up = pct >= 0
   const Icon = up ? ArrowUpRight : ArrowDownRight
   return (
-    <span className={cn('inline-flex items-center gap-0.5 text-sm font-medium', up ? 'text-primary' : 'text-destructive')}>
+    <span className={cn('inline-flex items-center gap-0.5 text-sm font-medium', up ? 'text-primary-ink' : 'text-destructive')}>
       <Icon className="size-4" />
       {formatDecimal(Math.abs(pct))}%
     </span>
@@ -706,9 +754,9 @@ function HealthCard({
 }) {
   const level = score >= 80 ? 'ok' : score >= 60 ? 'warn' : 'bad'
   const badge = {
-    ok: { label: 'Saudável', cls: 'bg-primary/15 text-primary', dot: 'bg-primary' },
-    warn: { label: 'Atenção', cls: 'bg-amber-500/15 text-amber-500', dot: 'bg-amber-500' },
-    bad: { label: 'Crítica', cls: 'bg-destructive/15 text-destructive', dot: 'bg-destructive' },
+    ok: { label: 'Deu check', cls: 'bg-success text-success-foreground' },
+    warn: { label: 'Vale um check', cls: 'bg-warning-soft text-warning-ink' },
+    bad: { label: 'Crítica', cls: 'bg-danger-soft text-danger-ink' },
   }[level]
   const headline = {
     ok: 'Operação em bom ritmo',
@@ -724,20 +772,13 @@ function HealthCard({
           ? 'Prazos em dia e equipe com folga.'
           : 'Alguns pontos merecem atenção nesta semana.'
 
-  const radius = 42
-  const circumference = 2 * Math.PI * radius
-  const ringColor = level === 'ok' ? 'stroke-primary' : level === 'warn' ? 'stroke-amber-500' : 'stroke-destructive'
-
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 lg:col-span-2">
+    <section className="flex flex-col rounded-2xl border border-border bg-card p-6">
       <CardHeader
-        icon={<Gauge className="size-5" />}
-        title="Saúde operacional"
-        subtitle="Indicadores da operação hoje"
+        title="Check-up da operação"
         aside={
           !loading && (
-            <span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium', badge.cls)}>
-              <span className={cn('size-1.5 rounded-full', badge.dot)} />
+            <span className={cn('inline-flex shrink-0 items-center rounded-full px-3 py-1 text-xs font-semibold', badge.cls)}>
               {badge.label}
             </span>
           )
@@ -747,50 +788,37 @@ function HealthCard({
         <Skeleton className="mt-6 h-52 w-full rounded-xl" />
       ) : (
         <>
-          <div className="mt-5 flex items-center gap-5">
-            <div
-              className="relative grid size-28 shrink-0 place-items-center"
-              title="Pontualidade (40%), satisfação dos clientes nos últimos 90 dias (30%) e folga da equipe (30%)"
-            >
-              <svg viewBox="0 0 100 100" className="absolute inset-0 -rotate-90">
-                <circle cx="50" cy="50" r={radius} fill="none" strokeWidth="8" className="stroke-secondary" />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r={radius}
-                  fill="none"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  strokeDasharray={circumference}
-                  strokeDashoffset={circumference * (1 - score / 100)}
-                  className={cn('transition-[stroke-dashoffset] duration-700', ringColor)}
-                />
-              </svg>
-              <span className="font-display text-4xl tracking-wide tabular-nums">
-                {score}
-                <span className="align-top text-xs text-muted-foreground">/100</span>
-              </span>
-            </div>
+          <div
+            className="mt-4 flex items-center gap-6"
+            title="Pontualidade (40%), satisfação dos clientes nos últimos 90 dias (30%) e folga da equipe (30%)"
+          >
+            <Gesture
+              state={level === 'ok' ? 'check' : level === 'warn' ? 'attention' : 'critical'}
+              className="h-28 w-auto sm:h-32"
+            />
             <div className="min-w-0">
-              <p className="font-medium text-foreground">{headline}</p>
+              <p className="font-display text-5xl leading-none tabular-nums text-foreground">
+                {score}
+                <span className="ml-0.5 font-sans text-base font-normal text-muted-foreground">/100</span>
+              </p>
+              <p className="mt-2 font-display text-lg text-foreground">{headline}</p>
               <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
             </div>
           </div>
-          <dl className="mt-5 flex flex-col gap-3 border-t border-border pt-4 text-sm">
+          <dl className="mt-auto flex flex-col pt-6 text-sm">
             <HealthRow
-              dot={capacityPct !== null && capacityPct > 85 ? 'bg-amber-500' : 'bg-primary'}
+              danger={capacityPct !== null && capacityPct > 100}
               label="Capacidade da equipe"
               title={`Trabalhos em aberto sobre ${ITEMS_PER_PERSON} por pessoa ativa da equipe`}
               value={capacityPct === null ? '—' : `${capacityPct}%`}
             />
             <HealthRow
-              dot="bg-amber-500"
               label="Prazo médio de entrega"
               title="Do envio do vídeo até a aprovação do cliente, no mês escolhido"
               value={avgDeliveryDays === null ? '—' : `${formatDecimal(avgDeliveryDays)} ${avgDeliveryDays < 1.05 && avgDeliveryDays >= 0.95 ? 'dia' : 'dias'}`}
             />
             <HealthRow
-              dot={riskProjects > 0 ? 'bg-destructive' : 'bg-primary'}
+              danger={riskProjects > 0}
               label="Projetos em risco"
               title="Projetos com vídeo atrasado ou vencendo em até 2 dias"
               value={pad2(riskProjects)}
@@ -802,14 +830,88 @@ function HealthCard({
   )
 }
 
-function HealthRow({ dot, label, value, title }: { dot: string; label: string; value: string; title: string }) {
+/** Nota média por editor no mês (mesma fonte de /equipe/desempenho). */
+function TeamCard({ loading, error, rows }: { loading: boolean; error: boolean; rows: EditorPerformance[] }) {
+  const scored = rows.filter((r) => r.averageScore !== null)
+  const avg = scored.length ? scored.reduce((sum, r) => sum + (r.averageScore ?? 0), 0) / scored.length : null
+  const level = avg === null ? 'empty' : avg >= 8 ? 'ok' : avg >= 6 ? 'warn' : 'bad'
+  const top = [...scored].sort((a, b) => (b.averageScore ?? 0) - (a.averageScore ?? 0)).slice(0, 3)
+  const badge = {
+    ok: { label: 'Deu check', cls: 'bg-success text-success-foreground' },
+    warn: { label: 'Vale um check', cls: 'bg-warning-soft text-warning-ink' },
+    bad: { label: 'Hora de um check-up', cls: 'bg-danger-soft text-danger-ink' },
+    empty: null,
+  }[level]
+  const headline = {
+    ok: 'Equipe no ritmo',
+    warn: 'Equipe oscilando',
+    bad: 'Notas abaixo do esperado',
+    empty: 'Nada pra checar por aqui',
+  }[level]
+
   return (
-    <div className="flex items-center justify-between gap-3" title={title}>
-      <dt className="flex items-center gap-2.5 text-muted-foreground">
-        <span className={cn('size-2 rounded-full', dot)} />
-        {label}
-      </dt>
-      <dd className="font-semibold tabular-nums text-foreground">{value}</dd>
+    <section className="flex flex-col rounded-2xl border border-border bg-card p-6">
+      <CardHeader
+        title="Desempenho da equipe"
+        action={error || level === 'empty' ? { href: '/equipe/desempenho', label: 'Ver equipe' } : undefined}
+        aside={
+          !loading && badge && (
+            <span className={cn('inline-flex shrink-0 items-center rounded-full px-3 py-1 text-xs font-semibold', badge.cls)}>
+              {badge.label}
+            </span>
+          )
+        }
+      />
+      {loading ? (
+        <Skeleton className="mt-6 h-52 w-full rounded-xl" />
+      ) : (
+        <>
+          <div className="mt-4 flex items-center gap-6">
+            <Gesture
+              state={level === 'ok' ? 'check' : level === 'warn' ? 'attention' : level === 'bad' ? 'critical' : 'empty'}
+              className="h-28 w-auto sm:h-32"
+            />
+            <div className="min-w-0">
+              {avg !== null && (
+                <p className="font-display text-5xl leading-none tabular-nums text-foreground">
+                  {formatDecimal(avg)}
+                  <span className="ml-0.5 font-sans text-base font-normal text-muted-foreground">/10</span>
+                </p>
+              )}
+              <p className="mt-2 font-display text-lg text-foreground">{headline}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {error
+                  ? 'Disponível nos planos com desempenho da equipe.'
+                  : avg === null
+                    ? 'Quando os clientes avaliarem vídeos aprovados, a nota aparece aqui.'
+                    : 'Nota média dos vídeos aprovados neste mês.'}
+              </p>
+            </div>
+          </div>
+          {top.length > 0 && (
+            <ul className="mt-auto pt-6 text-sm">
+              {top.map((r) => (
+                <li key={r.editorId} className="flex items-center gap-3 border-t border-border py-3">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-avatar text-[11px] font-semibold text-avatar-foreground">
+                    {initials(r.name)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-foreground">{r.name}</span>
+                  <span className="font-semibold tabular-nums text-foreground">{formatDecimal(r.averageScore ?? 0)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
+function HealthRow({ label, value, title, danger }: { label: string; value: string; title: string; danger?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-t border-border py-3" title={title}>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className={cn('font-semibold tabular-nums', danger ? 'text-danger-ink' : 'text-foreground')}>{value}</dd>
     </div>
   )
 }
@@ -835,7 +937,7 @@ function RecordingRow({ event }: { event: CalendarActivity }) {
         {lead && (
           <span
             title={event.crew.map((c) => c.name).join(', ')}
-            className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-avatar text-xs font-semibold text-avatar-foreground"
           >
             {initials(lead)}
           </span>
@@ -866,7 +968,7 @@ function FeedbackCard({
 }) {
   const since = clientSince ? monthsSince(clientSince) : null
   return (
-    <section className="flex flex-col rounded-2xl border border-border bg-card p-5">
+    <section className="flex h-full flex-col rounded-2xl border border-border bg-card p-6">
       <CardHeader
         icon={<MessageSquareQuote className="size-5" />}
         title="Feedback dos clientes"
@@ -876,7 +978,7 @@ function FeedbackCard({
           avg !== null && (
             <span className="inline-flex shrink-0 items-center gap-1 font-display text-3xl tracking-wide text-amber-400">
               {formatDecimal(avg)}
-              <Star className="size-5 fill-current" />
+              <Star className="size-5 fill-warning text-warning" />
             </span>
           )
         }
@@ -915,7 +1017,7 @@ function FeedbackCard({
               {plural(count, 'avaliação recebida', 'avaliações recebidas')}
             </Link>
             {satisfiedPct !== null && (
-              <span className="font-medium text-primary" title="Notas gerais 4 ou 5">
+              <span className="font-medium text-primary-ink" title="Notas gerais 4 ou 5">
                 {satisfiedPct}% deram 4 ou 5 estrelas
               </span>
             )}
@@ -1046,7 +1148,7 @@ function AttentionCard({
   }
 
   return (
-    <section className="mt-3 rounded-2xl border border-border bg-card p-5">
+    <section className="mt-4 rounded-2xl border border-border bg-card p-6">
       <CardHeader
         icon={<AlertTriangle className="size-5" />}
         title="Pontos de atenção"
@@ -1062,7 +1164,7 @@ function AttentionCard({
           </div>
         ) : visible.length === 0 ? (
           <p className="flex items-center gap-2 border-t border-border pt-4 text-sm text-muted-foreground">
-            <CheckCircle2 className="size-4 text-primary" />
+            <CheckCircle2 className="size-4 text-primary-ink" />
             Nada pedindo atenção agora.
             {hiddenCount > 0 && (
               <button type="button" onClick={restore} className="font-medium text-foreground underline-offset-2 hover:underline">
@@ -1077,7 +1179,7 @@ function AttentionCard({
                 <span
                   className={cn(
                     'grid size-11 shrink-0 place-items-center rounded-xl',
-                    item.tone === 'warning' ? 'bg-amber-500/15 text-amber-500' : 'bg-secondary text-muted-foreground',
+                    item.tone === 'warning' ? 'bg-warning-soft text-warning-ink' : 'bg-secondary text-muted-foreground',
                   )}
                 >
                   {item.icon}
@@ -1090,7 +1192,7 @@ function AttentionCard({
                   href={item.href}
                   className={cn(
                     'hidden min-h-9 shrink-0 items-center rounded-full px-4 text-sm font-medium transition-opacity hover:opacity-80 sm:inline-flex',
-                    item.tone === 'warning' ? 'bg-amber-500/15 text-amber-500' : 'bg-secondary text-foreground',
+                    item.tone === 'warning' ? 'bg-warning-soft text-warning-ink' : 'bg-secondary text-foreground',
                   )}
                 >
                   {item.cta}

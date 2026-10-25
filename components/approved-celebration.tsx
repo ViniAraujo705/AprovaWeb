@@ -2,13 +2,15 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
-import { Check, RotateCcw, ArrowLeft } from 'lucide-react'
+import { RotateCcw, ArrowLeft } from 'lucide-react'
 import { motion, useReducedMotion } from '@/components/motion'
+import { Gesture } from '@/components/gestures'
+import { CheckLogo } from '@/components/page-header'
 
 /**
- * Tela dedicada de confirmação após a aprovação do vídeo.
- * Celebração leve: check animado + confete sutil (desligado em reduced-motion),
- * agradecimento e nome do projeto aprovado.
+ * Tela dedicada de confirmação após a aprovação do vídeo ("Deu check!").
+ * Gesto 1 do sistema de gestos (a mão que vira check) + chuva sutil de checks
+ * (desligada em reduced-motion), agradecimento e nome do projeto aprovado.
  */
 export function ApprovedCelebration({
   projectName,
@@ -28,75 +30,82 @@ export function ApprovedCelebration({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
-      className="fixed inset-0 z-50 grid place-items-center overflow-hidden bg-background px-6 text-center"
+      className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background"
       role="dialog"
       aria-modal="true"
       aria-label="Vídeo aprovado"
     >
       {!reduce && <Confetti />}
 
-      <div className="relative z-10 flex max-w-sm flex-col items-center">
-        {/* Check animado */}
-        <motion.span
-          initial={reduce ? { opacity: 0 } : { scale: 0, rotate: -20 }}
-          animate={reduce ? { opacity: 1 } : { scale: 1, rotate: 0 }}
+      <div className="relative z-10 mx-auto grid w-full max-w-5xl flex-1 items-center gap-8 px-6 py-12 md:grid-cols-[1fr_1.2fr] md:gap-12">
+        {/* Gesto 1: a própria mão forma o check */}
+        <motion.div
+          initial={reduce ? { opacity: 0 } : { scale: 0.6, rotate: -12, opacity: 0 }}
+          animate={reduce ? { opacity: 1 } : { scale: 1, rotate: 0, opacity: 1 }}
           transition={
             reduce
               ? { duration: 0.2 }
-              : { type: 'spring', stiffness: 260, damping: 16, delay: 0.1 }
+              : { type: 'spring', stiffness: 220, damping: 15, delay: 0.1 }
           }
-          className="grid size-20 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg"
+          className="flex justify-center"
         >
-          <Check className="size-10" strokeWidth={3} />
-        </motion.span>
-
-        <motion.h1
-          initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: reduce ? 0.1 : 0.25 }}
-          className="mt-6 font-display text-4xl leading-none tracking-wide sm:text-5xl"
-        >
-          VÍDEO APROVADO!
-        </motion.h1>
-
-        <motion.p
-          initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: reduce ? 0.1 : 0.35 }}
-          className="mt-3 text-sm text-muted-foreground"
-        >
-          Obrigado! A agência já foi avisada e vai seguir com a publicação.
-        </motion.p>
-
-        <motion.div
-          initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: reduce ? 0.1 : 0.45 }}
-          className="mt-5 rounded-full bg-secondary px-4 py-2 text-sm font-medium text-foreground"
-        >
-          {projectName}
+          <Gesture state="check" className="h-40 w-auto sm:h-56 md:h-72" />
         </motion.div>
 
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          {galleryLink && (
-            <Link
-              href={`/g/${galleryLink}`}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-            >
-              <ArrowLeft className="size-4" />
-              Ver outros vídeos do projeto
-            </Link>
-          )}
-          <button
-            type="button"
-            onClick={onReset}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70"
+        <div className="text-center md:text-left">
+          <motion.span
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: reduce ? 0.1 : 0.2 }}
+            className="inline-flex rounded-full bg-primary px-3.5 py-1.5 text-sm font-semibold text-primary-foreground"
           >
-            <RotateCcw className="size-4" />
-            Revisar novamente
-          </button>
+            Vídeo aprovado
+          </motion.span>
+
+          <motion.h1
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: reduce ? 0.1 : 0.25 }}
+            className="mt-5 font-display text-6xl leading-[0.95] sm:text-7xl md:text-8xl"
+          >
+            Deu <span className="text-success-ink">check!</span>
+          </motion.h1>
+
+          <motion.p
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: reduce ? 0.1 : 0.35 }}
+            className="mt-5 text-base text-muted-foreground sm:text-lg"
+          >
+            Obrigado! A agência já foi avisada e vai seguir com a publicação de{' '}
+            <span className="font-semibold text-foreground">{projectName}</span>.
+          </motion.p>
+
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3 md:justify-start">
+            {galleryLink && (
+              <Link
+                href={`/g/${galleryLink}`}
+                className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-primary px-6 font-display text-base text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                <ArrowLeft className="size-4" />
+                Ver os outros vídeos
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={onReset}
+              className="inline-flex min-h-12 items-center gap-2 rounded-2xl border border-foreground px-6 text-base font-medium text-foreground transition-colors hover:bg-secondary"
+            >
+              <RotateCcw className="size-4" />
+              Revisar novamente
+            </button>
+          </div>
         </div>
       </div>
+
+      <p className="relative z-10 flex items-center justify-center gap-2 pb-8 text-sm text-muted-foreground">
+        Aprovações feitas com <CheckLogo className="h-5 w-[82px]" />
+      </p>
     </motion.div>
   )
 }
@@ -104,12 +113,8 @@ export function ApprovedCelebration({
 /** Confete sutil em CSS (animação desligada por prefers-reduced-motion). */
 function Confetti() {
   const pieces = useMemo(() => {
-    const colors = [
-      'var(--primary)',
-      'var(--foreground)',
-      'var(--muted-foreground)',
-      '#34d399', // emerald-400 — toque de cor discreto
-    ]
+    // Pequenos "checks" em lima e verde-sálvia caindo, como no layout.
+    const colors = ['var(--primary)', 'var(--chart-2)', 'var(--primary-ink)']
     return Array.from({ length: 28 }).map((_, i) => {
       const left = Math.random() * 100
       const delay = Math.random() * 0.6
@@ -121,9 +126,9 @@ function Confetti() {
         id: i,
         style: {
           left: `${left}%`,
-          width: `${size}px`,
-          height: `${size * 1.6}px`,
-          background: colors[i % colors.length],
+          width: `${size * 1.6}px`,
+          height: `${size}px`,
+          color: colors[i % colors.length],
           animation: `aprova-confetti-fall ${duration}s ${delay}s ease-in forwards`,
           '--confetti-x': `${drift}px`,
           '--confetti-r': `${rotate}deg`,
@@ -135,11 +140,15 @@ function Confetti() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
       {pieces.map((p) => (
-        <span
+        <svg
           key={p.id}
-          className="absolute top-0 rounded-[1px] opacity-0"
+          viewBox="0 0 16 10"
+          fill="none"
+          className="absolute top-0 opacity-0"
           style={p.style}
-        />
+        >
+          <path d="M2 5l4 3 8-6" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       ))}
     </div>
   )

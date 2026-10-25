@@ -62,6 +62,9 @@ import { triggerDownload } from '@/lib/download'
 import { cn } from '@/lib/utils'
 import { StaggerList, staggerItem, motion, AnimatePresence } from '@/components/motion'
 import { toast } from '@/lib/toast'
+import { Gesture } from '@/components/gestures'
+import { PageHeader } from '@/components/page-header'
+import { ClientAvatar } from '@/components/client-avatar'
 
 const filters: { key: 'todos' | VideoStatus; label: string }[] = [
   { key: 'todos', label: 'Todos' },
@@ -78,13 +81,13 @@ const STAGES = Object.keys(productionStageLabel) as ProductionStage[]
 // laranja = aguardando decisão do cliente, vermelho = voltou pra ajustes,
 // verde = aprovado, cinza = planejado/entregue (pontas neutras do fluxo).
 const STAGE_COLOR: Record<ProductionStage, string> = {
-  planejado: 'bg-gray-300',
-  producao: 'bg-blue-500',
-  edicao: 'bg-blue-500',
-  aguardando_aprovacao: 'bg-amber-500',
-  ajustes: 'bg-red-500',
-  aprovado: 'bg-emerald-500',
-  entregue: 'bg-gray-400',
+  planejado: 'bg-foreground',
+  producao: 'bg-sky-400',
+  edicao: 'bg-violet-400',
+  aguardando_aprovacao: 'bg-warning',
+  ajustes: 'bg-danger',
+  aprovado: 'bg-primary',
+  entregue: 'bg-chart-2',
 }
 
 /**
@@ -350,23 +353,20 @@ export function DashboardView() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-display text-4xl tracking-wide sm:text-5xl">
-            SEUS VÍDEOS
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Acompanhe o status de cada envio e o retorno dos clientes.
-          </p>
-        </div>
+      <PageHeader
+        eyebrow="Envios e retorno"
+        title="Seus vídeos"
+        description="Acompanhe o status de cada envio e o retorno dos clientes."
+        actions={
         <Link
           href="/upload"
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 font-display text-lg tracking-wide text-primary-foreground transition-opacity hover:opacity-90"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-base text-primary-foreground transition-opacity hover:opacity-90"
         >
           <Plus className="size-5" />
-          ENVIAR NOVO VÍDEO
+          Enviar novo vídeo
         </Link>
-      </div>
+        }
+      />
 
       {/* Onboarding: banner do projeto de exemplo (is_exemplo) */}
       <AnimatePresence>
@@ -404,17 +404,17 @@ export function DashboardView() {
                 type="button"
                 onClick={() => setStatus(f.key)}
                 className={cn(
-                  'inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors',
+                  'inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors',
                   active
-                    ? 'bg-foreground text-background'
-                    : 'bg-secondary text-muted-foreground hover:text-foreground',
+                    ? 'border-primary bg-primary font-semibold text-primary-foreground'
+                    : 'border-border bg-card text-foreground hover:border-primary-ink/40',
                 )}
               >
                 {f.label}
                 <span
                   className={cn(
                     'inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold',
-                    active ? 'bg-background/20 text-background' : 'bg-border text-foreground',
+                    active ? 'bg-primary-foreground/10 text-primary-foreground' : 'bg-secondary text-foreground',
                   )}
                 >
                   {count}
@@ -431,13 +431,13 @@ export function DashboardView() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por arquivo..."
-              className="min-h-11 w-full rounded-lg border border-border bg-secondary pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary sm:w-56"
+              className="min-h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink sm:w-56"
             />
           </div>
           <select
             value={client}
             onChange={(e) => setClient(e.target.value)}
-            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary"
+            className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
           >
             {clientNames.map((c) => (
               <option key={c} value={c}>
@@ -456,7 +456,7 @@ export function DashboardView() {
               type="checkbox"
               checked={selected.size > 0 && selected.size === filtered.length}
               onChange={toggleSelectAll}
-              className="size-4 cursor-pointer accent-primary"
+              className="size-4 cursor-pointer accent-primary-ink"
             />
             Selecionar todos
           </label>
@@ -664,7 +664,7 @@ function VideoThumb({
           onToggleSelect()
         }}
         onClick={(e) => e.stopPropagation()}
-        className="absolute left-1.5 top-1.5 z-[2] size-4 cursor-pointer accent-primary"
+        className="absolute left-1.5 top-1.5 z-[2] size-4 cursor-pointer accent-primary-ink"
       />
       <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <span className="grid size-6 place-items-center rounded-full bg-black/45 text-white">
@@ -707,7 +707,7 @@ function CompactVideoRow({
   const isOwner = user?.teamRole === 'owner'
 
   return (
-    <div className="group relative rounded-2xl border border-border bg-card p-3 transition-colors hover:border-primary/50">
+    <div className="group relative rounded-2xl border border-border bg-card p-3 transition-colors hover:border-primary-ink/50">
       <Link
         href={`/videos/${v.id}/revisao`}
         aria-label={`Abrir revisão interna de ${v.title}`}
@@ -1087,11 +1087,11 @@ function OnboardingBanner({
       animate={{ y: 0 }}
       exit={{ opacity: 0, height: 0, marginTop: 0 }}
       transition={{ duration: 0.3 }}
-      className="mt-6 rounded-xl border border-primary/40 bg-primary/10 p-4"
+      className="mt-6 rounded-xl border border-primary-ink/40 bg-primary/10 p-4"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-primary/20 text-primary">
+          <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-primary/20 text-primary-ink">
             <Sparkles className="size-4" />
           </span>
           <div>
@@ -1141,14 +1141,14 @@ function OnboardingBanner({
       </div>
 
       {/* Checklist do fluxo completo: enviar → compartilhar → cliente decide → revisão interna. */}
-      <ol className="mt-4 grid gap-2 border-t border-primary/20 pt-3 sm:grid-cols-2 lg:grid-cols-4">
+      <ol className="mt-4 grid gap-2 border-t border-primary-ink/20 pt-3 sm:grid-cols-2 lg:grid-cols-4">
         {onboardingSteps.map((step, i) => (
           <li key={step.label} className="flex items-start gap-2 text-xs text-muted-foreground">
-            <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
+            <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary-ink">
               {i + 1}
             </span>
             <span>
-              <step.icon className="mb-0.5 mr-1 inline size-3.5 text-primary" />
+              <step.icon className="mb-0.5 mr-1 inline size-3.5 text-primary-ink" />
               {step.label}
             </span>
           </li>
@@ -1193,32 +1193,26 @@ function OverviewRow({
   const hasPendingAlert = pending > 0
 
   return (
-    <StaggerList className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+    <StaggerList className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
       <motion.div
         variants={staggerItem}
         className={cn(
-          'col-span-2 flex items-center gap-3 rounded-xl border p-4 sm:col-span-1',
-          hasPendingAlert ? 'border-primary/40 bg-primary text-primary-foreground' : 'border-border bg-card',
+          'col-span-2 flex items-center gap-4 rounded-2xl border p-5',
+          hasPendingAlert ? 'border-warning-border bg-warning-soft' : 'border-border bg-card',
         )}
       >
-        <span
-          className={cn(
-            'grid size-11 shrink-0 place-items-center rounded-full',
-            hasPendingAlert ? 'bg-primary-foreground/15' : 'bg-secondary text-muted-foreground',
-          )}
-        >
-          <AlarmClock className="size-5" />
-        </span>
+        <Gesture state={hasPendingAlert ? 'attention' : 'approved'} className="h-20 w-auto" />
         <div className="min-w-0">
-          <p className="font-display text-3xl leading-none tracking-wide sm:text-4xl">
-            {pending}
-          </p>
           <p
             className={cn(
-              'mt-1 text-xs',
-              hasPendingAlert ? 'text-primary-foreground/80' : 'text-muted-foreground',
+              'text-xs font-semibold uppercase tracking-[0.16em]',
+              hasPendingAlert ? 'text-warning-ink' : 'text-success-ink',
             )}
           >
+            {hasPendingAlert ? 'Vale um check' : 'Deu check'}
+          </p>
+          <p className="mt-1 font-display text-4xl leading-none text-foreground">{pending}</p>
+          <p className={cn('mt-1.5 text-sm', hasPendingAlert ? 'text-warning-ink' : 'text-muted-foreground')}>
             {hasPendingAlert ? 'pendentes · aguardando retorno' : 'pendentes · tudo em dia'}
           </p>
         </div>
@@ -1228,46 +1222,46 @@ function OverviewRow({
         icon={<CircleCheckBig className="size-4" />}
         label="Aprovados no mês"
         value={approvedThisMonth}
-        hint="Total do mês atual"
+        hint="total do mês atual"
+        tone="success"
       />
       <OverviewCard
         icon={<Pencil className="size-4" />}
         label="Em ajustes"
         value={adjust}
-        hint="Aguardando revisão"
+        hint="aguardando revisão"
       />
       <OverviewCard
         icon={<Zap className="size-4" />}
-        label="Cliente + rápido"
+        label="Cliente que checa mais rápido"
         value={fastestClient ? fastestClient.name : '—'}
-        hint={fastestClient ? `~${fastestClient.avgHours}h em média` : 'Sem dados ainda'}
+        hint={fastestClient ? `aprova em ~${fastestClient.avgHours}h, em média` : 'Sem dados ainda'}
       />
     </StaggerList>
   )
 }
 
 function OverviewCard({
-  icon,
   label,
   value,
   hint,
+  tone,
 }: {
-  icon: React.ReactNode
+  icon?: React.ReactNode
   label: string
   value: string | number
   hint?: string
+  tone?: 'success'
 }) {
   const numeric = typeof value === 'number'
   return (
-    <motion.div variants={staggerItem} className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-        <span className="text-muted-foreground">{icon}</span>
-        {label}
-      </div>
+    <motion.div variants={staggerItem} className="rounded-2xl border border-border bg-card p-5">
+      <div className="text-sm text-muted-foreground">{label}</div>
       <p
         className={cn(
-          'mt-2 leading-none tracking-wide text-foreground',
-          numeric ? 'font-display text-3xl sm:text-4xl' : 'truncate text-xl font-semibold',
+          'mt-2 font-display leading-none',
+          tone === 'success' ? 'text-success-ink' : 'text-foreground',
+          numeric ? 'text-3xl sm:text-4xl' : 'truncate text-2xl',
         )}
         title={numeric ? undefined : String(value)}
       >
@@ -1288,28 +1282,26 @@ function StageBreakdown({ videos }: { videos: Video[] }) {
   const total = videos.length
 
   return (
-    <div className="mt-6 rounded-xl border border-border bg-card p-4">
+    <div className="mt-6 rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-          <LayoutGrid className="size-4 text-muted-foreground" /> Produção por etapa
-        </h2>
-        <Link href="/kanban" className="text-xs font-medium text-foreground hover:underline">
+        <h2 className="font-display text-xl text-foreground">Produção por etapa</h2>
+        <Link href="/kanban" className="text-sm font-medium text-primary-ink hover:underline">
           Ver kanban
         </Link>
       </div>
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="mt-4 flex flex-col gap-3">
         {STAGES.map((stage) => {
           const count = counts.get(stage) ?? 0
           const pct = total > 0 ? Math.round((count / total) * 100) : 0
           return (
-            <div key={stage} className={cn('flex items-center gap-3', count === 0 && 'opacity-40')}>
-              <span className="w-32 shrink-0 truncate text-xs text-muted-foreground sm:w-40">
+            <div key={stage} className="flex items-center gap-4">
+              <span className={cn('w-32 shrink-0 truncate text-sm sm:w-48', count === 0 ? 'text-muted-foreground' : 'text-foreground')}>
                 {productionStageLabel[stage]}
               </span>
               <div className="h-2 flex-1 overflow-hidden rounded-full bg-secondary">
                 <div className={cn('h-full rounded-full', STAGE_COLOR[stage])} style={{ width: `${pct}%` }} />
               </div>
-              <span className="w-6 shrink-0 text-right text-xs font-medium text-foreground">{count}</span>
+              <span className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums text-foreground">{count}</span>
             </div>
           )
         })}
@@ -1372,14 +1364,12 @@ function TeamWorkloadPanel({ videos }: { videos: Video[] }) {
   if (rows.length === 0) return null
 
   return (
-    <div className="mt-6 rounded-xl border border-border bg-card p-4">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-        <UserCog className="size-4 text-muted-foreground" /> Carga da equipe
-      </h2>
-      <p className="mt-0.5 text-xs text-muted-foreground">
+    <div className="mt-6 rounded-2xl border border-border bg-card p-6">
+      <h2 className="font-display text-xl text-foreground">Carga da equipe</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
         Vídeos e demandas ativos, clientes atribuídos e gravações dos próximos 7 dias, por responsável.
       </p>
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="mt-4 flex flex-col gap-2">
         {rows.map(({ member, activeCount, overdueCount, upcomingCount, clientsCount }) => {
           const overdue = overdueCount > 0
           // Atrasado nunca fica ocioso (só conta como atrasado se ainda ativo), então os dois nunca coincidem.
@@ -1388,15 +1378,16 @@ function TeamWorkloadPanel({ videos }: { videos: Video[] }) {
             <div
               key={member.id}
               className={cn(
-                'flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2',
-                overdue ? 'bg-destructive/10' : 'bg-secondary/50',
-                idle && 'opacity-50',
+                'flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-3',
+                overdue ? 'border-danger-border bg-danger-soft' : 'border-border bg-background/50',
+                idle && 'opacity-60',
               )}
             >
-              <span className="min-w-0 truncate text-sm font-medium text-foreground">
-                {member.name || member.email}
+              <span className="flex min-w-0 items-center gap-3 text-sm font-medium text-foreground">
+                <ClientAvatar name={member.name || member.email} seed="equipe" size="md" />
+                <span className="truncate">{member.name || member.email}</span>
               </span>
-              <div className="flex shrink-0 flex-wrap items-center gap-3 text-xs text-muted-foreground">
+              <div className="flex shrink-0 flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 <span>
                   {activeCount} ativo{activeCount === 1 ? '' : 's'}
                 </span>
@@ -1406,7 +1397,7 @@ function TeamWorkloadPanel({ videos }: { videos: Video[] }) {
                   </span>
                 )}
                 {overdue && (
-                  <span className="inline-flex items-center gap-1 font-medium text-destructive">
+                  <span className="inline-flex items-center gap-1 font-medium text-danger-ink">
                     <AlertTriangle className="size-3" /> {overdueCount} atrasado{overdueCount === 1 ? '' : 's'}
                   </span>
                 )}
@@ -1418,7 +1409,7 @@ function TeamWorkloadPanel({ videos }: { videos: Video[] }) {
           )
         })}
         {unassignedCount > 0 && (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
             <span>Sem responsável</span>
             <span>
               {unassignedCount} ativo{unassignedCount === 1 ? '' : 's'}

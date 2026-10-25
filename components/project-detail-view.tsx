@@ -377,7 +377,7 @@ export function ProjectDetailView({ id }: { id: string }) {
                 disabled={photoBusy}
                 aria-label={project.data?.photoUrl ? 'Trocar a foto do projeto' : 'Adicionar uma foto ao projeto'}
                 title="Foto do projeto"
-                className={`group relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg border border-border bg-secondary text-muted-foreground/70 transition-colors hover:border-primary/50 hover:text-foreground disabled:opacity-70 ${
+                className={`group relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-card text-muted-foreground/70 transition-colors hover:border-primary-ink/50 hover:text-foreground disabled:opacity-70 ${
                   project.data?.photoUrl ? '' : 'border-dashed'
                 }`}
               >
@@ -442,7 +442,7 @@ export function ProjectDetailView({ id }: { id: string }) {
               {project.data?.isExample && (
                 <span
                   title="Projeto de exemplo — explore e delete quando quiser."
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary-ink"
                 >
                   <Sparkles className="size-3.5" /> Exemplo
                 </span>
@@ -467,7 +467,7 @@ export function ProjectDetailView({ id }: { id: string }) {
               type="button"
               onClick={exportReport}
               disabled={exporting}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-50"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-50"
             >
               {exporting ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -476,7 +476,7 @@ export function ProjectDetailView({ id }: { id: string }) {
               )}
               Exportar relatório
               {pdfLocked && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-ink">
                   <Lock className="size-3" /> Pro
                 </span>
               )}
@@ -485,7 +485,7 @@ export function ProjectDetailView({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={toggleArchived}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-primary/40 px-4 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-primary-ink/40 px-4 text-sm font-medium text-primary-ink transition-colors hover:bg-primary/10"
               >
                 <ArchiveRestore className="size-4" />
                 Desarquivar projeto
@@ -508,7 +508,7 @@ export function ProjectDetailView({ id }: { id: string }) {
                 <button
                   type="button"
                   onClick={toggleArchived}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-muted-foreground transition-colors hover:border-primary-ink/50 hover:text-primary-ink"
                   title="Projeto tem vídeos — é arquivado em vez de excluído, pra não perder nada do cliente."
                 >
                   <Archive className="size-4" />
@@ -566,7 +566,7 @@ export function ProjectDetailView({ id }: { id: string }) {
       {galleryPath && (
         <div className="mt-4 flex flex-col gap-2 rounded-xl border border-border bg-card p-3 sm:flex-row sm:items-center">
           <div className="flex min-w-0 items-center gap-2 text-sm">
-            <Link2 className="size-4 shrink-0 text-primary" />
+            <Link2 className="size-4 shrink-0 text-primary-ink" />
             <span className="truncate text-muted-foreground">Galeria do projeto: {galleryPath}</span>
           </div>
           <button
@@ -604,7 +604,7 @@ export function ProjectDetailView({ id }: { id: string }) {
             <button
               type="button"
               onClick={() => setReleasingStorage(true)}
-              className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-secondary px-3 text-xs font-medium text-foreground transition-colors hover:border-destructive/50 hover:text-destructive sm:ml-auto"
+              className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:border-destructive/50 hover:text-destructive sm:ml-auto"
             >
               <Trash2 className="size-3.5" />
               Liberar armazenamento
@@ -635,13 +635,13 @@ export function ProjectDetailView({ id }: { id: string }) {
       )}
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-2xl tracking-wide">VÍDEOS DO PROJETO</h2>
+        <h2 className="font-display text-2xl tracking-wide">Vídeos do projeto</h2>
         {downloadableVideos.length > 0 && (
           <div className="flex flex-wrap items-center gap-3">
             <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
               <input
                 type="checkbox"
-                className="size-4 accent-primary"
+                className="size-4 accent-primary-ink"
                 checked={selected.size > 0 && selected.size === downloadableVideos.length}
                 onChange={toggleSelectAll}
               />
@@ -671,8 +671,8 @@ export function ProjectDetailView({ id }: { id: string }) {
         </p>
       )}
       {bulkDownloadProgress && (
-        <div role="status" aria-live="polite" className="mt-3 flex items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 p-3 text-sm">
-          <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
+        <div role="status" aria-live="polite" className="mt-3 flex items-center gap-3 rounded-xl border border-primary-ink/25 bg-primary/5 p-3 text-sm">
+          <Loader2 className="size-4 shrink-0 animate-spin text-primary-ink" />
           <div className="min-w-0 flex-1">
             <p className="font-medium text-foreground">Baixando vídeos…</p>
             <p className="text-xs text-muted-foreground">
@@ -735,7 +735,7 @@ export function ProjectDetailView({ id }: { id: string }) {
               return (
                 <div
                   key={v.id}
-                  className="group relative flex min-w-0 items-center gap-4 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary/50"
+                  className="group relative flex min-w-0 items-center gap-4 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary-ink/50"
                 >
                   {/*
                     Link "esticado": cobre o card inteiro por baixo. O seletor de
@@ -770,7 +770,7 @@ export function ProjectDetailView({ id }: { id: string }) {
                         aria-label={`Selecionar ${v.title} para baixar`}
                         checked={selected.has(v.id)}
                         onChange={() => toggleSelected(v.id)}
-                        className="absolute left-1.5 top-1.5 z-[2] size-4 cursor-pointer accent-primary"
+                        className="absolute left-1.5 top-1.5 z-[2] size-4 cursor-pointer accent-primary-ink"
                       />
                     )}
                     <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
@@ -789,7 +789,7 @@ export function ProjectDetailView({ id }: { id: string }) {
                         </span>
                       )}
                       {v.version > 1 && (
-                        <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                        <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary-ink">
                           v{v.version}
                         </span>
                       )}
@@ -845,7 +845,7 @@ export function ProjectDetailView({ id }: { id: string }) {
                       )}
                     </div>
                   </div>
-                  <ChevronRight className="hidden size-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary sm:block" />
+                  <ChevronRight className="hidden size-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary-ink sm:block" />
 
                   {isOwner && (
                     <div className="absolute right-3 top-3 z-[2]">
@@ -902,7 +902,7 @@ export function ProjectDetailView({ id }: { id: string }) {
               type="button"
               onClick={loadMoreVideos}
               disabled={loadingMore}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-50"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-50"
             >
               {loadingMore && <Loader2 className="size-4 animate-spin" />}
               Carregar mais vídeos

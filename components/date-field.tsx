@@ -122,7 +122,7 @@ export function DateField({
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'flex min-h-11 w-full items-center gap-1.5 rounded-lg border border-border bg-secondary px-3 text-left text-sm outline-none focus:border-primary disabled:opacity-60',
+          'flex min-h-11 w-full items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-left text-sm outline-none focus:border-primary-ink disabled:opacity-60',
           className,
         )}
       >

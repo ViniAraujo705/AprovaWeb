@@ -50,7 +50,7 @@ export function SettingsView() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-10">
-      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">CONFIGURAÇÕES</h1>
+      <h1 className="font-display text-4xl tracking-wide sm:text-5xl">Configurações</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Gerencie seu perfil e a marca que seus clientes veem nos links de aprovação.
       </p>
@@ -188,7 +188,7 @@ function ProfileForm({ user }: { user: User }) {
     <FadeIn className="mt-8" y={6}>
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <Camera className="size-4 text-primary" />
+          <Camera className="size-4 text-primary-ink" />
           Perfil
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -265,7 +265,7 @@ function ProfileForm({ user }: { user: User }) {
               aria-invalid={!!nameError}
               placeholder="Seu nome"
               className={cn(
-                'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary',
+                'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
                 nameError ? 'border-destructive' : 'border-border',
               )}
             />
@@ -282,7 +282,7 @@ function ProfileForm({ user }: { user: User }) {
               aria-invalid={!!emailError}
               placeholder="voce@agencia.com"
               className={cn(
-                'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary',
+                'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
                 emailError ? 'border-destructive' : 'border-border',
               )}
             />
@@ -346,7 +346,7 @@ function SecurityForm({ user }: { user: User }) {
     <FadeIn className="mt-8" y={6}>
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <Lock className="size-4 text-primary" />
+          <Lock className="size-4 text-primary-ink" />
           Senha
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -406,7 +406,7 @@ function SessionsSection() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-sm font-medium">
-              <Monitor className="size-4 text-primary" />
+              <Monitor className="size-4 text-primary-ink" />
               Sessões ativas
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -549,7 +549,7 @@ function NotificationPreferencesSection() {
     <FadeIn className="mt-8" y={6}>
       <div id="notificacoes" className="scroll-mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <BellRing className="size-4 text-primary" />
+          <BellRing className="size-4 text-primary-ink" />
           Notificações por e-mail
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -591,12 +591,12 @@ function NotificationPreferencesSection() {
                       checked={!data.mutedTypes.includes(type)}
                       onChange={(e) => toggleType(type, e.target.checked)}
                       disabled={!anyEmail}
-                      className="size-4 shrink-0 accent-primary"
+                      className="size-4 shrink-0 accent-primary-ink"
                     />
                     <span>
                       {NOTIFICATION_TYPE_NAME[type]}
                       {IMMEDIATE_EMAIL_TYPES.includes(type) && data.immediate && (
-                        <span className="ml-1.5 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                        <span className="ml-1.5 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary-ink">
                           na hora
                         </span>
                       )}
@@ -778,10 +778,10 @@ function BrandingForm({ user }: { user: User }) {
     <FadeIn className="mt-8" y={6}>
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <Building2 className="size-4 text-primary" />
+          <Building2 className="size-4 text-primary-ink" />
           Marca da agência
           {locked && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-ink">
               <Lock className="size-3" /> Pro
             </span>
           )}
@@ -793,7 +793,7 @@ function BrandingForm({ user }: { user: User }) {
 
         {/* Preview atual */}
         <div className="mt-4 flex items-center gap-4">
-          <div className="grid h-16 w-40 place-items-center overflow-hidden rounded-lg border border-border bg-secondary">
+          <div className="grid h-16 w-40 place-items-center overflow-hidden rounded-xl border border-border bg-card">
             {logoUrl ? (
               <span className="relative h-12 w-36">
                 <Image
@@ -843,8 +843,8 @@ function BrandingForm({ user }: { user: User }) {
             fileError
               ? 'border-destructive/60 bg-destructive/5'
               : dragging
-                ? 'border-primary bg-primary/10'
-                : 'border-primary/50 bg-background hover:border-primary hover:bg-primary/5',
+                ? 'border-primary-ink bg-primary/10'
+                : 'border-primary-ink/50 bg-background hover:border-primary-ink hover:bg-primary/5',
           )}
         >
           <input
@@ -857,7 +857,7 @@ function BrandingForm({ user }: { user: User }) {
               e.target.value = ''
             }}
           />
-          <span className="grid size-12 place-items-center rounded-full bg-primary/15 text-primary">
+          <span className="grid size-12 place-items-center rounded-full bg-primary/15 text-primary-ink">
             {busy ? <Loader2 className="size-6 animate-spin" /> : <ImagePlus className="size-6" />}
           </span>
           <p className="mt-2 text-sm font-medium text-foreground">
@@ -892,7 +892,7 @@ function BrandingForm({ user }: { user: User }) {
             value={agencyName}
             onChange={(e) => setAgencyName(e.target.value)}
             placeholder="Ex: Estúdio Aurora"
-            className="min-h-11 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+            className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
           />
         </label>
 
@@ -905,13 +905,13 @@ function BrandingForm({ user }: { user: User }) {
               value={accentColor}
               onChange={(e) => setAccentColor(e.target.value)}
               aria-label="Cor de destaque da agência"
-              className="size-11 cursor-pointer rounded-lg border border-border bg-secondary p-1"
+              className="size-11 cursor-pointer rounded-xl border border-border bg-card p-1"
             />
             <input
               value={accentColor}
               onChange={(e) => setAccentColor(e.target.value)}
               placeholder={DEFAULT_ACCENT_COLOR}
-              className="min-h-11 w-32 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+              className="min-h-11 w-32 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
             />
             {accentColor !== DEFAULT_ACCENT_COLOR && (
               <button

@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 const typeStyles: Record<ToastType, string> = {
   success: 'border-emerald-500/30 [&_[data-slot=toast-icon]]:text-emerald-400',
   error: 'border-destructive/40 [&_[data-slot=toast-icon]]:text-destructive',
-  info: 'border-primary/30 [&_[data-slot=toast-icon]]:text-primary',
+  info: 'border-primary-ink/30 [&_[data-slot=toast-icon]]:text-primary-ink',
 }
 
 const typeIcons: Record<ToastType, React.ReactNode> = {

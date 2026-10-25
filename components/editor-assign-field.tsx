@@ -80,7 +80,7 @@ export function EditorAssignField({
           e.stopPropagation()
           change(e.target.value)
         }}
-        className="min-h-8 rounded-lg border border-border bg-secondary px-2 text-xs text-foreground outline-none focus:border-primary disabled:opacity-60"
+        className="min-h-8 rounded-xl border border-border bg-card px-2 text-xs text-foreground outline-none focus:border-primary-ink disabled:opacity-60"
       >
         <option value="">Sem editor responsável</option>
         {members.map((m) => (
