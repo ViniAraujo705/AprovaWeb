@@ -71,9 +71,9 @@ export function VideoTitleField({
       type="button"
       onClick={() => setEditing(true)}
       title={title}
-      className={cn('group flex min-w-0 items-center gap-2 text-left', className)}
+      className={cn('group flex min-w-0 max-w-full items-center gap-2 text-left', className)}
     >
-      <span className="truncate">{title}</span>
+      <span className="min-w-0 truncate">{title}</span>
       <Pencil className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
     </button>
   )

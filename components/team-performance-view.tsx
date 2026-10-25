@@ -161,7 +161,7 @@ function PerformanceRow({ row }: { row: EditorPerformance }) {
   const pct = hasData ? Math.max(0, Math.min(100, (row.averageScore! / 10) * 100)) : 0
 
   return (
-    <li className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 sm:gap-5 sm:px-6">
+    <li className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-4 sm:flex-nowrap sm:gap-5 sm:px-6">
       {/* Avatar */}
       <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-avatar text-sm font-semibold text-avatar-foreground sm:size-11">
         {initials(row.name)}
@@ -169,14 +169,14 @@ function PerformanceRow({ row }: { row: EditorPerformance }) {
 
       {/* Nome */}
       <span
-        className="w-24 shrink-0 truncate text-base font-medium text-foreground sm:w-44"
+        className="min-w-0 flex-1 truncate text-base font-medium text-foreground sm:w-44 sm:flex-none"
         title={row.name || 'Sem nome'}
       >
         {row.name || 'Sem nome'}
       </span>
 
       {/* Trilho + preenchimento */}
-      <div className="relative h-10 min-w-0 flex-1 overflow-hidden rounded-full bg-secondary">
+      <div className="relative order-last h-10 min-w-0 basis-full overflow-hidden rounded-full bg-secondary sm:order-none sm:basis-auto sm:flex-1">
         {hasData ? (
           <motion.div
             initial={{ width: 0 }}
@@ -206,7 +206,7 @@ function PerformanceRow({ row }: { row: EditorPerformance }) {
       </div>
 
       {/* Contagem de vídeos aprovados */}
-      <span className="w-24 shrink-0 text-right text-sm text-muted-foreground sm:w-32">
+      <span className="shrink-0 text-right text-sm text-muted-foreground sm:w-32">
         {hasData ? `${row.approvedVideosCount} aprovado${row.approvedVideosCount === 1 ? '' : 's'}` : 'Sem dados'}
       </span>
     </li>
