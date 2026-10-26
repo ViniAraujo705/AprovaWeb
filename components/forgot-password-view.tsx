@@ -39,7 +39,6 @@ export function ForgotPasswordView() {
     setSubmitting(true)
     try {
       await authService.forgotPassword(email.trim())
-      // Sempre trata como sucesso: não revela se o e-mail tem conta ou não.
       setSent(true)
     } catch (err) {
       if (err instanceof ApiError) {
@@ -69,8 +68,8 @@ export function ForgotPasswordView() {
 
         {sent ? (
           <p className="mt-8 flex items-center justify-center gap-1.5 rounded-lg border border-success-soft bg-success-soft px-3 py-2 text-center text-sm font-medium text-emerald-400">
-            <Check className="size-4 shrink-0" /> Se esse e-mail tiver uma conta, enviamos um link
-            de redefinição.
+            <Check className="size-4 shrink-0" /> Enviamos um link de redefinição para o seu
+            e-mail.
           </p>
         ) : (
           <form onSubmit={handleSubmit} noValidate className="mt-8 flex flex-col gap-4">
