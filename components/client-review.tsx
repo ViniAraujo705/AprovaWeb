@@ -281,10 +281,11 @@ export function ClientReview({
     setAudioPreviewUrl(null)
   }
 
-  async function addComment() {
+  /** Envia o rascunho do composer; resolve `true` só se o comentário foi salvo. */
+  async function addComment(): Promise<boolean> {
     const text = draft.trim()
     const name = authorName.trim()
-    if ((!text && !audioBlob) || !name) return
+    if ((!text && !audioBlob) || !name) return false
     const postingLink = activeLink
     setPostingComment(true)
     setCommentError(null)
@@ -327,7 +328,7 @@ export function ClientReview({
       // já está salvo no vídeo certo; só não entra na lista do vídeo atual.
       if (activeLinkRef.current !== postingLink) {
         toast.success('Comentário adicionado')
-        return
+        return true
       }
       setComments((prev) => [...prev, created])
       setDraft('')
@@ -339,12 +340,14 @@ export function ClientReview({
       setCommentSent(true)
       toast.success('Comentário adicionado')
       setTimeout(() => setCommentSent(false), 1800)
+      return true
     } catch (err) {
       setCommentError(
         err instanceof UploadError || err instanceof ApiError
           ? err.message
           : 'Não foi possível enviar.',
       )
+      return false
     } finally {
       setPostingComment(false)
     }
@@ -358,6 +361,47 @@ export function ClientReview({
     } catch {
       setRatings((r) => ({ ...r, [questionId]: prev })) // reverte
     }
+  }
+
+  /** Leva o cliente até o composer (sai da aba Reels, onde ele fica escondido). */
+  function focusComposer(field: 'nome' | 'texto') {
+    setPreviewTab('player')
+    setTimeout(() => {
+      const el = document.getElementById(field === 'nome' ? 'comentario-nome' : 'comentario-texto')
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el?.focus({ preventScroll: true })
+    }, 50)
+  }
+
+  /**
+   * "Pedir ajuste" sem nenhum comentário deixava o vídeo em Ajuste com a
+   * agência sem saber o quê ajustar. Pior: quem digitava o pedido e ia direto
+   * no botão (sem "Adicionar comentário", que exige o nome) perdia o texto.
+   * Aqui o rascunho pendente é enviado junto, e sem comentário nenhum o pedido
+   * não sai.
+   */
+  async function requestChanges() {
+    setDecisionError(null)
+    const hasDraft = !!draft.trim() || !!audioBlob
+    if (hasDraft) {
+      if (!authorName.trim()) {
+        setDecisionError('Informe seu nome no campo de comentário para enviar o ajuste.')
+        focusComposer('nome')
+        return
+      }
+      setDecisionBusy('ajuste')
+      const sent = await addComment()
+      if (!sent) {
+        setDecisionBusy(null)
+        setDecisionError('Não foi possível enviar seu comentário. Tente novamente.')
+        return
+      }
+    } else if (!comments.some((c) => c.authorRole === 'client')) {
+      setDecisionError('Antes de pedir ajuste, escreva num comentário o que precisa mudar.')
+      focusComposer('texto')
+      return
+    }
+    await decide('ajuste')
   }
 
   async function decide(kind: VideoStatus) {
@@ -646,12 +690,14 @@ export function ClientReview({
                   </span>
                 </div>
                 <input
+                  id="comentario-nome"
                   value={authorName}
                   onChange={(e) => setAuthorName(e.target.value)}
                   placeholder="Seu nome"
                   className="mt-3 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
                 />
                 <textarea
+                  id="comentario-texto"
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder="Escreva um comentário ou grave um áudio neste ponto do vídeo…"
@@ -809,7 +855,7 @@ export function ClientReview({
             <div className="grid grid-cols-[1fr_1.4fr] gap-3 sm:grid-cols-[1fr_2fr]">
               <button
                 type="button"
-                onClick={() => decide('ajuste')}
+                onClick={requestChanges}
                 disabled={decisionBusy !== null}
                 className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-foreground bg-card font-display text-base text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
               >
