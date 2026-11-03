@@ -155,10 +155,21 @@ export function ClientReview({
   // Reels/Instagram. `inFlight` evita disparar o mesmo fetch em duplicidade.
   const prefetchCache = useRef(new Map<string, PublicVideo>())
   const inFlight = useRef(new Set<string>())
+  // Versão do cache por link: sobe toda vez que o cliente sai de um vídeo,
+  // pra descartar um prefetch que já estava em voo com dados de antes dos
+  // comentários/decisão feitos agora.
+  const cacheEpoch = useRef(new Map<string, number>())
+  // Rascunho de comentário por vídeo, pra não perder o texto digitado ao
+  // deslizar pra outro vídeo e voltar.
+  const drafts = useRef(new Map<string, string>())
+  // Link ativo fora do ciclo de render, lido depois de awaits (ex.: em
+  // addComment) pra saber se o cliente já trocou de vídeo no meio do envio.
+  const activeLinkRef = useRef(link)
 
   function applyVideoData(res: PublicVideo, nextLink: string) {
     setData(res)
     setActiveLink(nextLink)
+    activeLinkRef.current = nextLink
     setComments(res.comments)
     const map: Record<string, number> = {}
     for (const r of res.ratings) if (r.questionId) map[r.questionId] = r.value
@@ -166,7 +177,7 @@ export function ClientReview({
     setOverallRating(res.overallRating ?? 0)
     setDecision(decisionFromStatus(res.video.status))
     setDecisionError(null)
-    setDraft('')
+    setDraft(drafts.current.get(nextLink) ?? '')
     if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl)
     setAudioBlob(null)
     setAudioPreviewUrl(null)
@@ -177,9 +188,12 @@ export function ClientReview({
     if (!targetLink || prefetchCache.current.has(targetLink) || inFlight.current.has(targetLink))
       return
     inFlight.current.add(targetLink)
+    const epoch = cacheEpoch.current.get(targetLink) ?? 0
     try {
       const res = await publicService.getByLink(targetLink)
-      prefetchCache.current.set(targetLink, res)
+      if ((cacheEpoch.current.get(targetLink) ?? 0) === epoch) {
+        prefetchCache.current.set(targetLink, res)
+      }
     } catch {
       // Falha silenciosa: o swipe cai de volta pro fetch normal (com spinner).
     } finally {
@@ -187,9 +201,25 @@ export function ClientReview({
     }
   }
 
+  /**
+   * Ao sair de um vídeo, descarta o que está em cache dele: o cache foi
+   * montado antes dos comentários, notas e decisão feitos agora, e voltar
+   * pra ele mostraria a tela sem os ajustes — o cliente achava que não
+   * tinham sido registrados e mandava de novo. O efeito de prefetch busca o
+   * vídeo atualizado logo depois, já que ele vira vizinho na fila.
+   */
+  function leaveCurrentVideo() {
+    const leaving = activeLinkRef.current
+    prefetchCache.current.delete(leaving)
+    cacheEpoch.current.set(leaving, (cacheEpoch.current.get(leaving) ?? 0) + 1)
+    if (draft.trim()) drafts.current.set(leaving, draft)
+    else drafts.current.delete(leaving)
+  }
+
   /** Troca para outro vídeo do mesmo cliente (swipe), recarregando todo o estado da tela. */
   async function loadVideo(nextLink: string) {
     if (switchingVideo) return
+    leaveCurrentVideo()
     const cached = prefetchCache.current.get(nextLink)
     if (cached) {
       applyVideoData(cached, nextLink)
@@ -251,10 +281,12 @@ export function ClientReview({
     setAudioPreviewUrl(null)
   }
 
-  async function addComment() {
+  /** Envia o rascunho do composer; resolve `true` só se o comentário foi salvo. */
+  async function addComment(): Promise<boolean> {
     const text = draft.trim()
     const name = authorName.trim()
-    if ((!text && !audioBlob) || !name) return
+    if ((!text && !audioBlob) || !name) return false
+    const postingLink = activeLink
     setPostingComment(true)
     setCommentError(null)
     try {
@@ -291,6 +323,13 @@ export function ClientReview({
       } catch {
         // localStorage indisponível (ex.: modo privado) — segue sem persistir.
       }
+      drafts.current.delete(postingLink)
+      // Se o cliente deslizou pra outro vídeo durante o envio, o comentário
+      // já está salvo no vídeo certo; só não entra na lista do vídeo atual.
+      if (activeLinkRef.current !== postingLink) {
+        toast.success('Comentário adicionado')
+        return true
+      }
       setComments((prev) => [...prev, created])
       setDraft('')
       // Não revoga o object URL aqui: em modo demo ele continua em uso como
@@ -301,12 +340,14 @@ export function ClientReview({
       setCommentSent(true)
       toast.success('Comentário adicionado')
       setTimeout(() => setCommentSent(false), 1800)
+      return true
     } catch (err) {
       setCommentError(
         err instanceof UploadError || err instanceof ApiError
           ? err.message
           : 'Não foi possível enviar.',
       )
+      return false
     } finally {
       setPostingComment(false)
     }
@@ -320,6 +361,47 @@ export function ClientReview({
     } catch {
       setRatings((r) => ({ ...r, [questionId]: prev })) // reverte
     }
+  }
+
+  /** Leva o cliente até o composer (sai da aba Reels, onde ele fica escondido). */
+  function focusComposer(field: 'nome' | 'texto') {
+    setPreviewTab('player')
+    setTimeout(() => {
+      const el = document.getElementById(field === 'nome' ? 'comentario-nome' : 'comentario-texto')
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el?.focus({ preventScroll: true })
+    }, 50)
+  }
+
+  /**
+   * "Pedir ajuste" sem nenhum comentário deixava o vídeo em Ajuste com a
+   * agência sem saber o quê ajustar. Pior: quem digitava o pedido e ia direto
+   * no botão (sem "Adicionar comentário", que exige o nome) perdia o texto.
+   * Aqui o rascunho pendente é enviado junto, e sem comentário nenhum o pedido
+   * não sai.
+   */
+  async function requestChanges() {
+    setDecisionError(null)
+    const hasDraft = !!draft.trim() || !!audioBlob
+    if (hasDraft) {
+      if (!authorName.trim()) {
+        setDecisionError('Informe seu nome no campo de comentário para enviar o ajuste.')
+        focusComposer('nome')
+        return
+      }
+      setDecisionBusy('ajuste')
+      const sent = await addComment()
+      if (!sent) {
+        setDecisionBusy(null)
+        setDecisionError('Não foi possível enviar seu comentário. Tente novamente.')
+        return
+      }
+    } else if (!comments.some((c) => c.authorRole === 'client')) {
+      setDecisionError('Antes de pedir ajuste, escreva num comentário o que precisa mudar.')
+      focusComposer('texto')
+      return
+    }
+    await decide('ajuste')
   }
 
   async function decide(kind: VideoStatus) {
@@ -608,12 +690,14 @@ export function ClientReview({
                   </span>
                 </div>
                 <input
+                  id="comentario-nome"
                   value={authorName}
                   onChange={(e) => setAuthorName(e.target.value)}
                   placeholder="Seu nome"
                   className="mt-3 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
                 />
                 <textarea
+                  id="comentario-texto"
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder="Escreva um comentário ou grave um áudio neste ponto do vídeo…"
@@ -771,7 +855,7 @@ export function ClientReview({
             <div className="grid grid-cols-[1fr_1.4fr] gap-3 sm:grid-cols-[1fr_2fr]">
               <button
                 type="button"
-                onClick={() => decide('ajuste')}
+                onClick={requestChanges}
                 disabled={decisionBusy !== null}
                 className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-foreground bg-card font-display text-base text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
               >
