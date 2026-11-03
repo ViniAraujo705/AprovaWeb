@@ -92,9 +92,10 @@ function readableForeground(hex: string): string {
  */
 export function brandAccentStyle(
   color: string | null | undefined,
-  { dark = true }: { dark?: boolean } = {},
+  { dark = true, secondary }: { dark?: boolean; secondary?: string | null } = {},
 ): CSSProperties | undefined {
-  if (!color) return undefined
+  const secondaryVars = brandSecondaryVars(secondary)
+  if (!color) return secondaryVars as CSSProperties | undefined
   // `--primary` é preenchimento (botão, selo) e usa a cor como veio; textos e
   // bordas de destaque usam `--primary-ink`, que é a versão ajustada pro
   // contraste com o fundo da página.
@@ -109,7 +110,30 @@ export function brandAccentStyle(
     ['--sidebar-primary' as string]: accent,
     ['--sidebar-primary-foreground' as string]: foreground,
     ['--sidebar-ring' as string]: ink,
+    ...secondaryVars,
   } as CSSProperties
+}
+
+/**
+ * Cor secundária da marca: assume o papel do verde profundo da identidade
+ * Check — `--deep` (painéis e ladrilhos de ícone), `--accent` (selos, chips e
+ * botões escuros das telas do cliente) e `--chart-2` (segunda cor dos
+ * gráficos). Texto sobre ela sai em preto/branco conforme o contraste.
+ */
+function brandSecondaryVars(color: string | null | undefined): Record<string, string> | undefined {
+  const rgb = color ? hexToRgb(color) : null
+  if (!color || !rgb) return undefined
+  const foreground = readableForeground(color)
+  // Texto de apoio sobre `--deep`: a própria cor puxada 60% pro lado do texto.
+  const muted = rgbToHex(shift(rgb, foreground === '#ffffff' ? 0.6 : -0.6))
+  return {
+    '--deep': color,
+    '--deep-foreground': foreground,
+    '--deep-muted': muted,
+    '--accent': color,
+    '--accent-foreground': foreground,
+    '--chart-2': color,
+  }
 }
 
 /**
@@ -117,9 +141,12 @@ export function brandAccentStyle(
  * é o `defaultTheme` do `ThemeProvider`, mesma suposição que o `ThemeToggle`
  * faz para não piscar o ícone errado.
  */
-export function useBrandAccentStyle(color: string | null | undefined): CSSProperties | undefined {
+export function useBrandAccentStyle(
+  color: string | null | undefined,
+  secondary?: string | null,
+): CSSProperties | undefined {
   const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
-  return brandAccentStyle(color, { dark: !mounted || resolvedTheme !== 'light' })
+  return brandAccentStyle(color, { dark: !mounted || resolvedTheme !== 'light', secondary })
 }

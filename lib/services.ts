@@ -378,8 +378,13 @@ function mapBranding(raw: Raw | null | undefined): Branding | null {
     ['corDestaque', 'cor_destaque', 'accentColor', 'accent_color', 'color'],
     null,
   )
-  if (!logoUrl && !agencyName && !accentColor) return null
-  return { logoUrl, agencyName, accentColor }
+  const secondaryColor = pick<string | null>(
+    raw,
+    ['corSecundaria', 'cor_secundaria', 'secondaryColor', 'secondary_color'],
+    null,
+  )
+  if (!logoUrl && !agencyName && !accentColor && !secondaryColor) return null
+  return { logoUrl, agencyName, accentColor, secondaryColor }
 }
 
 /**
@@ -395,6 +400,7 @@ function resolveBranding(agency: Branding | null, client: Branding | null): Bran
     logoUrl: client?.logoUrl ?? agency?.logoUrl ?? null,
     agencyName: client?.agencyName ?? agency?.agencyName ?? null,
     accentColor: client?.accentColor ?? agency?.accentColor ?? null,
+    secondaryColor: client?.secondaryColor ?? agency?.secondaryColor ?? null,
   }
 }
 
@@ -1429,7 +1435,7 @@ export const clientService = {
    */
   async updateBranding(
     clientId: string,
-    input: { logoUrl?: string | null; accentColor?: string | null },
+    input: { logoUrl?: string | null; accentColor?: string | null; secondaryColor?: string | null },
   ): Promise<Branding> {
     if (isDemo()) {
       const found = demoClients.find((c) => c.id === clientId)
@@ -1439,16 +1445,26 @@ export const clientService = {
         agencyName: found.branding?.agencyName ?? null,
         accentColor:
           input.accentColor !== undefined ? input.accentColor : (found.branding?.accentColor ?? null),
+        secondaryColor:
+          input.secondaryColor !== undefined ? input.secondaryColor : (found.branding?.secondaryColor ?? null),
       }
-      found.branding = branding.logoUrl || branding.accentColor ? branding : null
+      found.branding = branding.logoUrl || branding.accentColor || branding.secondaryColor ? branding : null
       return delay(branding, 300)
     }
-    const res = await api.patch<Raw>(`/clients/${clientId}/branding`, {
-      logoUrl: input.logoUrl,
-      corDestaque: input.accentColor,
-    })
+    const body: Raw = { logoUrl: input.logoUrl, corDestaque: input.accentColor }
+    // Só vai no body quando a tela mudou a secundária: o backend roda com
+    // `forbidNonWhitelisted` e ainda não conhece `corSecundaria` (ver
+    // scratchpad/mensagem-backend-cor-secundaria.md) — enviar sempre quebraria
+    // até o salvar só do logo.
+    if (input.secondaryColor !== undefined) body.corSecundaria = input.secondaryColor
+    const res = await api.patch<Raw>(`/clients/${clientId}/branding`, body)
     return (
-      mapBranding(res) ?? { logoUrl: input.logoUrl ?? null, agencyName: null, accentColor: input.accentColor ?? null }
+      mapBranding(res) ?? {
+        logoUrl: input.logoUrl ?? null,
+        agencyName: null,
+        accentColor: input.accentColor ?? null,
+        secondaryColor: input.secondaryColor ?? null,
+      }
     )
   },
 }
@@ -2774,24 +2790,29 @@ export const userService = {
     logoUrl?: string | null
     agencyName?: string | null
     accentColor?: string | null
+    secondaryColor?: string | null
   }): Promise<Branding> {
     if (isDemo())
       return {
         logoUrl: input.logoUrl ?? null,
         agencyName: input.agencyName ?? null,
         accentColor: input.accentColor ?? null,
+        secondaryColor: input.secondaryColor ?? null,
       }
     const body: Raw = {
       logoUrl: input.logoUrl,
       corDestaque: input.accentColor,
     }
     if (input.agencyName) body.nome = input.agencyName
+    // Ver o comentário em `clientService.updateBranding`: só envia quando mudou.
+    if (input.secondaryColor !== undefined) body.corSecundaria = input.secondaryColor
     const res = await api.patch<Raw>('/users/me/branding', body)
     return (
       mapBranding(res) ?? {
         logoUrl: input.logoUrl ?? null,
         agencyName: input.agencyName ?? null,
         accentColor: input.accentColor ?? null,
+        secondaryColor: input.secondaryColor ?? null,
       }
     )
   },

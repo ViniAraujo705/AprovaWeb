@@ -85,7 +85,7 @@ export function ClientReview({
   // como um feed do Instagram). `activeLink` acompanha qual link usar nas
   // chamadas de comentário/nota/decisão.
   const [data, setData] = useState<PublicVideo>(initial)
-  const brandAccent = useBrandAccentStyle(data.branding?.accentColor)
+  const brandAccent = useBrandAccentStyle(data.branding?.accentColor, data.branding?.secondaryColor)
   const [activeLink, setActiveLink] = useState(link)
   const [switchingVideo, setSwitchingVideo] = useState(false)
   const { video } = data

@@ -399,8 +399,13 @@ export interface Branding {
   logoUrl: string | null
   /** Nome de exibição (opcional, usado como alt/label). */
   agencyName: string | null
-  /** Cor de destaque em hex (ex: "#ff5a36"), null = cair no próximo nível (cliente → agência → padrão do sistema). */
+  /** Cor primária em hex (ex: "#ff5a36"), null = cair no próximo nível (cliente → agência → padrão do sistema). */
   accentColor: string | null
+  /**
+   * Cor secundária em hex — selos, chips e botões escuros (`--accent`) e a
+   * segunda cor dos gráficos. Mesma regra de herança da primária.
+   */
+  secondaryColor: string | null
 }
 
 export interface PublicVideo {
