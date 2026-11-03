@@ -27,8 +27,11 @@ import {
   ClipboardList,
   CalendarCheck,
   Check,
+  Palette,
+  RotateCcw,
 } from 'lucide-react'
 import {
+  calendarColorsService,
   calendarService,
   clientService,
   crewService,
@@ -39,6 +42,7 @@ import {
 import type {
   CalendarActivity,
   CalendarActivityType,
+  CalendarColors,
   Client,
   CrewMember,
   Demand,
@@ -55,26 +59,49 @@ import { toast } from '@/lib/toast'
 import { cn, shortName } from '@/lib/utils'
 import { downloadIcs } from '@/lib/ics'
 import { PageHeader } from '@/components/page-header'
+import { useAuth } from '@/components/auth-provider'
 
 // Chips em tons pastel com texto escuro e ponto colorido, como no layout da
 // identidade Check. Âmbar/coral/lima seguem os tokens de status.
 const CALENDAR_TYPE_META: Record<
   CalendarActivityType,
-  { icon: typeof Video; chipBg: string; chipText: string; dot: string }
+  // `swatch`: hex aproximado da cor padrão, só pra abrir o seletor de cor
+  // nela quando o tipo ainda não foi personalizado.
+  { icon: typeof Video; chipBg: string; chipText: string; dot: string; swatch: string }
 > = {
-  gravacao: { icon: Video, chipBg: 'bg-secondary hover:bg-secondary/70', chipText: 'text-foreground', dot: 'bg-foreground' },
-  captacao: { icon: Camera, chipBg: 'bg-sky-400/20 hover:bg-sky-400/30', chipText: 'text-foreground', dot: 'bg-sky-400' },
-  ensaio: { icon: UsersIcon, chipBg: 'bg-violet-400/20 hover:bg-violet-400/30', chipText: 'text-foreground', dot: 'bg-violet-400' },
-  reuniao: { icon: MessagesSquare, chipBg: 'bg-warning-soft hover:bg-warning/30', chipText: 'text-foreground', dot: 'bg-warning' },
-  entrega: { icon: Package, chipBg: 'bg-success-soft hover:bg-primary/40', chipText: 'text-foreground', dot: 'bg-primary' },
-  prazo: { icon: Flag, chipBg: 'bg-danger-soft hover:bg-danger/25', chipText: 'text-foreground', dot: 'bg-danger' },
-  evento: { icon: PartyPopper, chipBg: 'bg-pink-400/20 hover:bg-pink-400/30', chipText: 'text-foreground', dot: 'bg-pink-400' },
+  gravacao: { icon: Video, chipBg: 'bg-secondary hover:bg-secondary/70', chipText: 'text-foreground', dot: 'bg-foreground', swatch: '#253326' },
+  captacao: { icon: Camera, chipBg: 'bg-sky-400/20 hover:bg-sky-400/30', chipText: 'text-foreground', dot: 'bg-sky-400', swatch: '#38bdf8' },
+  ensaio: { icon: UsersIcon, chipBg: 'bg-violet-400/20 hover:bg-violet-400/30', chipText: 'text-foreground', dot: 'bg-violet-400', swatch: '#a78bfa' },
+  reuniao: { icon: MessagesSquare, chipBg: 'bg-warning-soft hover:bg-warning/30', chipText: 'text-foreground', dot: 'bg-warning', swatch: '#f2c14e' },
+  entrega: { icon: Package, chipBg: 'bg-success-soft hover:bg-primary/40', chipText: 'text-foreground', dot: 'bg-primary', swatch: '#d6f593' },
+  prazo: { icon: Flag, chipBg: 'bg-danger-soft hover:bg-danger/25', chipText: 'text-foreground', dot: 'bg-danger', swatch: '#e8674f' },
+  evento: { icon: PartyPopper, chipBg: 'bg-pink-400/20 hover:bg-pink-400/30', chipText: 'text-foreground', dot: 'bg-pink-400', swatch: '#f472b6' },
   demanda_interna: {
     icon: ClipboardList,
     chipBg: 'bg-secondary hover:bg-secondary/70',
     chipText: 'text-foreground',
     dot: 'bg-chart-2',
+    swatch: '#7ea67c',
   },
+}
+
+/**
+ * Classes + estilo de um tipo de evento, já com a cor personalizada da conta
+ * quando houver (ver `calendarColorsService`). Fundo do chip é a cor a ~22%
+ * via `color-mix`, mesmo efeito "pastel" dos tons padrão, nos dois temas.
+ */
+function typeAppearance(type: CalendarActivityType, colors: CalendarColors | null | undefined) {
+  const meta = CALENDAR_TYPE_META[type]
+  const custom = colors?.[type]
+  if (!custom) {
+    return { chipClass: meta.chipBg, chipStyle: undefined, dotClass: meta.dot, dotStyle: undefined }
+  }
+  return {
+    chipClass: 'hover:brightness-95',
+    chipStyle: { backgroundColor: `color-mix(in srgb, ${custom} 22%, transparent)` },
+    dotClass: '',
+    dotStyle: { backgroundColor: custom },
+  }
 }
 
 function timeLabel(iso: string): string {
@@ -118,6 +145,10 @@ export function CalendarView() {
 
   const [modal, setModal] = useState<{ date: Date; event: CalendarActivity | null } | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
+  const [colorsOpen, setColorsOpen] = useState(false)
+  const { user } = useAuth()
+  const isOwner = user?.teamRole === 'owner'
+  const typeColors = useQuery<CalendarColors>((signal) => calendarColorsService.get(signal), [])
   const [googleOpen, setGoogleOpen] = useState(false)
   const googleStatus = useQuery((signal) => googleCalendarService.getStatus(signal), [])
   const googleConnected = googleStatus.data?.connected ?? false
@@ -212,6 +243,15 @@ export function CalendarView() {
             )}
             Google Agenda
           </button>
+          {isOwner && (
+            <button
+              type="button"
+              onClick={() => setColorsOpen(true)}
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary"
+            >
+              <Palette className="size-4" /> Cores
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setExportOpen(true)}
@@ -261,7 +301,7 @@ export function CalendarView() {
 
       <div className="mt-3 flex flex-wrap gap-1.5">
         {CALENDAR_ACTIVITY_TYPES.map((t) => {
-          const meta = CALENDAR_TYPE_META[t]
+          const look = typeAppearance(t, typeColors.data)
           const active = visibleTypes.has(t)
           return (
             <button
@@ -272,11 +312,12 @@ export function CalendarView() {
               className={cn(
                 'inline-flex min-h-9 items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors',
                 active
-                  ? cn('border-transparent', meta.chipBg, meta.chipText)
+                  ? cn('border-transparent text-foreground', look.chipClass)
                   : 'border-border bg-transparent text-muted-foreground line-through decoration-muted-foreground/50 hover:text-foreground',
               )}
+              style={active ? look.chipStyle : undefined}
             >
-              <span className={cn('size-2 rounded-full', meta.dot)} aria-hidden="true" />
+              <span className={cn('size-2 rounded-full', look.dotClass)} style={look.dotStyle} aria-hidden="true" />
               {CALENDAR_ACTIVITY_TYPE_LABEL[t]}
             </button>
           )
@@ -339,6 +380,7 @@ export function CalendarView() {
                           const crewNames = ev.crew.map((c) => c.name)
                           const crewLabel = crewNames.map((n) => shortName(n, crewNames)).join(', ')
                           const extra = [crewLabel || null, ev.notes || null].filter(Boolean).join(' · ')
+                          const look = typeAppearance(ev.type, typeColors.data)
                           return (
                             <button
                               key={ev.id}
@@ -346,16 +388,15 @@ export function CalendarView() {
                               onClick={() => setModal({ date: new Date(ev.startAt), event: ev })}
                               className={cn(
                                 'flex flex-col rounded-lg px-2 py-1.5 text-left text-foreground transition-colors',
-                                CALENDAR_TYPE_META[ev.type].chipBg,
+                                look.chipClass,
                               )}
+                              style={look.chipStyle}
                               title={[ev.title, extra].filter(Boolean).join(' — ')}
                             >
                               <span className="flex min-w-0 items-start gap-1.5 text-[10px] font-semibold leading-[1.25] sm:text-xs">
                                 <span
-                                  className={cn(
-                                    'mt-0.5 size-1.5 shrink-0 rounded-full',
-                                    CALENDAR_TYPE_META[ev.type].dot,
-                                  )}
+                                  className={cn('mt-0.5 size-1.5 shrink-0 rounded-full', look.dotClass)}
+                                  style={look.dotStyle}
                                 />
                                 <span className="min-w-0 break-all">{timeLabel(ev.startAt)} {ev.title}</span>
                               </span>
@@ -414,6 +455,16 @@ export function CalendarView() {
             loading={googleStatus.loading}
             onDisconnected={() => googleStatus.setData({ connected: false, email: null })}
             onClose={() => setGoogleOpen(false)}
+          />
+        )}
+        {colorsOpen && (
+          <CalendarColorsModal
+            colors={typeColors.data ?? {}}
+            onSaved={(next) => {
+              typeColors.setData(next)
+              setColorsOpen(false)
+            }}
+            onClose={() => setColorsOpen(false)}
           />
         )}
         {exportOpen && (
@@ -519,6 +570,158 @@ function DayEventsModal({
         >
           <Plus className="size-4" /> Nova atividade nesse dia
         </button>
+      </motion.div>
+    </div>
+  )
+}
+
+function CalendarColorsModal({
+  colors,
+  onSaved,
+  onClose,
+}: {
+  colors: CalendarColors
+  onSaved: (colors: CalendarColors) => void
+  onClose: () => void
+}) {
+  const [draft, setDraft] = useState<CalendarColors>(colors)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function setColor(type: CalendarActivityType, color: string | null) {
+    setDraft((prev) => {
+      const next = { ...prev }
+      if (color) next[type] = color
+      else delete next[type]
+      return next
+    })
+  }
+
+  async function save() {
+    // Só manda o que mudou; `null` volta o tipo ao padrão.
+    const changes: Partial<Record<CalendarActivityType, string | null>> = {}
+    for (const t of CALENDAR_ACTIVITY_TYPES) {
+      if ((draft[t] ?? null) !== (colors[t] ?? null)) changes[t] = draft[t] ?? null
+    }
+    if (Object.keys(changes).length === 0) {
+      onClose()
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const saved = await calendarColorsService.update(changes)
+      toast.success('Cores do calendário salvas')
+      onSaved(saved)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Falha ao salvar as cores. Tente novamente.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+      <motion.div
+        className="absolute inset-0 bg-black/70"
+        onClick={onClose}
+        aria-hidden="true"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+      />
+      <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Cores do calendário"
+        className="relative flex max-h-[85vh] w-full max-w-md flex-col rounded-2xl border border-border bg-card p-5"
+        initial={{ y: 8, scale: 0.98 }}
+        animate={{ y: 0, scale: 1 }}
+        exit={{ y: 8, scale: 0.98 }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-display text-lg text-foreground">Cores do calendário</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Escolha a cor de cada tipo de atividade. Vale para toda a equipe.
+        </p>
+
+        <div className="mt-4 flex-1 overflow-y-auto">
+          <ul className="flex flex-col gap-2">
+            {CALENDAR_ACTIVITY_TYPES.map((t) => {
+              const meta = CALENDAR_TYPE_META[t]
+              const custom = draft[t]
+              const look = typeAppearance(t, draft)
+              return (
+                <li key={t} className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={custom ?? meta.swatch}
+                    onChange={(e) => setColor(t, e.target.value)}
+                    aria-label={`Cor de ${CALENDAR_ACTIVITY_TYPE_LABEL[t]}`}
+                    className="size-10 shrink-0 cursor-pointer rounded-lg border border-border bg-card p-1"
+                  />
+                  <span
+                    className={cn(
+                      'inline-flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-full px-3.5 text-sm font-medium text-foreground',
+                      look.chipClass,
+                    )}
+                    style={look.chipStyle}
+                  >
+                    <span className={cn('size-2 shrink-0 rounded-full', look.dotClass)} style={look.dotStyle} />
+                    <meta.icon className="size-3.5 shrink-0" />
+                    <span className="truncate">{CALENDAR_ACTIVITY_TYPE_LABEL[t]}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setColor(t, null)}
+                    disabled={!custom}
+                    aria-label={`Voltar ${CALENDAR_ACTIVITY_TYPE_LABEL[t]} para a cor padrão`}
+                    title="Usar padrão"
+                    className="grid size-9 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground disabled:invisible"
+                  >
+                    <RotateCcw className="size-4" />
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+
+        {error && (
+          <p className="mt-3 flex items-center gap-2 text-sm text-destructive">
+            <AlertTriangle className="size-4 shrink-0" /> {error}
+          </p>
+        )}
+
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex min-h-10 items-center rounded-xl border border-border px-4 text-sm font-medium text-foreground hover:bg-secondary"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={busy}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {busy && <Loader2 className="size-3.5 animate-spin" />}
+            Salvar
+          </button>
+        </div>
       </motion.div>
     </div>
   )
