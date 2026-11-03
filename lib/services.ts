@@ -1453,9 +1453,9 @@ export const clientService = {
     }
     const body: Raw = { logoUrl: input.logoUrl, corDestaque: input.accentColor }
     // Só vai no body quando a tela mudou a secundária: o backend roda com
-    // `forbidNonWhitelisted` e ainda não conhece `corSecundaria` (ver
-    // scratchpad/mensagem-backend-cor-secundaria.md) — enviar sempre quebraria
-    // até o salvar só do logo.
+    // `forbidNonWhitelisted`, e um backend sem `corSecundaria` (branch
+    // feat/cor-secundaria do Aprova-back ainda não publicada) recusaria até o
+    // salvar só do logo.
     if (input.secondaryColor !== undefined) body.corSecundaria = input.secondaryColor
     const res = await api.patch<Raw>(`/clients/${clientId}/branding`, body)
     return (

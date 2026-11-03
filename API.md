@@ -159,7 +159,7 @@ marca do cliente final dela.
 | Método | Rota | Body | Retorno |
 |---|---|---|---|
 | `POST` | `/clients/:id/branding/logo-upload-url` | `{ nomeArquivo, contentType }` | `{ uploadUrl, key, publicUrl, expiresIn }` |
-| `PATCH` | `/clients/:id/branding` | `{ logoUrl?, corDestaque? }` | `{ logoUrl, corDestaque }` |
+| `PATCH` | `/clients/:id/branding` | `{ logoUrl?, corDestaque?, corSecundaria? }` | `{ logoUrl, corDestaque, corSecundaria }` |
 
 Mesmo contrato de [`/users/me/branding`](#branding--white-label-usersme):
 `contentType` aceito `image/png`, `image/jpeg`, `image/webp`,
@@ -634,7 +634,7 @@ Autenticado — **somente `owner`**.
 | Método | Rota | Body | Retorno |
 |---|---|---|---|
 | `POST` | `/users/me/branding/logo-upload-url` | `{ nomeArquivo, contentType }` | `{ uploadUrl, key, publicUrl, expiresIn }` |
-| `PATCH` | `/users/me/branding` | `{ logoUrl?, corDestaque? }` | `{ id, nome, logoUrl, corDestaque }` |
+| `PATCH` | `/users/me/branding` | `{ logoUrl?, corDestaque?, corSecundaria? }` | `{ id, nome, logoUrl, corDestaque, corSecundaria }` |
 
 `contentType` aceito: `image/png`, `image/jpeg`, `image/webp`,
 `image/svg+xml`. Mesmo fluxo de presigned URL dos vídeos (`PUT` direto no
