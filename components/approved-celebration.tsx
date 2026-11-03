@@ -10,14 +10,12 @@ import { CheckLogo } from '@/components/page-header'
 /**
  * Tela dedicada de confirmação após a aprovação do vídeo ("Deu check!").
  * Gesto 1 do sistema de gestos (a mão que vira check) + chuva sutil de checks
- * (desligada em reduced-motion), agradecimento e nome do projeto aprovado.
+ * (desligada em reduced-motion) e o aviso de que o responsável foi notificado.
  */
 export function ApprovedCelebration({
-  projectName,
   onReset,
   galleryLink,
 }: {
-  projectName: string
   onReset: () => void
   /** linkPublico da galeria do projeto (`/g/:link`), quando o vídeo foi aberto a partir dela — habilita o botão de voltar para ver os outros vídeos. */
   galleryLink?: string
@@ -77,8 +75,8 @@ export function ApprovedCelebration({
             transition={{ duration: 0.35, delay: reduce ? 0.1 : 0.35 }}
             className="mt-5 text-base text-muted-foreground sm:text-lg"
           >
-            Obrigado! A agência já foi avisada e vai seguir com a publicação de{' '}
-            <span className="font-semibold text-foreground">{projectName}</span>.
+            <span className="font-semibold text-foreground">Conteúdo aprovado!</span> O responsável já foi
+            notificado. Continue navegando pelo Check e confira os outros conteúdos!
           </motion.p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 md:justify-start">
