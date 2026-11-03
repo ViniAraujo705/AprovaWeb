@@ -45,6 +45,7 @@ import { useAuth } from '@/components/auth-provider'
 import { ApiError } from '@/lib/api'
 import { formatDuration, formatSentAt } from '@/lib/format'
 import { triggerDownload } from '@/lib/download'
+import { VideoTitleField } from '@/components/video-title-field'
 import { toast } from '@/lib/toast'
 import { archiveProject, isProjectArchived, unarchiveProject } from '@/lib/archived-projects'
 import { usePlanLimit } from '@/components/plan-limit-provider'
@@ -433,11 +434,23 @@ export function ProjectDetailView({ id }: { id: string }) {
                 : (project.data?.client?.name ?? 'Projeto')}
             </p>
             <div className="mt-3 flex min-w-0 items-center gap-3">
-              <h1
-                className="truncate font-display text-4xl leading-[1.1] sm:text-5xl"
-                title={project.data?.name ?? 'Projeto'}
-              >
-                {project.data?.name ?? 'Projeto'}
+              <h1 className="min-w-0 font-display text-4xl leading-[1.1] sm:text-5xl">
+                {project.data ? (
+                  <VideoTitleField
+                    title={project.data.name}
+                    label="Renomear projeto"
+                    errorMessage="Não foi possível renomear o projeto."
+                    alwaysShowIcon
+                    className="font-display text-4xl leading-[1.1] sm:text-5xl"
+                    onSave={async (name) => {
+                      const updated = await projectService.update(id, { name })
+                      project.setData((prev) => ({ ...(prev ?? updated), name: updated.name || name }))
+                      toast.success('Projeto renomeado')
+                    }}
+                  />
+                ) : (
+                  'Projeto'
+                )}
               </h1>
               {project.data?.isExample && (
                 <span
