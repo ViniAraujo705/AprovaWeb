@@ -104,6 +104,7 @@ import type {
   Branding,
   CalendarActivity,
   CalendarActivityType,
+  CalendarColors,
   Client,
   ClientActivity,
   ClientActivityActorType,
@@ -3253,6 +3254,45 @@ function mapCalendarActivity(raw: Raw): CalendarActivity {
     demandId: pick<string | null>(raw, ['demandId', 'demandaId'], null),
     notes: pick<string | null>(raw, ['notes', 'notas', 'observacoes'], null),
   }
+}
+
+let demoCalendarColors: CalendarColors = { reuniao: '#1e6bff' }
+
+/**
+ * Cores dos tipos de evento do calendário (`/account/calendar-colors`).
+ * Qualquer membro lê; só o owner altera. `null` volta o tipo ao padrão.
+ */
+export const calendarColorsService = {
+  async get(signal?: AbortSignal): Promise<CalendarColors> {
+    if (isDemo()) return delay({ ...demoCalendarColors }, 150)
+    const res = await api.get<Raw>('/account/calendar-colors', { signal })
+    return mapCalendarColors(res)
+  },
+
+  async update(input: Partial<Record<CalendarActivityType, string | null>>): Promise<CalendarColors> {
+    if (isDemo()) {
+      const next = { ...demoCalendarColors }
+      for (const [type, color] of Object.entries(input) as [CalendarActivityType, string | null][]) {
+        if (color) next[type] = color
+        else delete next[type]
+      }
+      demoCalendarColors = next
+      return delay({ ...next }, 300)
+    }
+    const res = await api.patch<Raw>('/account/calendar-colors', input)
+    return mapCalendarColors(res)
+  },
+}
+
+function mapCalendarColors(raw: Raw | null | undefined): CalendarColors {
+  const out: CalendarColors = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value)) {
+      out[key as CalendarActivityType] = value
+    }
+  }
+  return out
 }
 
 /**

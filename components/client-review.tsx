@@ -811,7 +811,6 @@ export function ClientReview({
       <AnimatePresence>
         {decision === 'aprovado' && (
           <ApprovedCelebration
-            projectName={data.projectName || video.title}
             onReset={() => setDecision(null)}
             galleryLink={galleryLink}
           />

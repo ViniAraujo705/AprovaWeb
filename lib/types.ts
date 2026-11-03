@@ -876,6 +876,12 @@ export type CalendarActivityType =
   | 'evento'
   | 'demanda_interna'
 
+/**
+ * Cor personalizada de cada tipo de evento do calendário, por conta. Só os
+ * tipos personalizados aparecem; o resto usa a cor padrão do sistema.
+ */
+export type CalendarColors = Partial<Record<CalendarActivityType, string>>
+
 /** Atividade da agência no calendário operacional (aba Calendário). */
 export interface CalendarActivity {
   id: string
