@@ -104,6 +104,7 @@ import type {
   Branding,
   CalendarActivity,
   CalendarActivityType,
+  CalendarColors,
   Client,
   ClientActivity,
   ClientActivityActorType,
@@ -378,8 +379,13 @@ function mapBranding(raw: Raw | null | undefined): Branding | null {
     ['corDestaque', 'cor_destaque', 'accentColor', 'accent_color', 'color'],
     null,
   )
-  if (!logoUrl && !agencyName && !accentColor) return null
-  return { logoUrl, agencyName, accentColor }
+  const secondaryColor = pick<string | null>(
+    raw,
+    ['corSecundaria', 'cor_secundaria', 'secondaryColor', 'secondary_color'],
+    null,
+  )
+  if (!logoUrl && !agencyName && !accentColor && !secondaryColor) return null
+  return { logoUrl, agencyName, accentColor, secondaryColor }
 }
 
 /**
@@ -395,6 +401,7 @@ function resolveBranding(agency: Branding | null, client: Branding | null): Bran
     logoUrl: client?.logoUrl ?? agency?.logoUrl ?? null,
     agencyName: client?.agencyName ?? agency?.agencyName ?? null,
     accentColor: client?.accentColor ?? agency?.accentColor ?? null,
+    secondaryColor: client?.secondaryColor ?? agency?.secondaryColor ?? null,
   }
 }
 
@@ -1429,7 +1436,7 @@ export const clientService = {
    */
   async updateBranding(
     clientId: string,
-    input: { logoUrl?: string | null; accentColor?: string | null },
+    input: { logoUrl?: string | null; accentColor?: string | null; secondaryColor?: string | null },
   ): Promise<Branding> {
     if (isDemo()) {
       const found = demoClients.find((c) => c.id === clientId)
@@ -1439,16 +1446,26 @@ export const clientService = {
         agencyName: found.branding?.agencyName ?? null,
         accentColor:
           input.accentColor !== undefined ? input.accentColor : (found.branding?.accentColor ?? null),
+        secondaryColor:
+          input.secondaryColor !== undefined ? input.secondaryColor : (found.branding?.secondaryColor ?? null),
       }
-      found.branding = branding.logoUrl || branding.accentColor ? branding : null
+      found.branding = branding.logoUrl || branding.accentColor || branding.secondaryColor ? branding : null
       return delay(branding, 300)
     }
-    const res = await api.patch<Raw>(`/clients/${clientId}/branding`, {
-      logoUrl: input.logoUrl,
-      corDestaque: input.accentColor,
-    })
+    const body: Raw = { logoUrl: input.logoUrl, corDestaque: input.accentColor }
+    // Só vai no body quando a tela mudou a secundária: o backend roda com
+    // `forbidNonWhitelisted`, e um backend sem `corSecundaria` (branch
+    // feat/cor-secundaria do Aprova-back ainda não publicada) recusaria até o
+    // salvar só do logo.
+    if (input.secondaryColor !== undefined) body.corSecundaria = input.secondaryColor
+    const res = await api.patch<Raw>(`/clients/${clientId}/branding`, body)
     return (
-      mapBranding(res) ?? { logoUrl: input.logoUrl ?? null, agencyName: null, accentColor: input.accentColor ?? null }
+      mapBranding(res) ?? {
+        logoUrl: input.logoUrl ?? null,
+        agencyName: null,
+        accentColor: input.accentColor ?? null,
+        secondaryColor: input.secondaryColor ?? null,
+      }
     )
   },
 }
@@ -2774,24 +2791,29 @@ export const userService = {
     logoUrl?: string | null
     agencyName?: string | null
     accentColor?: string | null
+    secondaryColor?: string | null
   }): Promise<Branding> {
     if (isDemo())
       return {
         logoUrl: input.logoUrl ?? null,
         agencyName: input.agencyName ?? null,
         accentColor: input.accentColor ?? null,
+        secondaryColor: input.secondaryColor ?? null,
       }
     const body: Raw = {
       logoUrl: input.logoUrl,
       corDestaque: input.accentColor,
     }
     if (input.agencyName) body.nome = input.agencyName
+    // Ver o comentário em `clientService.updateBranding`: só envia quando mudou.
+    if (input.secondaryColor !== undefined) body.corSecundaria = input.secondaryColor
     const res = await api.patch<Raw>('/users/me/branding', body)
     return (
       mapBranding(res) ?? {
         logoUrl: input.logoUrl ?? null,
         agencyName: input.agencyName ?? null,
         accentColor: input.accentColor ?? null,
+        secondaryColor: input.secondaryColor ?? null,
       }
     )
   },
@@ -3232,6 +3254,45 @@ function mapCalendarActivity(raw: Raw): CalendarActivity {
     demandId: pick<string | null>(raw, ['demandId', 'demandaId'], null),
     notes: pick<string | null>(raw, ['notes', 'notas', 'observacoes'], null),
   }
+}
+
+let demoCalendarColors: CalendarColors = { reuniao: '#1e6bff' }
+
+/**
+ * Cores dos tipos de evento do calendário (`/account/calendar-colors`).
+ * Qualquer membro lê; só o owner altera. `null` volta o tipo ao padrão.
+ */
+export const calendarColorsService = {
+  async get(signal?: AbortSignal): Promise<CalendarColors> {
+    if (isDemo()) return delay({ ...demoCalendarColors }, 150)
+    const res = await api.get<Raw>('/account/calendar-colors', { signal })
+    return mapCalendarColors(res)
+  },
+
+  async update(input: Partial<Record<CalendarActivityType, string | null>>): Promise<CalendarColors> {
+    if (isDemo()) {
+      const next = { ...demoCalendarColors }
+      for (const [type, color] of Object.entries(input) as [CalendarActivityType, string | null][]) {
+        if (color) next[type] = color
+        else delete next[type]
+      }
+      demoCalendarColors = next
+      return delay({ ...next }, 300)
+    }
+    const res = await api.patch<Raw>('/account/calendar-colors', input)
+    return mapCalendarColors(res)
+  },
+}
+
+function mapCalendarColors(raw: Raw | null | undefined): CalendarColors {
+  const out: CalendarColors = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value)) {
+      out[key as CalendarActivityType] = value
+    }
+  }
+  return out
 }
 
 /**

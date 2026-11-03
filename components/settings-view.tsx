@@ -1,5 +1,12 @@
 'use client'
 
+import {
+  BrandColorField,
+  BrandColorPreview,
+  DEFAULT_PRIMARY_COLOR,
+  DEFAULT_SECONDARY_COLOR,
+  colorOrNull,
+} from '@/components/brand-color-field'
 import Image from 'next/image'
 import { useRef, useState } from 'react'
 import {
@@ -624,15 +631,14 @@ function NotificationPreferencesSection() {
   )
 }
 
-const DEFAULT_ACCENT_COLOR = '#0b0b0d'
-
 function BrandingForm({ user }: { user: User }) {
   const { updateUser } = useAuth()
   const inputRef = useRef<HTMLInputElement>(null)
 
   const [logoUrl, setLogoUrl] = useState<string | null>(user.branding?.logoUrl ?? null)
   const [agencyName, setAgencyName] = useState(user.branding?.agencyName ?? '')
-  const [accentColor, setAccentColor] = useState(user.branding?.accentColor ?? DEFAULT_ACCENT_COLOR)
+  const [accentColor, setAccentColor] = useState(user.branding?.accentColor ?? DEFAULT_PRIMARY_COLOR)
+  const [secondaryColor, setSecondaryColor] = useState(user.branding?.secondaryColor ?? DEFAULT_SECONDARY_COLOR)
   const [dragging, setDragging] = useState(false)
   const [fileError, setFileError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -737,9 +743,17 @@ function BrandingForm({ user }: { user: User }) {
     setError(null)
     setBusy(true)
     try {
-      const nextAccentColor = accentColor === DEFAULT_ACCENT_COLOR ? null : accentColor
+      const nextAccentColor = colorOrNull(accentColor, DEFAULT_PRIMARY_COLOR)
+      const nextSecondaryColor = colorOrNull(secondaryColor, DEFAULT_SECONDARY_COLOR)
       if (isDemo()) {
-        updateUser({ branding: { logoUrl, agencyName: agencyName.trim() || null, accentColor: nextAccentColor } })
+        updateUser({
+          branding: {
+            logoUrl,
+            agencyName: agencyName.trim() || null,
+            accentColor: nextAccentColor,
+            secondaryColor: nextSecondaryColor,
+          },
+        })
         flashSaved()
         return
       }
@@ -747,6 +761,10 @@ function BrandingForm({ user }: { user: User }) {
         agencyName: agencyName.trim() || null,
         logoUrl,
         accentColor: nextAccentColor,
+        // Só manda quando mudou (ver `userService.updateBranding`).
+        ...(nextSecondaryColor !== (user.branding?.secondaryColor ?? null)
+          ? { secondaryColor: nextSecondaryColor }
+          : {}),
       })
       updateUser({ branding })
       flashSaved()
@@ -771,6 +789,7 @@ function BrandingForm({ user }: { user: User }) {
             logoUrl: null,
             agencyName: user.branding?.agencyName ?? null,
             accentColor: user.branding?.accentColor ?? null,
+            secondaryColor: user.branding?.secondaryColor ?? null,
           },
         })
       }
@@ -798,7 +817,7 @@ function BrandingForm({ user }: { user: User }) {
           )}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Logo (PNG, JPG, SVG ou WEBP até 2MB), nome e cor de destaque — aparecem na tela de
+          Logo (PNG, JPG, SVG ou WEBP até 2MB), nome e cores (primária e secundária) — aparecem na tela de
           aprovação do cliente e no seu próprio painel.
         </p>
 
@@ -907,34 +926,29 @@ function BrandingForm({ user }: { user: User }) {
           />
         </label>
 
-        {/* Cor de destaque — substitui a cor primária (botões, links, ícones) em toda a tela de aprovação e no seu próprio painel. */}
-        <label className="mt-4 flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-foreground">Cor de destaque</span>
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              value={accentColor}
-              onChange={(e) => setAccentColor(e.target.value)}
-              aria-label="Cor de destaque da agência"
-              className="size-11 cursor-pointer rounded-xl border border-border bg-card p-1"
-            />
-            <input
-              value={accentColor}
-              onChange={(e) => setAccentColor(e.target.value)}
-              placeholder={DEFAULT_ACCENT_COLOR}
-              className="min-h-11 w-32 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
-            />
-            {accentColor !== DEFAULT_ACCENT_COLOR && (
-              <button
-                type="button"
-                onClick={() => setAccentColor(DEFAULT_ACCENT_COLOR)}
-                className="text-xs text-muted-foreground underline hover:text-foreground"
-              >
-                Usar padrão
-              </button>
-            )}
-          </div>
-        </label>
+        {/* Cores da marca — substituem a identidade Check na tela de aprovação, links públicos e no seu próprio painel. */}
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <BrandColorField
+            label="Cor primária"
+            hint="Botões de ação, links e ícones."
+            value={accentColor}
+            onChange={setAccentColor}
+            fallback={DEFAULT_PRIMARY_COLOR}
+          />
+          <BrandColorField
+            label="Cor secundária"
+            hint="Selos, painéis escuros e gráficos."
+            value={secondaryColor}
+            onChange={setSecondaryColor}
+            fallback={DEFAULT_SECONDARY_COLOR}
+          />
+        </div>
+        <div className="mt-4">
+          <BrandColorPreview
+            primary={colorOrNull(accentColor, DEFAULT_PRIMARY_COLOR)}
+            secondary={colorOrNull(secondaryColor, DEFAULT_SECONDARY_COLOR)}
+          />
+        </div>
 
         <button
           type="button"

@@ -399,8 +399,13 @@ export interface Branding {
   logoUrl: string | null
   /** Nome de exibição (opcional, usado como alt/label). */
   agencyName: string | null
-  /** Cor de destaque em hex (ex: "#ff5a36"), null = cair no próximo nível (cliente → agência → padrão do sistema). */
+  /** Cor primária em hex (ex: "#ff5a36"), null = cair no próximo nível (cliente → agência → padrão do sistema). */
   accentColor: string | null
+  /**
+   * Cor secundária em hex — selos, chips e botões escuros (`--accent`) e a
+   * segunda cor dos gráficos. Mesma regra de herança da primária.
+   */
+  secondaryColor: string | null
 }
 
 export interface PublicVideo {
@@ -870,6 +875,12 @@ export type CalendarActivityType =
   | 'prazo'
   | 'evento'
   | 'demanda_interna'
+
+/**
+ * Cor personalizada de cada tipo de evento do calendário, por conta. Só os
+ * tipos personalizados aparecem; o resto usa a cor padrão do sistema.
+ */
+export type CalendarColors = Partial<Record<CalendarActivityType, string>>
 
 /** Atividade da agência no calendário operacional (aba Calendário). */
 export interface CalendarActivity {

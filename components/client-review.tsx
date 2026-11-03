@@ -85,7 +85,7 @@ export function ClientReview({
   // como um feed do Instagram). `activeLink` acompanha qual link usar nas
   // chamadas de comentário/nota/decisão.
   const [data, setData] = useState<PublicVideo>(initial)
-  const brandAccent = useBrandAccentStyle(data.branding?.accentColor)
+  const brandAccent = useBrandAccentStyle(data.branding?.accentColor, data.branding?.secondaryColor, { applyToRoot: true })
   const [activeLink, setActiveLink] = useState(link)
   const [switchingVideo, setSwitchingVideo] = useState(false)
   const { video } = data
@@ -895,7 +895,6 @@ export function ClientReview({
       <AnimatePresence>
         {decision === 'aprovado' && (
           <ApprovedCelebration
-            projectName={data.projectName || video.title}
             onReset={() => setDecision(null)}
             galleryLink={galleryLink}
           />

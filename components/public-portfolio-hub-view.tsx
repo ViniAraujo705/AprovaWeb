@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils'
  * ("Livre") é o layout original, sidebar à esquerda.
  */
 export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
-  const brandAccent = useBrandAccentStyle(hub.branding?.accentColor)
+  const brandAccent = useBrandAccentStyle(hub.branding?.accentColor, hub.branding?.secondaryColor, { applyToRoot: true })
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
