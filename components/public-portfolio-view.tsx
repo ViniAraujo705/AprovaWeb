@@ -19,7 +19,7 @@ import { publicUrl } from '@/lib/site'
  * capa mantém a proporção original do vídeo/foto enviado, sem recorte forçado.
  */
 export function PublicPortfolioView({ portfolio, link }: { portfolio: PublicPortfolio; link: string }) {
-  const brandAccent = useBrandAccentStyle(portfolio.branding?.accentColor, portfolio.branding?.secondaryColor)
+  const brandAccent = useBrandAccentStyle(portfolio.branding?.accentColor, portfolio.branding?.secondaryColor, { applyToRoot: true })
   const count = portfolio.videos.length
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const active = activeIndex !== null ? portfolio.videos[activeIndex] : null

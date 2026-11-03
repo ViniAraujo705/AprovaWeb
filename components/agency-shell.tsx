@@ -330,7 +330,7 @@ function SidebarUserFooter() {
 
 export function AgencyShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-  const brandAccent = useBrandAccentStyle(user?.branding?.accentColor, user?.branding?.secondaryColor)
+  const brandAccent = useBrandAccentStyle(user?.branding?.accentColor, user?.branding?.secondaryColor, { applyToRoot: true })
   const pathname = usePathname()
   const modules = useVisibleModules()
   const [open, setOpen] = useState(false)

@@ -41,7 +41,7 @@ export function ProjectGalleryView({
   /** Link público desta galeria (linkPublico do projeto) — repassado ao player via query string para escopar o swipe a este projeto, em vez de todos os vídeos do cliente. */
   link: string
 }) {
-  const brandAccent = useBrandAccentStyle(gallery.branding?.accentColor, gallery.branding?.secondaryColor)
+  const brandAccent = useBrandAccentStyle(gallery.branding?.accentColor, gallery.branding?.secondaryColor, { applyToRoot: true })
   const count = gallery.videos.length
   const checkedCount = gallery.videos.filter((v) => v.status === 'aprovado').length
   const waitingCount = gallery.videos.filter((v) => v.status === 'pendente').length
