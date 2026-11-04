@@ -1609,7 +1609,8 @@ export const clientFileService = {
       nomeArquivo: input.fileName,
       urlStorage: input.fileUrl,
       mimeType: input.mimeType,
-      tamanhoBytes: input.sizeBytes,
+      // Sem tamanhoBytes: o backend mede o arquivo no R2 sozinho e recusa o
+      // campo (forbidNonWhitelisted).
       categoria: input.category,
       descricao: input.description,
     })
