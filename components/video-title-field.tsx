@@ -1,8 +1,8 @@
 'use client'
 
 /**
- * Nome do vídeo editável — usado pelo owner (revisão interna) e pelo cliente
- * (tela pública). `onSave` decide qual serviço chamar (`videoService` ou
+ * Nome editável inline — usado no nome do vídeo (revisão interna e tela
+ * pública do cliente) e no nome do projeto (página do projeto). `onSave` decide qual serviço chamar (`videoService` ou
  * `publicService`) e como refletir o resultado no estado local; este
  * componente só cuida da UI de edição inline.
  */
@@ -15,10 +15,17 @@ export function VideoTitleField({
   title,
   onSave,
   className,
+  errorMessage = 'Não foi possível renomear o vídeo.',
+  alwaysShowIcon = false,
+  label = 'Renomear',
 }: {
   title: string
   onSave: (title: string) => Promise<void>
   className?: string
+  errorMessage?: string
+  /** Lápis sempre visível (no celular não há hover para revelá-lo). */
+  alwaysShowIcon?: boolean
+  label?: string
 }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -36,7 +43,7 @@ export function VideoTitleField({
       await onSave(trimmed)
       setEditing(false)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Não foi possível renomear o vídeo.')
+      setError(err instanceof ApiError ? err.message : errorMessage)
     } finally {
       setSaving(false)
     }
@@ -48,6 +55,7 @@ export function VideoTitleField({
         <input
           type="text"
           autoFocus
+          aria-label={label}
           defaultValue={title}
           disabled={saving}
           onFocus={(e) => e.target.select()}
@@ -71,10 +79,16 @@ export function VideoTitleField({
       type="button"
       onClick={() => setEditing(true)}
       title={title}
+      aria-label={`${label}: ${title}`}
       className={cn('group flex min-w-0 max-w-full items-center gap-2 text-left', className)}
     >
       <span className="min-w-0 truncate">{title}</span>
-      <Pencil className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+      <Pencil
+        className={cn(
+          'size-4 shrink-0 text-muted-foreground transition-opacity group-hover:opacity-100',
+          alwaysShowIcon ? 'opacity-60' : 'opacity-0',
+        )}
+      />
     </button>
   )
 }
