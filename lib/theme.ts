@@ -217,7 +217,8 @@ function brandNeutralVars(color: string, dark: boolean): Record<string, string> 
  * Sobrescreve as CSS custom properties do tema (`app/globals.css`) com a
  * marca da agência: a cor primária vira `--primary` e afins e também dá o
  * matiz de todos os neutros (fundo, cards, sidebar, bordas — ver
- * `brandNeutralVars`); a secundária assume `--deep`/`--accent`/`--chart-2`.
+ * `brandNeutralVars`); a secundária assume `--deep`/`--accent`/`--chart-2`
+ * e os estados de seleção (`--selected*`).
  * `null`/undefined nas duas mantém o tema padrão (retorna `undefined`).
  *
  * `dark` diz sobre qual fundo a cor vai aparecer (ajuste de contraste e qual
@@ -228,13 +229,15 @@ export function brandAccentStyle(
   color: string | null | undefined,
   { dark = true, secondary }: { dark?: boolean; secondary?: string | null } = {},
 ): CSSProperties | undefined {
-  const secondaryVars = brandSecondaryVars(secondary)
-  if (!color || !hexToRgb(color)) return secondaryVars as CSSProperties | undefined
-  const neutrals = brandNeutralVars(color, dark)
+  const hasPrimary = !!color && !!hexToRgb(color)
+  const neutrals = hasPrimary ? brandNeutralVars(color!, dark) : {}
+  const background = neutrals['--background'] ?? (dark ? SURFACE_DARK : SURFACE_LIGHT)
+  const secondaryVars = brandSecondaryVars(secondary, background)
+  if (!hasPrimary || !color) return secondaryVars as CSSProperties | undefined
   // `--primary` é preenchimento (botão, selo) e usa a cor como veio; textos e
   // bordas de destaque usam `--primary-ink`, que é a versão ajustada pro
   // contraste com o fundo da página (já no tom da marca).
-  const ink = withReadableContrast(color, neutrals['--background'] ?? (dark ? SURFACE_DARK : SURFACE_LIGHT))
+  const ink = withReadableContrast(color, background)
   // Texto escuro sobre a primária também no tom da marca (não no verde Check).
   const foreground =
     readableForeground(color) === '#ffffff' ? '#ffffff' : brandNeutralVars(color, false)['--foreground']
@@ -247,6 +250,11 @@ export function brandAccentStyle(
     ['--sidebar-primary' as string]: color,
     ['--sidebar-primary-foreground' as string]: foreground,
     ['--sidebar-ring' as string]: ink,
+    // Sem secundária, "selecionado" segue a primária (como no tema padrão);
+    // com secundária, `secondaryVars` logo abaixo sobrescreve.
+    ['--selected' as string]: color,
+    ['--selected-foreground' as string]: foreground,
+    ['--selected-ink' as string]: ink,
     ...secondaryVars,
   } as CSSProperties
 }
@@ -255,9 +263,15 @@ export function brandAccentStyle(
  * Cor secundária da marca: assume o papel do verde profundo da identidade
  * Check — `--deep` (painéis e ladrilhos de ícone), `--accent` (selos, chips e
  * botões escuros das telas do cliente) e `--chart-2` (segunda cor dos
- * gráficos). Texto sobre ela sai em preto/branco conforme o contraste.
+ * gráficos) — e é a cor de tudo que está "selecionado": item ativo do menu,
+ * aba, filtro, dia escolhido, toggle ligado (`--selected*`). Texto sobre ela
+ * sai em preto/branco conforme o contraste; `--selected-ink` (texto/borda
+ * sobre o fundo da página) é ajustada pro contraste com `background`.
  */
-function brandSecondaryVars(color: string | null | undefined): Record<string, string> | undefined {
+function brandSecondaryVars(
+  color: string | null | undefined,
+  background: string,
+): Record<string, string> | undefined {
   const rgb = color ? hexToRgb(color) : null
   if (!color || !rgb) return undefined
   const foreground = readableForeground(color)
@@ -270,6 +284,9 @@ function brandSecondaryVars(color: string | null | undefined): Record<string, st
     '--accent': color,
     '--accent-foreground': foreground,
     '--chart-2': color,
+    '--selected': color,
+    '--selected-foreground': foreground,
+    '--selected-ink': withReadableContrast(color, background),
   }
 }
 

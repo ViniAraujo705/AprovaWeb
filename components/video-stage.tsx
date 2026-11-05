@@ -1184,7 +1184,7 @@ function TabButton({
       className={cn(
         'min-h-11 flex-1 rounded-lg px-4 text-sm font-medium transition-colors lg:flex-none',
         active
-          ? 'bg-primary text-primary-foreground'
+          ? 'bg-selected text-selected-foreground'
           : 'bg-secondary text-muted-foreground hover:text-foreground',
       )}
     >

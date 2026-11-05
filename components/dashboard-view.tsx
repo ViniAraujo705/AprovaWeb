@@ -406,7 +406,7 @@ export function DashboardView() {
                 className={cn(
                   'inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors',
                   active
-                    ? 'border-primary bg-primary font-semibold text-primary-foreground'
+                    ? 'border-selected bg-selected font-semibold text-selected-foreground'
                     : 'border-border bg-card text-foreground hover:border-primary-ink/40',
                 )}
               >
@@ -414,7 +414,7 @@ export function DashboardView() {
                 <span
                   className={cn(
                     'inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold',
-                    active ? 'bg-primary-foreground/10 text-primary-foreground' : 'bg-secondary text-foreground',
+                    active ? 'bg-selected-foreground/10 text-selected-foreground' : 'bg-secondary text-foreground',
                   )}
                 >
                   {count}

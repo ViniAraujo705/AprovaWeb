@@ -1152,7 +1152,7 @@ function DateTimeField({
                         className={cn(
                           'mx-auto grid size-8 place-items-center rounded-lg text-xs transition-colors',
                           selected
-                            ? 'bg-primary font-semibold text-primary-foreground'
+                            ? 'bg-selected font-semibold text-selected-foreground'
                             : inMonth
                               ? 'text-foreground hover:bg-secondary'
                               : 'text-muted-foreground/40 hover:bg-secondary',
@@ -1625,7 +1625,7 @@ function EventModal({
                   className={cn(
                     'inline-flex min-h-8 items-center gap-1 rounded-full border px-3 text-xs font-medium transition-colors',
                     selected
-                      ? 'border-primary-ink bg-primary/15 text-primary-ink'
+                      ? 'border-selected-ink bg-selected/15 text-selected-ink'
                       : 'border-border bg-secondary text-muted-foreground hover:text-foreground',
                   )}
                 >

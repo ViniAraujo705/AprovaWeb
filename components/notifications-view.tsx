@@ -68,7 +68,7 @@ export function NotificationsView() {
             className={cn(
               'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
               unreadOnly
-                ? 'border-primary-ink bg-primary/10 text-primary-ink'
+                ? 'border-selected-ink bg-selected/10 text-selected-ink'
                 : 'border-border text-muted-foreground hover:text-foreground',
             )}
           >

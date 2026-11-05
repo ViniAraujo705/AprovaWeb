@@ -181,7 +181,7 @@ function ClientTabBar({ tab, setTab }: { tab: ClientTab; setTab: (t: ClientTab) 
             onClick={() => setTab(id)}
             className={cn(
               'inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl px-4 text-sm font-medium transition-colors',
-              tab === id ? 'bg-primary font-semibold text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+              tab === id ? 'bg-selected font-semibold text-selected-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
             )}
           >
             <Icon className="size-3.5" /> {label}
