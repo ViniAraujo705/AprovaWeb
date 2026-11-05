@@ -629,7 +629,7 @@ function PortfolioProfileEditModal({
                 className={cn(
                   'flex flex-col gap-0.5 rounded-lg border p-2.5 text-left transition-colors',
                   templateId === opt.id
-                    ? 'border-primary-ink bg-primary/10'
+                    ? 'border-selected-ink bg-selected/10'
                     : 'border-border bg-secondary hover:bg-secondary/70',
                 )}
               >

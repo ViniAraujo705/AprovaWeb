@@ -42,6 +42,9 @@
   --color-plan-featured-foreground: var(--plan-featured-foreground);
   --color-plan-featured-muted: var(--plan-featured-muted);
   --color-primary-ink: var(--primary-ink);
+  --color-selected: var(--selected);
+  --color-selected-foreground: var(--selected-foreground);
+  --color-selected-ink: var(--selected-ink);
   --color-deep: var(--deep);
   --color-deep-foreground: var(--deep-foreground);
   --color-deep-muted: var(--deep-muted);
@@ -136,6 +139,13 @@
   --sidebar-border: #d5d8cf;
   --sidebar-ring: #4e6b12;
 
+  /* Estado "selecionado" (menu ativo, abas, filtros, dia escolhido). Sem
+     marca é a própria lima; com cor secundária da agência vira a secundária
+     (ver `brandAccentStyle` em `lib/theme.ts`). */
+  --selected: #d6f593;
+  --selected-foreground: #253326;
+  --selected-ink: #4e6b12;
+
   /* Superfície "verde profundo" (banners de check, toast de link gerado). */
   --deep: #253326;
   --deep-foreground: #ebece7;
@@ -204,6 +214,10 @@
   --sidebar-accent-foreground: #ebece7;
   --sidebar-border: #2e3b2e;
   --sidebar-ring: #d7f593;
+
+  --selected: #d6f593;
+  --selected-foreground: #253326;
+  --selected-ink: #d7f593;
 
   --deep: #0f1711;
   --deep-foreground: #ebece7;

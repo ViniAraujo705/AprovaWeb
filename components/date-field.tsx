@@ -185,7 +185,7 @@ export function DateField({
                           isDisabled
                             ? 'cursor-not-allowed text-muted-foreground/25'
                             : selected
-                              ? 'bg-primary font-semibold text-primary-foreground'
+                              ? 'bg-selected font-semibold text-selected-foreground'
                               : inMonth
                                 ? 'text-foreground hover:bg-secondary'
                                 : 'text-muted-foreground/40 hover:bg-secondary',

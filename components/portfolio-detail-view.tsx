@@ -989,7 +989,7 @@ function UploadPortfolioMediaForm({
                         className={cn(
                           'px-2 py-0.5 font-medium transition-colors',
                           item.mediaType === t
-                            ? 'bg-primary text-primary-foreground'
+                            ? 'bg-selected text-selected-foreground'
                             : 'bg-transparent text-muted-foreground hover:bg-secondary',
                         )}
                       >

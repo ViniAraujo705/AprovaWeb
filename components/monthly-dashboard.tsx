@@ -712,7 +712,7 @@ function DeliveriesChart({
               <span
                 className={cn(
                   'w-full max-w-10 rounded-t-md transition-colors',
-                  isSelected ? 'bg-primary' : 'bg-muted-foreground/25 group-hover:bg-muted-foreground/45',
+                  isSelected ? 'bg-selected' : 'bg-muted-foreground/25 group-hover:bg-muted-foreground/45',
                 )}
                 style={{ height: `${Math.max(d.count > 0 ? 6 : 2, (d.count / max) * 100)}%` }}
               />

@@ -140,7 +140,7 @@ function SortButton({
       onClick={onClick}
       className={cn(
         'inline-flex min-h-9 items-center rounded-lg px-4 font-medium transition-colors',
-        active ? 'bg-primary font-semibold text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+        active ? 'bg-selected font-semibold text-selected-foreground' : 'text-muted-foreground hover:text-foreground',
       )}
     >
       {children}

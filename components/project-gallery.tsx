@@ -528,7 +528,7 @@ export function ProjectGalleryView({
                   variants={staggerItem}
                   className={`group relative overflow-hidden rounded-2xl border bg-card transition-colors ${
                     selected.has(v.link)
-                      ? 'border-primary-ink ring-2 ring-primary-ink/50'
+                      ? 'border-selected-ink ring-2 ring-selected-ink/50'
                       : 'border-border hover:border-primary-ink/50'
                   }`}
                 >

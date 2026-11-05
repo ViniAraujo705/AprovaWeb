@@ -512,7 +512,7 @@ function Switch({
         onClick={() => onChange(!checked)}
         className={cn(
           'relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors',
-          checked ? 'bg-primary' : 'bg-secondary ring-1 ring-inset ring-border',
+          checked ? 'bg-selected' : 'bg-secondary ring-1 ring-inset ring-border',
         )}
       >
         <span

@@ -198,7 +198,7 @@ function NavLinksList({ onNavigate }: { onNavigate?: () => void }) {
                   className={cn(
                     'flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors',
                     active
-                      ? 'bg-primary font-semibold text-primary-foreground'
+                      ? 'bg-selected font-semibold text-selected-foreground'
                       : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
                   )}
                 >
@@ -232,7 +232,7 @@ function NavRailItems({ modules, pathname }: { modules: NavModule[]; pathname: s
                 className={cn(
                   'grid size-10 shrink-0 place-items-center rounded-lg transition-colors',
                   active
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-selected text-selected-foreground'
                     : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
                 )}
               >

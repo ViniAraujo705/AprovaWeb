@@ -155,7 +155,7 @@ export function ReportsView() {
             className={cn(
               '-mb-px min-h-12 border-b-2 px-4 text-sm font-medium transition-colors',
               tab === t.value
-                ? 'border-primary font-semibold text-foreground'
+                ? 'border-selected font-semibold text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >

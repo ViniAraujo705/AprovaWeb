@@ -389,7 +389,7 @@ export function ProjectsView() {
               onClick={() => setShowArchived((v) => !v)}
               className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors ${
                 showArchived
-                  ? 'border-primary-ink bg-primary/10 text-primary-ink'
+                  ? 'border-selected-ink bg-selected/10 text-selected-ink'
                   : 'border-border bg-card text-foreground hover:bg-secondary'
               }`}
             >

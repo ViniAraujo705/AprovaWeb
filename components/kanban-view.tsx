@@ -527,7 +527,7 @@ export function KanbanView() {
             className={cn(
               'min-h-10 shrink-0 rounded-full border px-4 text-sm font-medium transition-colors',
               client === name
-                ? 'border-primary bg-primary font-semibold text-primary-foreground'
+                ? 'border-selected bg-selected font-semibold text-selected-foreground'
                 : 'border-border bg-card text-foreground hover:border-primary-ink/40',
             )}
           >
@@ -1404,7 +1404,7 @@ function LabelPicker({
                 onClick={() => onToggle(l.id)}
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
-                  active ? 'bg-foreground text-background' : 'bg-secondary text-muted-foreground hover:text-foreground',
+                  active ? 'bg-selected text-selected-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground',
                 )}
               >
                 <span className={cn('size-2 rounded-full', LABEL_COLOR_CLASS[l.color] ?? 'bg-muted-foreground')} aria-hidden="true" />
@@ -1445,7 +1445,7 @@ function CollaboratorPicker({
               onClick={() => onToggle(m.id)}
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2.5 text-xs font-medium transition-colors',
-                active ? 'bg-foreground text-background' : 'bg-secondary text-muted-foreground hover:text-foreground',
+                active ? 'bg-selected text-selected-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground',
               )}
             >
               <ClientAvatar name={m.name} seed={m.id} size="sm" />
