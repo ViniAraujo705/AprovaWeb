@@ -985,7 +985,9 @@ function Stars({
                 className={cn(
                   'transition-colors',
                   size === 'lg' ? 'size-9' : 'size-6',
-                  filled ? 'fill-primary text-foreground' : 'text-foreground/70',
+                  // Dourado fixo, independente da cor de marca: estrela de nota
+                  // precisa ser legível em qualquer marca e tema.
+                  filled ? 'fill-amber-400 text-amber-400' : 'text-foreground/70',
                 )}
               />
             </motion.span>
