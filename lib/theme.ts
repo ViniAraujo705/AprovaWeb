@@ -13,6 +13,13 @@ const SURFACE_DARK = '#17201a'
  * (`text-primary-ink`), não só preenchimento de botão.
  */
 const MIN_CONTRAST = 4.5
+/**
+ * Contraste mínimo do PREENCHIMENTO de marca (botão, estrela, selo, toggle)
+ * com o fundo — 3:1 é o piso da WCAG para componentes de interface (1.4.11).
+ * Sem isto, marca preta no tema escuro deixava a estrela da nota geral
+ * "preenchida" de preto sobre fundo quase preto: o cliente clicava e não via.
+ */
+const MIN_FILL_CONTRAST = 3
 
 function hexToRgb(hex: string): [number, number, number] | null {
   // `#RGB` (o backend aceita) vira `#RRGGBB`.
@@ -58,19 +65,33 @@ function shift(rgb: [number, number, number], t: number): [number, number, numbe
  * botão em ~170 lugares, e todos ficam da cor do fundo. Marcas com cor normal
  * (azul, rosa, verde) já passam do mínimo e saem daqui intactas.
  */
-function withReadableContrast(hex: string, surface: string): string {
+function withReadableContrast(hex: string, surface: string, min = MIN_CONTRAST): string {
   const rgb = hexToRgb(hex)
   const surfaceRgb = hexToRgb(surface)
   if (!rgb || !surfaceRgb) return hex
-  if (contrastRatio(rgb, surfaceRgb) >= MIN_CONTRAST) return hex
+  if (contrastRatio(rgb, surfaceRgb) >= min) return hex
   // Fundo escuro pede cor mais clara; fundo claro pede mais escura.
   const direction = relativeLuminance(surfaceRgb) < 0.5 ? 1 : -1
   for (let step = 1; step <= 20; step++) {
     const candidate = shift(rgb, direction * (step / 20))
-    if (contrastRatio(candidate, surfaceRgb) >= MIN_CONTRAST) return rgbToHex(candidate)
+    if (contrastRatio(candidate, surfaceRgb) >= min) return rgbToHex(candidate)
   }
   // Nem branco/preto puro chegou no mínimo (impossível na prática): usa o extremo.
   return direction > 0 ? '#ffffff' : '#000000'
+}
+
+/**
+ * Preenchimento de marca legível sobre o fundo. Só mexe em tons quase sem
+ * cor (preto, cinzas, branco): eles somem quando têm o brilho do fundo.
+ * Cores com matiz (limão no tema claro, por exemplo) se destacam pela cor
+ * mesmo com pouco contraste de brilho e ficam como a agência escolheu.
+ */
+function readableFill(hex: string, surface: string): string {
+  const rgb = hexToRgb(hex)
+  if (!rgb) return hex
+  const saturation = (Math.max(...rgb) - Math.min(...rgb)) / 255
+  if (saturation > 0.2) return hex
+  return withReadableContrast(hex, surface, MIN_FILL_CONTRAST)
 }
 
 /** Preto ou branco, o que tiver mais contraste sobre `hex` (luminância perceptiva). */
@@ -234,25 +255,27 @@ export function brandAccentStyle(
   const background = neutrals['--background'] ?? (dark ? SURFACE_DARK : SURFACE_LIGHT)
   const secondaryVars = brandSecondaryVars(secondary, background)
   if (!hasPrimary || !color) return secondaryVars as CSSProperties | undefined
-  // `--primary` é preenchimento (botão, selo) e usa a cor como veio; textos e
-  // bordas de destaque usam `--primary-ink`, que é a versão ajustada pro
-  // contraste com o fundo da página (já no tom da marca).
+  // `--primary` é preenchimento (botão, selo, estrela): usa a cor como veio,
+  // salvo tons sem cor que sumiriam no fundo (ver `readableFill`). Textos e
+  // bordas de destaque usam `--primary-ink`, ajustada pro contraste de texto
+  // com o fundo da página (já no tom da marca).
+  const fill = readableFill(color, background)
   const ink = withReadableContrast(color, background)
   // Texto escuro sobre a primária também no tom da marca (não no verde Check).
   const foreground =
-    readableForeground(color) === '#ffffff' ? '#ffffff' : brandNeutralVars(color, false)['--foreground']
+    readableForeground(fill) === '#ffffff' ? '#ffffff' : brandNeutralVars(color, false)['--foreground']
   return {
     ...neutrals,
-    ['--primary' as string]: color,
+    ['--primary' as string]: fill,
     ['--primary-foreground' as string]: foreground,
     ['--primary-ink' as string]: ink,
     ['--ring' as string]: ink,
-    ['--sidebar-primary' as string]: color,
+    ['--sidebar-primary' as string]: fill,
     ['--sidebar-primary-foreground' as string]: foreground,
     ['--sidebar-ring' as string]: ink,
     // Sem secundária, "selecionado" segue a primária (como no tema padrão);
     // com secundária, `secondaryVars` logo abaixo sobrescreve.
-    ['--selected' as string]: color,
+    ['--selected' as string]: fill,
     ['--selected-foreground' as string]: foreground,
     ['--selected-ink' as string]: ink,
     ...secondaryVars,
@@ -275,6 +298,7 @@ function brandSecondaryVars(
   const rgb = color ? hexToRgb(color) : null
   if (!color || !rgb) return undefined
   const foreground = readableForeground(color)
+  const selected = readableFill(color, background)
   // Texto de apoio sobre `--deep`: a própria cor puxada 60% pro lado do texto.
   const muted = rgbToHex(shift(rgb, foreground === '#ffffff' ? 0.6 : -0.6))
   return {
@@ -284,8 +308,8 @@ function brandSecondaryVars(
     '--accent': color,
     '--accent-foreground': foreground,
     '--chart-2': color,
-    '--selected': color,
-    '--selected-foreground': foreground,
+    '--selected': selected,
+    '--selected-foreground': readableForeground(selected),
     '--selected-ink': withReadableContrast(color, background),
   }
 }
