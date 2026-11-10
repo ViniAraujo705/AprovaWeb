@@ -4,7 +4,7 @@
  * Integrações (/configuracoes/integracoes) — owner-only. Google Drive já tem
  * API real no backend (OAuth em modo de testes: só contas testadoras
  * conseguem conectar) — ver `googleDriveService`. WhatsApp e Canva ainda não
- * têm endpoint, então continuam com estado local/"em breve".
+ * existem: aparecem como "em breve", sem ação.
  */
 import { useState } from 'react'
 import Image from 'next/image'
@@ -28,9 +28,9 @@ export function IntegrationsView() {
       </p>
 
       <div className="mt-8 flex flex-col gap-4">
-        <WhatsAppCard />
         <GoogleDriveCard />
         <GoogleCalendarCard />
+        <WhatsAppCard />
         <CanvaCard />
       </div>
     </div>
@@ -131,64 +131,28 @@ function ConnectButton({
   )
 }
 
-const WHATSAPP_NOTIFICATIONS = [
-  { key: 'avisos', label: 'Avisos gerais' },
-  { key: 'aprovacoes', label: 'Aprovações' },
-  { key: 'alteracoes', label: 'Pedidos de alteração' },
-  { key: 'entregas', label: 'Entregas' },
-  { key: 'atividades', label: 'Atividades da equipe' },
-] as const
+function ComingSoonButton() {
+  return (
+    <button
+      type="button"
+      disabled
+      title="Em breve"
+      className="inline-flex min-h-9 shrink-0 cursor-not-allowed items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-muted-foreground opacity-60"
+    >
+      Em breve
+    </button>
+  )
+}
 
 function WhatsAppCard() {
-  const [connected, setConnected] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [notify, setNotify] = useState<Record<string, boolean>>({
-    avisos: true,
-    aprovacoes: true,
-    alteracoes: true,
-    entregas: true,
-    atividades: false,
-  })
-
-  async function toggle() {
-    setBusy(true)
-    await new Promise((r) => setTimeout(r, 500))
-    const next = !connected
-    setConnected(next)
-    toast[next ? 'success' : 'info'](next ? 'WhatsApp conectado' : 'WhatsApp desconectado')
-    setBusy(false)
-  }
-
   return (
     <IntegrationShell
       icon={<SiWhatsapp className="size-5 text-[#25D366]" />}
       name="WhatsApp"
       description="Avisos, notificações de aprovação, alterações, entregas e atividades direto no WhatsApp."
-      badge={<StatusBadge connected={connected} />}
-      action={<ConnectButton connected={connected} busy={busy} onClick={toggle} />}
-    >
-      {connected && (
-        <div className="mt-4 border-t border-border pt-4">
-          <p className="text-xs font-medium text-foreground">Notificar por WhatsApp quando:</p>
-          <div className="mt-2 flex flex-col gap-2">
-            {WHATSAPP_NOTIFICATIONS.map((item) => (
-              <label
-                key={item.key}
-                className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground"
-              >
-                <input
-                  type="checkbox"
-                  className="size-4 accent-primary-ink"
-                  checked={notify[item.key]}
-                  onChange={(e) => setNotify((prev) => ({ ...prev, [item.key]: e.target.checked }))}
-                />
-                {item.label}
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
-    </IntegrationShell>
+      badge={<ComingSoonBadge />}
+      action={<ComingSoonButton />}
+    />
   )
 }
 
@@ -316,16 +280,7 @@ function CanvaCard() {
       name="Canva"
       description="Integração com o fluxo de criação e aprovação de peças, conforme viabilidade técnica."
       badge={<ComingSoonBadge />}
-      action={
-        <button
-          type="button"
-          disabled
-          title="Em breve, conforme viabilidade técnica"
-          className="inline-flex min-h-9 shrink-0 cursor-not-allowed items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-muted-foreground opacity-60"
-        >
-          Em breve
-        </button>
-      }
+      action={<ComingSoonButton />}
     />
   )
 }
