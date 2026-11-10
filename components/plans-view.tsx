@@ -11,6 +11,7 @@ import { ApiError } from '@/lib/api'
 import type { BillingCycle, PlanId } from '@/lib/types'
 import { PLAN_PRICING, formatBRL, planPricing } from '@/lib/plan-pricing'
 import { PENDING_CHECKOUT_PLAN_KEY } from '@/lib/config'
+import { useCheckIdentityStyle } from '@/lib/theme'
 
 /** Só dígitos, 11 (CPF) ou 14 (CNPJ) — mesma regra que a Asaas valida no back. */
 function isValidCpfCnpjDigits(digits: string): boolean {
@@ -43,6 +44,8 @@ function describeCheckoutError(err: unknown): string {
 
 export function PlansView() {
   const { planStatus } = usePlanLimit()
+  // Planos são do Check, não da agência: sempre nas cores da identidade.
+  const checkStyle = useCheckIdentityStyle()
   const [billing, setBilling] = useState<Billing>('monthly')
   const [checkingOut, setCheckingOut] = useState<PlanId | null>(null)
   const [pendingPlan, setPendingPlan] = useState<PlanId | null>(null)
@@ -67,7 +70,7 @@ export function PlansView() {
   const pendingPlanPricing = PLAN_PRICING.find((p) => p.id === pendingPlan) ?? null
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-10 lg:py-10" style={checkStyle}>
       {/* Seção de planos no padrão da apresentação de marca: fundo verde
           profundo, cards com contorno e o Pro em lima como destaque. */}
       <section className="rounded-3xl bg-deep px-5 py-8 text-deep-foreground sm:px-10 sm:py-12">
