@@ -639,7 +639,7 @@ export function ProjectDetailView({ id }: { id: string }) {
 
       {project.data && (
         <div className="mt-4">
-          <ProjectDriveSection projectId={id} isOwner={isOwner} />
+          <ProjectDriveSection projectId={id} isOwner={isOwner} onVideosImported={videos.refetch} />
         </div>
       )}
 

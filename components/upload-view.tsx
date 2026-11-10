@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
+import Link from 'next/link'
 import { DrivePickerModal } from '@/components/project-drive'
+import { DriveImportError, importDriveVideo } from '@/lib/drive-import'
 import {
   UploadCloud,
   Film,
@@ -169,10 +171,6 @@ function sourceSize(item: PendingFile) {
   return item.file?.size ?? item.drive?.sizeBytes ?? null
 }
 
-/** Consulta o andamento de um import do Drive até terminar. */
-const DRIVE_IMPORT_POLL_MS = 2000
-const DRIVE_IMPORT_TIMEOUT_MS = 2 * 60 * 60 * 1000 // 2h: arquivo de 2GB numa conexão lenta do Drive
-
 function VideoThumbnail({ item, onPreview }: { item: PendingFile; onPreview: () => void }) {
   if (item.drive) {
     return (
@@ -217,6 +215,19 @@ function VideoThumbnail({ item, onPreview }: { item: PendingFile; onPreview: () 
         </span>
       )}
     </button>
+  )
+}
+
+/** Cabeçalho de etapa do formulário (1 Arquivos, 2 Destino, 3 Detalhes). */
+function StepHeading({ n, title, hint }: { n: number; title: string; hint?: string }) {
+  return (
+    <div className="flex items-baseline gap-2.5">
+      <span className="grid size-5 shrink-0 translate-y-0.5 place-items-center rounded-full bg-foreground text-[11px] font-semibold text-background">
+        {n}
+      </span>
+      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+    </div>
   )
 }
 
@@ -423,28 +434,16 @@ export function UploadView() {
   /** Importa do Drive e espera o backend terminar; devolve o id do vídeo criado. */
   async function importFromDrive(item: PendingFile, targetProjectId: string): Promise<string> {
     const drive = item.drive!
-    let current = await googleDriveService.startImport({
-      projectId: targetProjectId,
-      googleFileId: drive.googleFileId,
-      name: item.name.trim() || drive.fileName,
-    })
-    const startedAt = Date.now()
-    while (current.status !== 'concluido') {
-      if (current.status === 'erro') throw new UploadError(current.error || 'Falha ao importar do Google Drive.')
-      if (Date.now() - startedAt > DRIVE_IMPORT_TIMEOUT_MS)
-        throw new UploadError('A importação está demorando demais. Confira o projeto daqui a pouco.')
-      updateItem(item.id, { progress: current.progress })
-      await new Promise((r) => setTimeout(r, DRIVE_IMPORT_POLL_MS))
-      try {
-        current = await googleDriveService.getImport(current.importId)
-      } catch (err) {
-        // Oscilação de rede no polling não derruba o import (ele segue no
-        // servidor); só desiste se o backend disser que não existe.
-        if (err instanceof ApiError && err.status === 404) throw err
-      }
+    try {
+      return await importDriveVideo(
+        { projectId: targetProjectId, googleFileId: drive.googleFileId, name: item.name.trim() || drive.fileName },
+        (progress) => updateItem(item.id, { progress }),
+      )
+    } catch (err) {
+      // A tela de envio trata UploadError/ApiError; converte a mensagem.
+      if (err instanceof DriveImportError) throw new UploadError(err.message)
+      throw err
     }
-    if (!current.videoId) throw new UploadError('Importação concluída sem o vídeo criado. Confira o projeto.')
-    return current.videoId
   }
 
   function removeItem(id: string) {
@@ -832,7 +831,15 @@ export function UploadView() {
         </div>
       ) : (
         <>
-          {/* Dropzone */}
+          <section className="mt-8">
+          <StepHeading n={1} title="Vídeos" hint={items.length > 0 ? `${items.length} na lista` : undefined} />
+          <div
+            className={cn(
+              'mt-3 grid gap-3',
+              items.length === 0 && driveStatus.data?.connected && !busy && 'sm:grid-cols-[1fr_15rem]',
+            )}
+          >
+          {/* Do computador: arrastar ou clicar */}
           <div
             onDragOver={(e) => {
               e.preventDefault()
@@ -850,14 +857,14 @@ export function UploadView() {
               inputRef.current?.click()
             }}
             className={cn(
-              'mt-6 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed text-center transition-colors',
-              items.length > 0 ? 'p-6' : 'p-10',
+              'flex flex-col items-center justify-center rounded-xl border border-dashed text-center transition-colors',
+              items.length > 0 ? 'px-4 py-3' : 'px-6 py-10',
               busy || selecting ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
               fileError
                 ? 'border-destructive/60 bg-destructive/5'
                 : dragging
                   ? 'border-primary-ink bg-primary/10'
-                  : 'border-primary-ink/50 bg-primary/10 hover:border-primary-ink hover:bg-primary/15',
+                  : 'border-border bg-card hover:border-primary-ink/60 hover:bg-secondary/40',
             )}
           >
             <input
@@ -894,37 +901,56 @@ export function UploadView() {
               </>
             ) : items.length === 0 ? (
               <>
-                <span className="grid size-16 place-items-center rounded-full bg-primary/40 text-primary-ink">
-                  <UploadCloud className="size-7" />
-                </span>
-                <p className="mt-4 font-display text-2xl">Arraste os vídeos aqui</p>
+                <UploadCloud className="size-7 text-muted-foreground" />
+                <p className="mt-3 text-base font-semibold text-foreground">Do computador</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  ou clique para selecionar (pode escolher vários) — {UPLOAD_ACCEPTED_LABEL}
+                  Arraste os vídeos aqui ou <span className="font-medium text-foreground underline underline-offset-2">escolha os arquivos</span>
                 </p>
+                <p className="mt-2 text-xs text-muted-foreground">{UPLOAD_ACCEPTED_LABEL} · pode escolher vários</p>
               </>
             ) : (
               <>
-                <span className="grid size-10 place-items-center rounded-full bg-primary/15 text-primary-ink">
-                  <Plus className="size-5" />
-                </span>
-                <p className="mt-2 text-sm font-medium text-foreground">
-                  Solte mais vídeos aqui, ou clique para adicionar
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Plus className="size-4" />
+                  Adicionar mais do computador
                 </p>
               </>
             )}
           </div>
+          {/* Do Google Drive: card ao lado (vazio) ou linha compacta (com lista) */}
           {driveStatus.data?.connected && !busy && (
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
-              <span>ou</span>
-              <button
-                type="button"
-                onClick={() => setDrivePicking(true)}
-                className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:border-primary-ink/50"
-              >
-                <Image src="/icons/google-drive.svg" alt="" width={16} height={16} />
-                Importar do Google Drive
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setDrivePicking(true)}
+              className={cn(
+                'rounded-xl border border-border bg-card text-left transition-colors hover:border-primary-ink/60 hover:bg-secondary/40',
+                items.length === 0
+                  ? 'flex flex-col items-center justify-center px-5 py-6 text-center'
+                  : 'flex items-center justify-center gap-2 px-4 py-3',
+              )}
+            >
+              <Image src="/icons/google-drive.svg" alt="" width={items.length === 0 ? 26 : 16} height={items.length === 0 ? 26 : 16} />
+              {items.length === 0 ? (
+                <>
+                  <span className="mt-3 text-base font-semibold text-foreground">Do Google Drive</span>
+                  <span className="mt-1 text-sm text-muted-foreground">
+                    Importa direto do seu Drive, sem baixar no computador.
+                  </span>
+                </>
+              ) : (
+                <span className="text-sm text-muted-foreground">Adicionar do Google Drive</span>
+              )}
+            </button>
+          )}
+          </div>
+          {isOwner && driveStatus.data && !driveStatus.data.connected && items.length === 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Seus vídeos estão no Google Drive?{' '}
+              <Link href="/configuracoes/integracoes" className="font-medium text-foreground underline underline-offset-2">
+                Conecte o Drive
+              </Link>{' '}
+              e importe sem baixar no computador.
+            </p>
           )}
           {drivePicking && (
             <DrivePickerModal
@@ -1012,8 +1038,12 @@ export function UploadView() {
             </ul>
           )}
 
+          </section>
+
+          <section className="mt-8 border-t border-border pt-6">
+          <StepHeading n={2} title="Para onde vai" />
           {/* Form */}
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
             {prefillLoading ? (
               <div className="sm:col-span-2">
                 <Skeleton className="h-11 w-full" />
@@ -1204,10 +1234,14 @@ export function UploadView() {
               </>
             )}
 
+          </div>
+          </section>
+
+          <section className="mt-8 border-t border-border pt-6">
+          <StepHeading n={3} title="Detalhes" hint="opcional · vale para todos os vídeos do lote" />
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <label className="flex min-w-0 flex-col gap-1.5">
-              <span className="text-sm font-medium text-foreground">
-                Prazo de entrega <span className="font-normal text-muted-foreground">(opcional)</span>
-              </span>
+              <span className="text-sm font-medium text-foreground">Prazo de entrega</span>
               <DateField
                 value={deadline}
                 onChange={setDeadline}
@@ -1215,16 +1249,11 @@ export function UploadView() {
                 min={new Date().toISOString().slice(0, 10)}
                 clearable
               />
-              <span className="text-xs text-muted-foreground">
-                Aplicado a todos os vídeos deste lote.
-              </span>
             </label>
 
             {assignableMembers.length > 0 && (
               <label className="flex min-w-0 flex-col gap-1.5">
-                <span className="text-sm font-medium text-foreground">
-                  Editor responsável <span className="font-normal text-muted-foreground">(opcional)</span>
-                </span>
+                <span className="text-sm font-medium text-foreground">Editor responsável</span>
                 <select
                   value={editorId}
                   onChange={(e) => setEditorId(e.target.value)}
@@ -1238,12 +1267,10 @@ export function UploadView() {
                     </option>
                   ))}
                 </select>
-                <span className="text-xs text-muted-foreground">
-                  Atribuído a todos os vídeos deste lote.
-                </span>
               </label>
             )}
           </div>
+          </section>
 
           {/* Progresso do lote */}
           {busy && (
@@ -1285,7 +1312,7 @@ export function UploadView() {
             type="button"
             disabled={busy}
             onClick={handleSubmit}
-            className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-base text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            className="mt-8 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-base text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             {busy ? (
               <>
