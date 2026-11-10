@@ -916,6 +916,34 @@ export interface GoogleDriveItem {
   isFolder: boolean
   iconLink: string | null
   webViewLink: string | null
+  /** Tamanho em bytes (o Drive não informa para pastas e Docs nativos). */
+  sizeBytes: number | null
+}
+
+/** Importação de um arquivo do Drive para aprovação (backend: Drive → R2 em segundo plano). */
+export type DriveImportStatus = 'na_fila' | 'importando' | 'concluido' | 'erro'
+
+export interface DriveImport {
+  importId: string
+  status: DriveImportStatus
+  /** 0..100 */
+  progress: number
+  videoId: string | null
+  error: string | null
+}
+
+/** Pasta/arquivo do Drive vinculado a um projeto (só a referência, nada é copiado). */
+export interface ProjectDriveItem {
+  /** id do vínculo no Check (usado para desvincular). */
+  id: string
+  /** id do arquivo/pasta no Google Drive. */
+  googleFileId: string
+  name: string
+  mimeType: string
+  isFolder: boolean
+  webViewLink: string | null
+  linkedAt: string | null
+  linkedByName: string | null
 }
 
 /** Tipo de linha dentro de uma nota do CheckDay: item de checklist ou tópico de lista. */

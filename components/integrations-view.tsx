@@ -8,7 +8,7 @@
  */
 import { useState } from 'react'
 import Image from 'next/image'
-import { Check, Loader2, Plug, Clock } from 'lucide-react'
+import { Check, Loader2, Plug, Clock, RefreshCw } from 'lucide-react'
 import { SiWhatsapp } from 'react-icons/si'
 import { cn } from '@/lib/utils'
 import { toast } from '@/lib/toast'
@@ -218,7 +218,20 @@ function GoogleDriveCard() {
       description="Conecte pastas e arquivos do Drive aos seus projetos e entregas no Check."
       badge={<StatusBadge connected={connected} />}
       action={
-        connected ? null : (
+        connected ? (
+          // Refaz o OAuth por cima da conexão atual (o backend sobrescreve o
+          // token). Necessário quando o acesso salvo expira ou é revogado no
+          // Google — o status continua "conectado", mas o Drive para de abrir.
+          <button
+            type="button"
+            onClick={connect}
+            disabled={busy || loading}
+            className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+            Reconectar
+          </button>
+        ) : (
           <ConnectButton connected={false} busy={busy || loading} onClick={connect} />
         )
       }
