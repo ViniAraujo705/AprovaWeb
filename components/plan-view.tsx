@@ -24,6 +24,7 @@ import { planLabel, type PlanId, type PlanLimits, type PlanStatus, type PlanUsag
 import { PENDING_CHECKOUT_PLAN_KEY } from '@/lib/config'
 import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/page-header'
+import { useCheckIdentityStyle } from '@/lib/theme'
 
 function readPendingCheckoutPlan(): PlanId | null {
   const raw = sessionStorage.getItem(PENDING_CHECKOUT_PLAN_KEY)
@@ -151,6 +152,8 @@ function useCheckoutConfirmation(
 
 export function PlanView() {
   const { planStatus, loading, refetch } = usePlanLimit()
+  // Planos são do Check, não da agência: sempre nas cores da identidade.
+  const checkStyle = useCheckIdentityStyle()
   const { user } = useAuth()
   const isOwner = user?.teamRole === 'owner'
   const confirmState = useCheckoutConfirmation(planStatus, refetch)
@@ -164,7 +167,7 @@ export function PlanView() {
   }, [isOwner, planStatus?.plan, refetch])
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10" style={checkStyle}>
       <PageHeader
         eyebrow="Conta da agência"
         title="Meu plano"

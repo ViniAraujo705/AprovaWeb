@@ -348,3 +348,44 @@ export function useBrandAccentStyle(
 
   return style
 }
+
+/** Tokens de destaque da identidade Check (cópia de `app/globals.css`). */
+const CHECK_ACCENT_LIGHT: Record<string, string> = {
+  '--primary': '#d6f593',
+  '--primary-foreground': '#253326',
+  '--primary-ink': '#4e6b12',
+  '--ring': '#4e6b12',
+  '--chart-2': '#7ea67c',
+  '--chart-3': '#d6f593',
+  '--sidebar-primary': '#d6f593',
+  '--sidebar-primary-foreground': '#253326',
+  '--sidebar-ring': '#4e6b12',
+  '--selected': '#d6f593',
+  '--selected-foreground': '#253326',
+  '--selected-ink': '#4e6b12',
+}
+
+const CHECK_ACCENT_DARK: Record<string, string> = {
+  ...CHECK_ACCENT_LIGHT,
+  '--primary-ink': '#d7f593',
+  '--ring': '#d7f593',
+  '--sidebar-ring': '#d7f593',
+  '--selected-ink': '#d7f593',
+}
+
+/**
+ * Paleta completa da identidade Check (neutros + destaques), pra telas que
+ * são do Check e não da agência — ex.: planos e cobrança. Aplicada como
+ * `style` no container, sobrescreve a marca da agência que o shell gravou no
+ * `<html>` (ver `useBrandAccentStyle`) só dentro daquela tela.
+ */
+export function useCheckIdentityStyle(): CSSProperties {
+  const { resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  const dark = !mounted || resolvedTheme !== 'light'
+  return {
+    ...(dark ? NEUTRALS_DARK : NEUTRALS_LIGHT),
+    ...(dark ? CHECK_ACCENT_DARK : CHECK_ACCENT_LIGHT),
+  } as CSSProperties
+}
