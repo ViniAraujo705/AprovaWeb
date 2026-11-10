@@ -448,7 +448,7 @@ export function UploadView() {
           urlStorage: presigned.publicUrl,
           nomeArquivo: item.name.trim() || item.file.name,
         })
-        bumpUsage({ videosThisMonth: 1 })
+        bumpUsage({ approvalFilesThisMonth: 1 })
 
         if (editorId) {
           // Falha em atribuir o editor não deve derrubar o upload em si —

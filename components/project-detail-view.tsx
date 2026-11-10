@@ -223,6 +223,11 @@ export function ProjectDetailView({ id }: { id: string }) {
   }, [id])
 
   const hasVideos = currentVideos.length > 0
+  // Exclusão real apaga os vídeos em cascata no back. Só oferecemos "Excluir"
+  // quando a lista carregou SEM erro e veio vazia — se o GET falhou, a lista
+  // vazia não prova nada, e o caminho seguro é "Arquivar".
+  const confirmedNoVideos =
+    !videos.loading && !videos.error && !!videos.data && videos.data.items.length === 0
 
   // Liberar armazenamento: só aparece com todas as entregas aprovadas, e o
   // back confere de novo (a lista aqui pode estar paginada). Depois de
@@ -254,6 +259,16 @@ export function ProjectDetailView({ id }: { id: string }) {
     setDeletingProject(true)
     setProjectDeleteError(null)
     try {
+      // Reconfere no servidor logo antes de excluir: a lista da tela pode
+      // estar velha (vídeo enviado por outra pessoa depois que a página abriu).
+      const fresh = await videoService.listPage(id, { page: 1 })
+      if (fresh.videos.length > 0) {
+        setProjectDeleteError('Este projeto agora tem vídeos — arquive em vez de excluir.')
+        setDeletingProject(false)
+        setConfirmingProjectDelete(false)
+        videos.refetch()
+        return
+      }
       await projectService.remove(id)
       toast.success('Projeto excluído')
       router.push('/projetos')
@@ -517,12 +532,16 @@ export function ProjectDetailView({ id }: { id: string }) {
             {isOwner &&
               !archived &&
               !videos.loading &&
-              (hasVideos ? (
+              (!confirmedNoVideos ? (
                 <button
                   type="button"
                   onClick={toggleArchived}
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-muted-foreground transition-colors hover:border-primary-ink/50 hover:text-primary-ink"
-                  title="Projeto tem vídeos — é arquivado em vez de excluído, pra não perder nada do cliente."
+                  title={
+                    hasVideos
+                      ? 'Projeto tem vídeos — é arquivado em vez de excluído, pra não perder nada do cliente.'
+                      : 'Não foi possível confirmar que o projeto está vazio — arquivar é o caminho seguro.'
+                  }
                 >
                   <Archive className="size-4" />
                   Arquivar projeto

@@ -645,6 +645,12 @@ export interface AdminUser extends User {
    * tela admin trata a ausência como 'free'.
    */
   plan?: PlanId | null
+  /**
+   * Id da conta (agência) do dono, vindo de `account.id` em `GET
+   * /admin/users`. É esse id — não o do usuário — que `PATCH
+   * /admin/accounts/:id/plan` espera.
+   */
+  accountId?: string | null
 }
 
 export interface AdminMetrics {
@@ -669,13 +675,18 @@ export const planLabel: Record<PlanId, string> = {
 export type BillingCycle = 'MONTHLY' | 'YEARLY'
 
 /** `null` em qualquer campo = ilimitado (Pro e Agência não têm teto nesses eixos). */
+/** Espelha `PLAN_LIMITS` do back (`src/plans/plan-limits.config.ts`). `null` = ilimitado. */
 export interface PlanLimits {
   maxClients: number | null
-  maxVideosPerMonth: number | null
+  /** Vídeos + arquivos enviados para aprovação no mês corrente. */
+  maxApprovalFilesPerMonth: number | null
   maxRatingQuestions: number | null
-  maxExtraEditors: number | null
+  /** Membros totais da conta, incluindo o(s) owner(s). */
+  maxTeamMembers: number | null
   whiteLabel: boolean
+  /** Relatórios (inclui o PDF de projeto) — `reports !== 'none'` no back. */
   pdfReports: boolean
+  /** `priorityProcessing` no back. */
   priorityQueue: boolean
   teamPerformance: boolean
   storageGb: number | null
@@ -683,8 +694,9 @@ export interface PlanLimits {
 
 export interface PlanUsage {
   clients: number
-  extraEditors: number
-  videosThisMonth: number
+  /** Membros ativos (qualquer papel, inclui owner) + convites pendentes. */
+  teamMembers: number
+  approvalFilesThisMonth: number
   ratingQuestions: number
 }
 

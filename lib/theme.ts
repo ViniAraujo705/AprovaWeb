@@ -103,6 +103,38 @@ function readableForeground(hex: string): string {
   return luminance > 0.6 ? '#253326' : '#ffffff'
 }
 
+/** Branco ou o verde-escuro do texto Check — o que tiver mais contraste real (WCAG) sobre `hex`. */
+function bestTextOn(hex: string): string {
+  const rgb = hexToRgb(hex)
+  if (!rgb) return '#ffffff'
+  const dark = '#253326'
+  return contrastRatio(rgb, [255, 255, 255]) >= contrastRatio(rgb, hexToRgb(dark)!) ? '#ffffff' : dark
+}
+
+/** `--primary` padrão da identidade Check (mesmo valor nos dois temas, ver `app/globals.css`). */
+const CHECK_PRIMARY = '#d6f593'
+
+/**
+ * Variantes da primária para dentro de superfícies `bg-deep` (ladrilhos de
+ * ícone, painéis escuros, destaque de /planos). `app/globals.css` troca
+ * `--primary`/`--primary-foreground`/`--primary-ink` por estas dentro de
+ * `.bg-deep`. Sem isto, a primária só era ajustada contra o fundo da PÁGINA:
+ * marca preta no tema claro ficava preta sobre `--deep` cinza-escuro (~1,5:1)
+ * e ícones, checks e selos sumiam. Também cobre secundária parecida com a
+ * primária (as duas pretas, por exemplo).
+ */
+function onDeepVars(fill: string, fillForeground: string, deep: string): Record<string, string> {
+  // 4.5:1 (piso de texto), não 3:1: dentro de `bg-deep` a primária aparece
+  // quase sempre como texto/ícone (`text-primary`), raramente como fundo.
+  const onDeep = withReadableContrast(fill, deep, MIN_CONTRAST)
+  return {
+    '--primary-on-deep': onDeep,
+    '--primary-on-deep-foreground':
+      onDeep.toLowerCase() === fill.toLowerCase() ? fillForeground : bestTextOn(onDeep),
+    '--primary-ink-on-deep': withReadableContrast(fill, deep, MIN_CONTRAST),
+  }
+}
+
 /* ------------------------- neutros no tom da marca ------------------------ */
 
 /**
@@ -254,7 +286,17 @@ export function brandAccentStyle(
   const neutrals = hasPrimary ? brandNeutralVars(color!, dark) : {}
   const background = neutrals['--background'] ?? (dark ? SURFACE_DARK : SURFACE_LIGHT)
   const secondaryVars = brandSecondaryVars(secondary, background)
-  if (!hasPrimary || !color) return secondaryVars as CSSProperties | undefined
+  const deep =
+    secondaryVars?.['--deep'] ??
+    neutrals['--deep'] ??
+    (dark ? NEUTRALS_DARK['--deep'] : NEUTRALS_LIGHT['--deep'])
+  if (!hasPrimary || !color) {
+    if (!secondaryVars) return undefined
+    return {
+      ...secondaryVars,
+      ...onDeepVars(CHECK_PRIMARY, NEUTRALS_LIGHT['--foreground'], deep),
+    } as CSSProperties
+  }
   // `--primary` é preenchimento (botão, selo, estrela): usa a cor como veio,
   // salvo tons sem cor que sumiriam no fundo (ver `readableFill`). Textos e
   // bordas de destaque usam `--primary-ink`, ajustada pro contraste de texto
@@ -279,6 +321,7 @@ export function brandAccentStyle(
     ['--selected-foreground' as string]: foreground,
     ['--selected-ink' as string]: ink,
     ...secondaryVars,
+    ...onDeepVars(fill, foreground, deep),
   } as CSSProperties
 }
 

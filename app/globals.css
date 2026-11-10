@@ -150,6 +150,10 @@
   --deep: #253326;
   --deep-foreground: #ebece7;
   --deep-muted: #a9b3a5;
+  /* Primária dentro de superfícies `bg-deep` (ver regra `.bg-deep` e lib/theme.ts onDeepVars). */
+  --primary-on-deep: #d6f593;
+  --primary-on-deep-foreground: #253326;
+  --primary-ink-on-deep: #d6f593;
 
   /* Avatares de iniciais. */
   --avatar: #c8d8be;
@@ -222,6 +226,10 @@
   --deep: #0f1711;
   --deep-foreground: #ebece7;
   --deep-muted: #a9b3a5;
+  /* Primária dentro de superfícies `bg-deep` (ver regra `.bg-deep` e lib/theme.ts onDeepVars). */
+  --primary-on-deep: #d6f593;
+  --primary-on-deep-foreground: #253326;
+  --primary-ink-on-deep: #d6f593;
 
   --avatar: #3c533c;
   --avatar-foreground: #ebece7;
@@ -284,6 +292,19 @@
   font-family: var(--font-manrope), var(--font-inter), system-ui, sans-serif;
   font-weight: 800;
   letter-spacing: -0.025em;
+}
+
+/*
+ * Dentro de superfícies verde-profundo a primária usa a variante calculada
+ * contra `--deep` (não contra o fundo da página). Com a marca da agência,
+ * `lib/theme.ts` (onDeepVars) recalcula estas variáveis; no tema padrão o
+ * limão já contrasta com o verde profundo e os valores são os mesmos.
+ * Fora de @layer de propósito, como `.font-display` acima.
+ */
+.bg-deep {
+  --primary: var(--primary-on-deep);
+  --primary-foreground: var(--primary-on-deep-foreground);
+  --primary-ink: var(--primary-ink-on-deep);
 }
 
 /* Rótulo pequeno acima do título ("VISÃO GERAL DA OPERAÇÃO"). */

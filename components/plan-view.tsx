@@ -38,9 +38,13 @@ type UsageAxis = {
 
 const AXES: UsageAxis[] = [
   { key: 'clients', label: 'Clientes', limitKey: 'maxClients' },
-  { key: 'videosThisMonth', label: 'Vídeos este mês', limitKey: 'maxVideosPerMonth' },
+  {
+    key: 'approvalFilesThisMonth',
+    label: 'Vídeos/arquivos em aprovação este mês',
+    limitKey: 'maxApprovalFilesPerMonth',
+  },
   { key: 'ratingQuestions', label: 'Perguntas de avaliação', limitKey: 'maxRatingQuestions' },
-  { key: 'extraEditors', label: 'Editores extras', limitKey: 'maxExtraEditors' },
+  { key: 'teamMembers', label: 'Membros da equipe', limitKey: 'maxTeamMembers' },
 ]
 
 const POLL_INTERVAL_MS = 3000
