@@ -735,9 +735,13 @@ function mapPortfolioCategory(raw: Raw): PortfolioCategory {
   }
 }
 
-function mapPortfolioLink(raw: Raw): PortfolioLink {
+// O back guarda os links como JSON `[{ rotulo, url }]`, sem id. Sem um id
+// único por linha, o modal de edição (que edita/remove por id) alterava ou
+// apagava todos os links de uma vez — daí o fallback pela posição na lista.
+function mapPortfolioLink(raw: Raw, index: number): PortfolioLink {
+  const id = pick<unknown>(raw, ['id', '_id'], null)
   return {
-    id: String(pick(raw, ['id', '_id'], '')),
+    id: id == null || id === '' ? `link-${index}` : String(id),
     label: pick(raw, ['rotulo', 'label', 'titulo', 'title'], ''),
     url: pick(raw, ['url', 'link'], ''),
   }
@@ -792,11 +796,16 @@ function mapAdminUser(raw: Raw): AdminUser {
   const base = mapUser(raw)
   const s = String(pick(raw, ['status'], 'ativo')).toLowerCase()
   const status: UserStatus = ['suspenso', 'suspended'].includes(s) ? 'suspended' : 'active'
+  const account = pick<Raw | null>(raw, ['account', 'conta'], null)
   return {
     ...base,
     status,
     createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
-    plan: pick<PlanId | null>(raw, ['plan', 'plano'], null),
+    plan: pick<PlanId | null>(raw, ['plan', 'plano'], null) ?? pick<PlanId | null>(account, ['plan', 'plano'], null),
+    accountId: (() => {
+      const id = pick<unknown>(account, ['id', '_id'], null) ?? pick<unknown>(raw, ['accountId', 'account_id'], null)
+      return id == null ? null : String(id)
+    })(),
   }
 }
 
@@ -2978,19 +2987,31 @@ function mapPlanStatus(raw: Raw): PlanStatus {
     plan: normalizePlanId(pick(raw, ['plan', 'plano'], 'free')),
     limits: {
       maxClients: pick<number | null>(limitsRaw, ['maxClients'], null),
-      maxVideosPerMonth: pick<number | null>(limitsRaw, ['maxVideosPerMonth'], null),
+      maxApprovalFilesPerMonth: pick<number | null>(
+        limitsRaw,
+        ['maxApprovalFilesPerMonth', 'maxVideosPerMonth'],
+        null,
+      ),
       maxRatingQuestions: pick<number | null>(limitsRaw, ['maxRatingQuestions'], null),
-      maxExtraEditors: pick<number | null>(limitsRaw, ['maxExtraEditors'], null),
+      maxTeamMembers: pick<number | null>(limitsRaw, ['maxTeamMembers', 'maxExtraEditors'], null),
       whiteLabel: Boolean(pick(limitsRaw, ['whiteLabel'], false)),
-      pdfReports: Boolean(pick(limitsRaw, ['pdfReports'], false)),
-      priorityQueue: Boolean(pick(limitsRaw, ['priorityQueue'], false)),
+      // O back expõe `reports: 'none' | 'basic' | 'advanced'` (o PDF de
+      // projeto é liberado em qualquer nível diferente de 'none');
+      // `pdfReports` booleano fica como fallback de contrato antigo.
+      pdfReports: (() => {
+        const reports = pick<unknown>(limitsRaw, ['reports'], undefined)
+        if (typeof reports === 'string') return reports.toLowerCase() !== 'none'
+        return Boolean(pick(limitsRaw, ['pdfReports'], false))
+      })(),
+      priorityQueue: Boolean(pick(limitsRaw, ['priorityProcessing', 'priorityQueue'], false)),
       teamPerformance: Boolean(pick(limitsRaw, ['teamPerformance'], false)),
       storageGb: pick<number | null>(limitsRaw, ['storageGb'], null),
     },
     usage: {
       clients: Number(pick(usageRaw, ['clients'], 0)) || 0,
-      extraEditors: Number(pick(usageRaw, ['extraEditors'], 0)) || 0,
-      videosThisMonth: Number(pick(usageRaw, ['videosThisMonth'], 0)) || 0,
+      teamMembers: Number(pick(usageRaw, ['teamMembers', 'extraEditors'], 0)) || 0,
+      approvalFilesThisMonth:
+        Number(pick(usageRaw, ['approvalFilesThisMonth', 'videosThisMonth'], 0)) || 0,
       ratingQuestions: Number(pick(usageRaw, ['ratingQuestions'], 0)) || 0,
     },
   }

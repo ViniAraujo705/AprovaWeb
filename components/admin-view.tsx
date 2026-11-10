@@ -142,7 +142,8 @@ function UserRow({
     setError(null)
     try {
       const updated = await adminService.updateUserStatus(user.id, status)
-      onChanged(updated)
+      // A resposta do PATCH de status não traz a conta: preserva accountId/plan.
+      onChanged({ ...updated, accountId: updated.accountId ?? user.accountId, plan: updated.plan ?? user.plan })
       toast.success(status === 'suspended' ? 'Usuário suspenso' : 'Usuário reativado')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Falha ao atualizar.')
@@ -154,10 +155,14 @@ function UserRow({
   // Único jeito hoje de ativar um plano pago — não há checkout ainda.
   async function savePlan() {
     if (plan === currentPlan) return
+    if (!user.accountId) {
+      setPlanError('Conta deste usuário não identificada. Recarregue a página.')
+      return
+    }
     setSavingPlan(true)
     setPlanError(null)
     try {
-      await adminService.updatePlan(user.id, plan)
+      await adminService.updatePlan(user.accountId, plan)
       onChanged({ ...user, plan })
       toast.success('Plano atualizado')
     } catch (err) {

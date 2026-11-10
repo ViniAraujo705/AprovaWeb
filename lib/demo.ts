@@ -1464,7 +1464,7 @@ export function demoReorderPortfolioVideos(portfolioId: string, orderedVideoIds:
 }
 
 export const demoAdminUsers: AdminUser[] = [
-  { id: 'demo-user', name: 'Você (demo)', email: 'demo@aprova.app', role: 'admin', teamRole: 'owner', photoUrl: null, status: 'active', createdAt: iso(240), plan: 'agencia' },
+  { id: 'demo-user', name: 'Você (demo)', email: 'demo@aprova.app', role: 'admin', teamRole: 'owner', photoUrl: null, status: 'active', createdAt: iso(240), plan: 'agencia', accountId: 'demo-account' },
   { id: 'u2', name: 'Marina Alves', email: 'marina@agencia.com', role: 'user', teamRole: 'editor', photoUrl: null, status: 'active', createdAt: iso(200) },
   { id: 'u3', name: 'Rafael Souza', email: 'rafael@agencia.com', role: 'user', teamRole: 'editor', photoUrl: null, status: 'suspended', createdAt: iso(120) },
   { id: 'u4', name: 'Bruno Lima', email: 'bruno@agencia.com', role: 'user', teamRole: 'editor', photoUrl: null, status: 'inactive', createdAt: iso(60) },
@@ -1511,9 +1511,9 @@ export function demoSetPlan(plan: PlanId): void {
 const DEMO_PLAN_LIMITS: Record<PlanId, PlanStatus['limits']> = {
   portfolio: {
     maxClients: 0,
-    maxVideosPerMonth: 0,
+    maxApprovalFilesPerMonth: 0,
     maxRatingQuestions: 0,
-    maxExtraEditors: 0,
+    maxTeamMembers: 0,
     whiteLabel: false,
     pdfReports: false,
     priorityQueue: false,
@@ -1522,9 +1522,9 @@ const DEMO_PLAN_LIMITS: Record<PlanId, PlanStatus['limits']> = {
   },
   free: {
     maxClients: 1,
-    maxVideosPerMonth: 10,
+    maxApprovalFilesPerMonth: 10,
     maxRatingQuestions: 3,
-    maxExtraEditors: 0,
+    maxTeamMembers: 1,
     whiteLabel: false,
     pdfReports: false,
     priorityQueue: false,
@@ -1533,9 +1533,9 @@ const DEMO_PLAN_LIMITS: Record<PlanId, PlanStatus['limits']> = {
   },
   pro: {
     maxClients: 8,
-    maxVideosPerMonth: 100,
+    maxApprovalFilesPerMonth: 100,
     maxRatingQuestions: null,
-    maxExtraEditors: 2,
+    maxTeamMembers: 3,
     whiteLabel: true,
     pdfReports: true,
     priorityQueue: false,
@@ -1544,9 +1544,9 @@ const DEMO_PLAN_LIMITS: Record<PlanId, PlanStatus['limits']> = {
   },
   agencia: {
     maxClients: 30,
-    maxVideosPerMonth: 500,
+    maxApprovalFilesPerMonth: 500,
     maxRatingQuestions: null,
-    maxExtraEditors: 7,
+    maxTeamMembers: 8,
     whiteLabel: true,
     pdfReports: true,
     priorityQueue: true,
@@ -1568,10 +1568,11 @@ export function demoPlanStatus(): PlanStatus {
     limits: DEMO_PLAN_LIMITS[plan],
     usage: {
       clients: demoClients.length,
-      extraEditors: demoTeamMembers().filter(
-        (m) => m.teamRole === 'editor' && m.status === 'active',
-      ).length,
-      videosThisMonth: demoVideos.length,
+      // Mesma regra do back (PlansService.countTeamMembers): membros ativos de
+      // qualquer papel, owner incluído, + convites pendentes.
+      teamMembers: demoTeamMembers().filter((m) => m.status === 'active' || m.status === 'invited')
+        .length,
+      approvalFilesThisMonth: demoVideos.length,
       ratingQuestions: demoRatingQuestions().filter((q) => q.active).length,
     },
   }
