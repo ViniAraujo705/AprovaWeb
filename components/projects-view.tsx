@@ -353,8 +353,8 @@ export function ProjectsView() {
 
   return (
     <div className="flex flex-1 flex-col px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="xl:max-w-md">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-xl">
           <p className="eyebrow">Galerias de entrega</p>
           <h1 className="mt-3 font-display text-4xl leading-[1.05] sm:text-5xl">Projetos</h1>
           <p className="mt-3 text-base text-muted-foreground">
@@ -362,35 +362,46 @@ export function ProjectsView() {
             todos de uma vez.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        {!creatingProject && (
+          <button
+            type="button"
+            onClick={openProjectForm}
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 self-start rounded-xl bg-primary px-5 font-display text-base text-primary-foreground hover:opacity-90 sm:self-auto"
+          >
+            <Plus className="size-4" /> Novo projeto
+          </button>
+        )}
+      </div>
+
+      {(allProjects.length > 0 || archivedCount > 0) && (
+        <div className="mt-6 flex flex-col gap-2 rounded-2xl border border-border bg-card p-2 sm:flex-row sm:items-center">
           {allProjects.length > 0 && (
             <>
-              <div className="relative">
+              <div className="relative min-w-0 flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar projeto ou cliente..."
-                  className="min-h-11 w-56 rounded-xl border border-border bg-card py-2 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
+                  aria-label="Buscar projeto ou cliente"
+                  className="min-h-10 w-full rounded-xl bg-transparent py-2 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:bg-secondary"
                 />
               </div>
-              <label className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Ordem:</span>
+              <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={sortMode}
                   onChange={(e) => changeSortMode(e.target.value as SortMode)}
-                  className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
+                  aria-label="Ordem"
+                  className="min-h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary-ink"
                 >
-                  <option value="prazo">Prazo de entrega</option>
-                  <option value="atividade">Atividade recente</option>
+                  <option value="prazo">Ordem: prazo de entrega</option>
+                  <option value="atividade">Ordem: atividade recente</option>
                 </select>
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Cliente:</span>
                 <select
                   value={client}
                   onChange={(e) => setClient(e.target.value)}
-                  className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
+                  aria-label="Cliente"
+                  className="min-h-10 max-w-[14rem] rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary-ink"
                 >
                   {clientNames.map((c) => (
                     <option key={c} value={c}>
@@ -398,34 +409,25 @@ export function ProjectsView() {
                     </option>
                   ))}
                 </select>
-              </label>
+              </div>
             </>
           )}
           {archivedCount > 0 && (
             <button
               type="button"
               onClick={() => setShowArchived((v) => !v)}
-              className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors ${
+              className={`inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium transition-colors ${
                 showArchived
                   ? 'border-selected-ink bg-selected/10 text-selected-ink'
-                  : 'border-border bg-card text-foreground hover:bg-secondary'
+                  : 'border-border bg-background text-foreground hover:bg-secondary'
               }`}
             >
               <Archive className="size-4" />
               {showArchived ? 'Ver ativos' : `Arquivados (${archivedCount})`}
             </button>
           )}
-          {!creatingProject && (
-            <button
-              type="button"
-              onClick={openProjectForm}
-              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-base text-primary-foreground hover:opacity-90"
-            >
-              <Plus className="size-4" /> Novo projeto
-            </button>
-          )}
         </div>
-      </div>
+      )}
 
       {creatingProject && (
         <div className="mt-4 rounded-2xl border border-border bg-card p-5">
@@ -698,10 +700,10 @@ export function ProjectsView() {
             }
           />
         ) : groups ? (
-          <div className="mx-auto flex w-full flex-col gap-6">
+          <div className="mx-auto flex w-full flex-col gap-8">
             {groups.map((g) => (
               <section key={g.clientId}>
-                <div className="mb-3 flex items-center gap-2.5">
+                <div className="mb-3 flex items-center gap-2.5 border-b border-border pb-3">
                   <ClientAvatar
                     name={g.client?.name ?? AVULSOS}
                     photoUrl={g.client?.photoUrl}
@@ -715,7 +717,7 @@ export function ProjectsView() {
                     {g.projects.length} {g.projects.length === 1 ? 'projeto' : 'projetos'}
                   </span>
                 </div>
-                <StaggerList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <StaggerList className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {g.projects.map((p) => (
                     <ProjectCard
                       key={p.id}
@@ -725,6 +727,7 @@ export function ProjectsView() {
                       storageReleased={storageReleasedProjects.has(p.id)}
                       archived={showArchived}
                       onUnarchive={() => handleUnarchive(p.id)}
+                      grouped
                     />
                   ))}
                 </StaggerList>
@@ -758,6 +761,7 @@ function ProjectCard({
   storageReleased,
   archived,
   onUnarchive,
+  grouped = false,
 }: {
   project: Project
   videoCount: number
@@ -767,18 +771,23 @@ function ProjectCard({
   storageReleased: boolean
   archived: boolean
   onUnarchive: () => void
+  /** Dentro do grupo do cliente: o cabeçalho já mostra cliente e avatar, então o card não repete. */
+  grouped?: boolean
 }) {
   const [copied, setCopied] = useState(false)
   const galleryPath = project.publicLink ? `/g/${project.publicLink}` : null
   const clientLabel = project.clientId
     ? (project.client?.name ?? 'Cliente')
     : `Avulso${project.contactName ? ` · ${project.contactName}` : ''}`
+  // No grupo, só o contato do avulso acrescenta algo além do cabeçalho.
+  const subLabel = grouped ? (project.clientId ? null : project.contactName || null) : clientLabel
 
   async function copyGalleryLink() {
     if (!galleryPath) return
     try {
       await navigator.clipboard.writeText(publicUrl(galleryPath))
       setCopied(true)
+      toast.success('Link da galeria copiado')
       setTimeout(() => setCopied(false), 2000)
     } catch {
       setCopied(false)
@@ -788,41 +797,42 @@ function ProjectCard({
   return (
     <motion.div
       variants={staggerItem}
-      className="group relative flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary-ink/50"
+      className="group relative flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary-ink/50 hover:bg-secondary/40"
     >
-      {/* Card inteiro clicável (stretched link) — só o botão de copiar fica acima, com z-index maior. */}
+      {/* Card inteiro clicável (stretched link) — só os botões ficam acima, com z-index maior. */}
       <Link
         href={`/projetos/${project.id}`}
         aria-label={`Abrir projeto ${project.name}`}
         className="absolute inset-0 z-[1] rounded-2xl"
       />
 
-      {/*
-        Só o botão de copiar link precisa ficar acima do link esticado — o
-        resto do card (nome, cliente, contagem) fica sem z-index de propósito,
-        pra deixar o clique passar direto pro link por baixo.
-      */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-start gap-3">
-          <ProjectThumb
-            photoUrl={project.photoUrl}
-            size="sm"
-            fallback={
+      <div className="flex items-center gap-3">
+        <ProjectThumb
+          photoUrl={project.photoUrl}
+          size="md"
+          fallback={
+            grouped ? (
+              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-muted-foreground">
+                <FolderOpen className="size-5" />
+              </span>
+            ) : (
               <ClientAvatar
                 name={project.client?.name ?? project.contactName ?? AVULSOS}
                 photoUrl={project.client?.photoUrl}
                 seed={project.clientId}
               />
-            }
-          />
-          <div className="min-w-0">
-            <p className="truncate text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground" title={clientLabel}>
-              {clientLabel}
+            )
+          }
+        />
+        <div className="min-w-0 flex-1">
+          {subLabel && (
+            <p className="truncate text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground" title={subLabel}>
+              {subLabel}
             </p>
-            <h3 className="mt-1 truncate font-display text-xl font-bold" title={project.name}>
-              {project.name}
-            </h3>
-          </div>
+          )}
+          <h3 className="truncate font-display text-lg font-bold leading-tight" title={project.name}>
+            {project.name}
+          </h3>
         </div>
         {project.isExample && (
           <span
@@ -834,40 +844,44 @@ function ProjectCard({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
-          {videoCount} {videoCount === 1 ? 'vídeo' : 'vídeos'}
-        </span>
-        {nextDeadline && <DeadlineBadge deadline={nextDeadline} />}
-        {storageReleased && (
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
-            <HardDrive className="size-3.5" />
-            Arquivos removidos
+      <div className="mt-auto flex items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
+            <Film className="size-3.5" />
+            {videoCount} {videoCount === 1 ? 'vídeo' : 'vídeos'}
           </span>
-        )}
-      </div>
-
-      <div className="mt-1 flex flex-wrap items-center gap-2">
-        {galleryPath && (
-          <button
-            type="button"
-            onClick={copyGalleryLink}
-            className="relative z-[2] inline-flex min-h-10 w-fit items-center justify-center gap-2 rounded-xl border border-border bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70"
-          >
-            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-            {copied ? 'Copiado' : 'Copiar link da galeria'}
-          </button>
-        )}
-        {archived && (
-          <button
-            type="button"
-            onClick={onUnarchive}
-            className="relative z-[2] inline-flex min-h-9 w-fit items-center justify-center gap-2 rounded-lg border border-primary-ink/40 px-3 text-xs font-medium text-primary-ink transition-colors hover:bg-primary/10"
-          >
-            <ArchiveRestore className="size-3.5" />
-            Desarquivar
-          </button>
-        )}
+          {nextDeadline && <DeadlineBadge deadline={nextDeadline} />}
+          {storageReleased && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
+              <HardDrive className="size-3.5" />
+              Arquivos removidos
+            </span>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {archived && (
+            <button
+              type="button"
+              onClick={onUnarchive}
+              className="relative z-[2] inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-primary-ink/40 px-2.5 text-xs font-medium text-primary-ink transition-colors hover:bg-primary/10"
+            >
+              <ArchiveRestore className="size-3.5" />
+              Desarquivar
+            </button>
+          )}
+          {galleryPath && (
+            <button
+              type="button"
+              onClick={copyGalleryLink}
+              title="Copiar link da galeria"
+              aria-label="Copiar link da galeria"
+              className="relative z-[2] inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+            >
+              {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+              {copied ? 'Copiado' : 'Link'}
+            </button>
+          )}
+        </div>
       </div>
     </motion.div>
   )
