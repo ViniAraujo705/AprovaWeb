@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, Check, CreditCard, Loader2 } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, Check, CreditCard, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FadeIn, AnimatePresence, motion } from '@/components/motion'
 import { usePlanLimit } from '@/components/plan-limit-provider'
@@ -12,6 +12,7 @@ import type { BillingCycle, PlanId } from '@/lib/types'
 import { PLAN_PRICING, formatBRL, planPricing } from '@/lib/plan-pricing'
 import { PENDING_CHECKOUT_PLAN_KEY } from '@/lib/config'
 import { useCheckIdentityStyle } from '@/lib/theme'
+import { toast } from '@/lib/toast'
 
 /** Só dígitos, 11 (CPF) ou 14 (CNPJ) — mesma regra que a Asaas valida no back. */
 function isValidCpfCnpjDigits(digits: string): boolean {
@@ -43,12 +44,18 @@ function describeCheckoutError(err: unknown): string {
 }
 
 export function PlansView() {
-  const { planStatus } = usePlanLimit()
+  const { planStatus, refetch } = usePlanLimit()
   // Planos são do Check, não da agência: sempre nas cores da identidade.
   const checkStyle = useCheckIdentityStyle()
   const [billing, setBilling] = useState<Billing>('monthly')
   const [checkingOut, setCheckingOut] = useState<PlanId | null>(null)
   const [pendingPlan, setPendingPlan] = useState<PlanId | null>(null)
+  // Com assinatura paga, trocar de plano muda a mesma assinatura (sem novo
+  // checkout nem cartão) — ver billingService.changePlan.
+  const [changingTo, setChangingTo] = useState<PlanId | null>(null)
+  const subscription = planStatus?.subscription ?? null
+  const hasSubscription = !!subscription?.active
+  const currentMonthly = planPricing(planStatus?.plan ?? 'free').monthly
 
   async function confirmCheckout(plan: PlanId, payer: CheckoutPayer) {
     setCheckingOut(plan)
@@ -68,6 +75,14 @@ export function PlansView() {
   }
 
   const pendingPlanPricing = PLAN_PRICING.find((p) => p.id === pendingPlan) ?? null
+  const changingToPricing = PLAN_PRICING.find((p) => p.id === changingTo) ?? null
+
+  async function confirmChangePlan(plan: PlanId) {
+    await billingService.changePlan(plan)
+    refetch()
+    setChangingTo(null)
+    toast.success(`Pronto! Você agora está no plano ${planPricing(plan).name}`)
+  }
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-10 lg:py-10" style={checkStyle}>
@@ -195,7 +210,7 @@ export function PlansView() {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setPendingPlan(plan.id)}
+                      onClick={() => (hasSubscription ? setChangingTo(plan.id) : setPendingPlan(plan.id))}
                       disabled={checkingOut !== null}
                       className={cn(
                         'mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition-all disabled:opacity-50',
@@ -203,7 +218,9 @@ export function PlansView() {
                       )}
                     >
                       {checkingOut === plan.id && <Loader2 className="size-4 animate-spin" />}
-                      Assinar {plan.name}
+                      {hasSubscription
+                        ? `${plan.monthly > currentMonthly ? 'Subir' : 'Mudar'} para ${plan.name}`
+                        : `Assinar ${plan.name}`}
                     </button>
                   )}
                   {highlighted && !isCurrent && (
@@ -236,7 +253,119 @@ export function PlansView() {
             onConfirm={(payer) => confirmCheckout(pendingPlanPricing.id, payer)}
           />
         )}
+        {changingToPricing && (
+          <ChangePlanModal
+            planName={changingToPricing.name}
+            upgrade={changingToPricing.monthly > currentMonthly}
+            currentPlanName={planPricing(planStatus?.plan ?? 'free').name}
+            priceLabel={
+              subscription?.cycle === 'YEARLY' && changingToPricing.annualTotal !== null
+                ? `${formatBRL(changingToPricing.annualTotal)}/ano`
+                : `${formatBRL(changingToPricing.monthly)}/mês`
+            }
+            onClose={() => setChangingTo(null)}
+            onConfirm={() => confirmChangePlan(changingToPricing.id)}
+          />
+        )}
       </AnimatePresence>
+    </div>
+  )
+}
+
+function ChangePlanModal({
+  planName,
+  currentPlanName,
+  upgrade,
+  priceLabel,
+  onClose,
+  onConfirm,
+}: {
+  planName: string
+  currentPlanName: string
+  upgrade: boolean
+  priceLabel: string
+  onClose: () => void
+  onConfirm: () => Promise<void>
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleConfirm() {
+    setBusy(true)
+    setError(null)
+    try {
+      await onConfirm()
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.status === 502
+            ? 'A Asaas está indisponível no momento. Tente novamente em instantes.'
+            : err.message
+          : 'Não foi possível trocar de plano. Tente novamente.',
+      )
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+      <motion.div
+        className="absolute inset-0 bg-black/70"
+        onClick={() => !busy && onClose()}
+        aria-hidden="true"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+      />
+      <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="change-plan-title"
+        className="relative w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-2xl"
+        initial={{ y: 8, scale: 0.98 }}
+        animate={{ y: 0, scale: 1 }}
+        exit={{ y: 8, scale: 0.98 }}
+        transition={{ duration: 0.2 }}
+      >
+        <span className="grid size-11 place-items-center rounded-full bg-primary/15 text-primary-ink">
+          {upgrade ? <ArrowUp className="size-5" /> : <ArrowDown className="size-5" />}
+        </span>
+        <h3 id="change-plan-title" className="mt-4 font-display text-2xl">
+          {upgrade ? 'Subir' : 'Mudar'} para {planName}
+        </h3>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          {upgrade
+            ? `Os recursos do ${planName} liberam na hora. Não precisa informar o cartão de novo: a mesma assinatura passa a cobrar `
+            : `Sua conta sai do ${currentPlanName} agora e os limites do ${planName} passam a valer. A mesma assinatura passa a cobrar `}
+          <span className="font-semibold text-foreground">{priceLabel}</span> a partir da próxima fatura.
+        </p>
+        {error && (
+          <div className="mt-4 flex items-start gap-2 rounded-xl bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            {error}
+          </div>
+        )}
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-4 text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={busy}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {busy && <Loader2 className="size-4 animate-spin" />}
+            {upgrade ? `Subir para ${planName}` : `Mudar para ${planName}`}
+          </button>
+        </div>
+      </motion.div>
     </div>
   )
 }

@@ -690,10 +690,20 @@ export interface PlanUsage {
   ratingQuestions: number
 }
 
+/** Assinatura paga na Asaas (independente do plano em vigor). */
+export interface PlanSubscription {
+  /** Há assinatura com pagamento confirmado — trocar de plano não passa pelo checkout. */
+  active: boolean
+  cycle: BillingCycle | null
+  /** Cobrança vencida: o plano caiu pra free até o pagamento. */
+  suspended: boolean
+}
+
 export interface PlanStatus {
   plan: PlanId
   limits: PlanLimits
   usage: PlanUsage
+  subscription?: PlanSubscription | null
 }
 
 /* ------------------------------- equipe ---------------------------------- */

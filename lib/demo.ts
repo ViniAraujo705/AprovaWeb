@@ -1564,9 +1564,11 @@ const DEMO_PLAN_LIMITS: Record<PlanId, PlanStatus['limits']> = {
  * eixos "estourados" se os fixtures já tiverem mais do que o teto.
  */
 export function demoPlanStatus(): PlanStatus {
-  const plan = readDemoPlan() ?? 'agencia'
+  const purchased = readDemoPlan()
+  const plan = purchased ?? 'agencia'
   return {
     plan,
+    subscription: purchased && purchased !== 'free' ? { active: true, cycle: 'MONTHLY', suspended: false } : null,
     limits: DEMO_PLAN_LIMITS[plan],
     usage: {
       clients: demoClients.length,
