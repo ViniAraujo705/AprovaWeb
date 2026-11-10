@@ -12,11 +12,15 @@
  * O backend vincula com a conexão PESSOAL de quem chama, então o seletor só
  * abre para quem conectou o próprio Drive em Integrações.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
+  AlertTriangle,
   ArrowLeft,
+  Download,
+  Info,
+  Link2,
   ExternalLink,
   FileImage,
   FileText,
@@ -35,6 +39,7 @@ import { googleDriveService } from '@/lib/services'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { toast } from '@/lib/toast'
+import { DriveImportError, importDriveVideo } from '@/lib/drive-import'
 
 const INTEGRATIONS_PATH = '/configuracoes/integracoes'
 
@@ -94,7 +99,10 @@ export function DrivePickerModal({
   onClose,
   title = 'Vincular do Google Drive',
   mode = 'link',
+  initialTrail = [],
 }: {
+  /** Abre já dentro desta pasta (ex.: "Importar vídeos" de uma pasta vinculada). */
+  initialTrail?: { id: string; name: string }[]
   /**
    * `link`: vincula pastas/arquivos (referência). `import`: escolhe VÍDEOS
    * para importar para aprovação — pastas só navegam.
@@ -109,7 +117,7 @@ export function DrivePickerModal({
 }) {
   const importing = mode === 'import'
   // Pilha de pastas abertas (vazia = raiz do Drive).
-  const [trail, setTrail] = useState<{ id: string; name: string }[]>([])
+  const [trail, setTrail] = useState<{ id: string; name: string }[]>(initialTrail)
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')
   // Marcados, por id — guarda o item inteiro pra sobreviver à troca de pasta.
@@ -396,14 +404,47 @@ export function DrivePickerModal({
 
 /* ------------------------------------------------------------------------- */
 
-export function ProjectDriveSection({ projectId, isOwner }: { projectId: string; isOwner: boolean }) {
+/** Aviso "vincular ≠ importar" mostrado uma vez, depois do primeiro vínculo. */
+const DRIVE_TIP_KEY = 'check:dica-drive-vinculo'
+
+function readTipSeen() {
+  try {
+    return window.localStorage.getItem(DRIVE_TIP_KEY) === '1'
+  } catch {
+    return true
+  }
+}
+
+interface RunningImport {
+  key: string
+  name: string
+  progress: number
+  status: 'importando' | 'erro'
+  error?: string
+}
+
+export function ProjectDriveSection({
+  projectId,
+  isOwner,
+  onVideosImported,
+}: {
+  projectId: string
+  isOwner: boolean
+  /** Chamado quando um vídeo importado do Drive entra no projeto (recarregar a lista). */
+  onVideosImported?: () => void
+}) {
   const status = useQuery((signal) => googleDriveService.getStatus(signal), [])
   const linked = useQuery<ProjectDriveItem[]>(
     (signal) => googleDriveService.listProjectItems(projectId, signal),
     [projectId],
   )
   const [picking, setPicking] = useState(false)
+  // Pasta de onde importar (abre o seletor já dentro dela, modo importar).
+  const [importFrom, setImportFrom] = useState<ProjectDriveItem | null>(null)
+  const [imports, setImports] = useState<RunningImport[]>([])
   const [unlinkingId, setUnlinkingId] = useState<string | null>(null)
+  const [showTip, setShowTip] = useState(false)
+  const pendingImport = useRef<GoogleDriveItem[]>([])
 
   const items = linked.data ?? []
   const linkedIds = new Set(items.map((i) => i.googleFileId))
@@ -413,6 +454,47 @@ export function ProjectDriveSection({ projectId, isOwner }: { projectId: string;
     const created = await googleDriveService.linkToProject(projectId, item)
     linked.setData((prev) => [created, ...(prev ?? []).filter((p) => p.googleFileId !== created.googleFileId)])
     toast.success(item.isFolder ? 'Pasta vinculada ao projeto' : 'Arquivo vinculado ao projeto')
+    if (item.isFolder && !readTipSeen()) setShowTip(true)
+  }
+
+  function dismissTip() {
+    setShowTip(false)
+    try {
+      window.localStorage.setItem(DRIVE_TIP_KEY, '1')
+    } catch {
+      // sem storage: só volta a aparecer numa próxima vez
+    }
+  }
+
+  function updateImport(key: string, patch: Partial<RunningImport>) {
+    setImports((prev) => prev.map((i) => (i.key === key ? { ...i, ...patch } : i)))
+  }
+
+  /** Importa os vídeos marcados um de cada vez, sem travar a tela. */
+  async function runImports(files: GoogleDriveItem[]) {
+    const queued = files.map((f) => ({
+      key: `${f.id}-${Date.now()}`,
+      file: f,
+    }))
+    setImports((prev) => [
+      ...prev.filter((i) => i.status !== 'erro'),
+      ...queued.map((q) => ({ key: q.key, name: q.file.name, progress: 0, status: 'importando' as const })),
+    ])
+    let done = 0
+    for (const { key, file } of queued) {
+      try {
+        await importDriveVideo({ projectId, googleFileId: file.id }, (progress) => updateImport(key, { progress }))
+        done++
+        setImports((prev) => prev.filter((i) => i.key !== key))
+        onVideosImported?.()
+      } catch (err) {
+        const message = err instanceof ApiError || err instanceof DriveImportError ? err.message : 'Falha ao importar.'
+        updateImport(key, { status: 'erro', error: message })
+        // Limite do plano: os próximos falhariam igual.
+        if (err instanceof ApiError && err.status === 403) break
+      }
+    }
+    if (done > 0) toast.success(done === 1 ? 'Vídeo importado do Drive' : `${done} vídeos importados do Drive`)
   }
 
   async function unlink(item: ProjectDriveItem) {
@@ -442,7 +524,7 @@ export function ProjectDriveSection({ projectId, isOwner }: { projectId: string;
             onClick={() => setPicking(true)}
             className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-foreground hover:bg-secondary"
           >
-            <Plus className="size-3.5" /> Vincular
+            <Plus className="size-3.5" /> Vincular pasta
           </button>
         )}
       </div>
@@ -461,10 +543,51 @@ export function ProjectDriveSection({ projectId, isOwner }: { projectId: string;
               </button>
             </p>
           )}
+
+          {/* Explicação curta: vincular é atalho, importar traz o vídeo. */}
+          {items.length === 0 && !linked.error && connected && (
+            <dl className="mb-3 mt-2 grid gap-2 text-xs sm:grid-cols-2">
+              <div className="rounded-lg bg-secondary/50 px-3 py-2">
+                <dt className="flex items-center gap-1.5 font-medium text-foreground">
+                  <Link2 className="size-3.5" /> Vincular pasta
+                </dt>
+                <dd className="mt-0.5 text-muted-foreground">
+                  Atalho para a pasta do Drive, pra equipe achar brutos e briefing daqui. Nada é copiado.
+                </dd>
+              </div>
+              <div className="rounded-lg bg-secondary/50 px-3 py-2">
+                <dt className="flex items-center gap-1.5 font-medium text-foreground">
+                  <Download className="size-3.5" /> Importar vídeos
+                </dt>
+                <dd className="mt-0.5 text-muted-foreground">
+                  Traz o vídeo do Drive pro projeto, pro cliente aprovar. Depois de vincular a pasta, use o
+                  botão “Importar vídeos” nela.
+                </dd>
+              </div>
+            </dl>
+          )}
+
+          {showTip && (
+            <div className="mb-2 mt-2 flex items-start gap-2 rounded-lg border border-primary-ink/30 bg-primary/10 px-3 py-2 text-xs">
+              <Info className="mt-0.5 size-3.5 shrink-0 text-primary-ink" />
+              <p className="min-w-0 flex-1 text-foreground">
+                Pasta vinculada como <strong>atalho</strong> — os vídeos dela ainda não estão no projeto. Para
+                trazê-los pra aprovação, use <strong>Importar vídeos</strong> na linha da pasta.
+              </p>
+              <button
+                type="button"
+                onClick={dismissTip}
+                className="shrink-0 font-medium text-foreground underline-offset-2 hover:underline"
+              >
+                Entendi
+              </button>
+            </div>
+          )}
+
           {items.length > 0 && (
             <ul className="-mx-4 mt-3 divide-y divide-border border-t border-border">
               {items.map((item) => (
-                <li key={item.id} className="group flex h-11 items-center gap-3 px-4 text-sm hover:bg-secondary/50">
+                <li key={item.id} className="group flex min-h-11 items-center gap-3 px-4 py-1.5 text-sm hover:bg-secondary/50">
                   <DriveIcon item={item} />
                   <a
                     href={driveOpenUrl(item)}
@@ -477,11 +600,23 @@ export function ProjectDriveSection({ projectId, isOwner }: { projectId: string;
                     <ExternalLink className="size-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" />
                   </a>
                   {(item.linkedByName || item.linkedAt) && (
-                    <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">
+                    <span className="hidden shrink-0 text-xs text-muted-foreground md:block">
                       {item.linkedByName ?? ''}
                       {item.linkedByName && item.linkedAt ? ' · ' : ''}
                       {item.linkedAt ? new Date(item.linkedAt).toLocaleDateString('pt-BR') : ''}
                     </span>
+                  )}
+                  {item.isFolder && connected && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        dismissTip()
+                        setImportFrom(item)
+                      }}
+                      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground hover:border-primary-ink/50"
+                    >
+                      <Download className="size-3.5" /> Importar vídeos
+                    </button>
                   )}
                   <button
                     type="button"
@@ -497,24 +632,56 @@ export function ProjectDriveSection({ projectId, isOwner }: { projectId: string;
               ))}
             </ul>
           )}
-          {items.length === 0 && !linked.error && connected && (
-            <p className="mb-3 mt-1 text-xs text-muted-foreground">
-              Nenhuma pasta ou arquivo vinculado. Vincule a pasta do projeto para a equipe achar os brutos e o
-              briefing direto daqui.
-            </p>
+
+          {/* Imports em andamento (ou que falharam) */}
+          {imports.length > 0 && (
+            <ul className="-mx-4 divide-y divide-border border-t border-border">
+              {imports.map((imp) => (
+                <li key={imp.key} className="px-4 py-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    {imp.status === 'erro' ? (
+                      <AlertTriangle className="size-3.5 shrink-0 text-destructive" />
+                    ) : (
+                      <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-foreground">{imp.name}</span>
+                    {imp.status === 'erro' ? (
+                      <button
+                        type="button"
+                        onClick={() => setImports((prev) => prev.filter((i) => i.key !== imp.key))}
+                        aria-label="Dispensar"
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    ) : (
+                      <span className="tabular-nums text-muted-foreground">Importando… {imp.progress}%</span>
+                    )}
+                  </div>
+                  {imp.status === 'erro' ? (
+                    <p className="ml-5.5 mt-0.5 pl-0.5 text-destructive">{imp.error}</p>
+                  ) : (
+                    <div className="ml-5.5 mt-1.5 h-1 overflow-hidden rounded-full bg-secondary">
+                      <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${imp.progress}%` }} />
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
+
           {!connected && !status.error && (
             <p className="mb-3 mt-1 text-xs text-muted-foreground">
               {isOwner ? (
                 <>
-                  Para vincular pastas, conecte seu Google Drive em{' '}
+                  Conecte seu Google Drive em{' '}
                   <Link href={INTEGRATIONS_PATH} className="font-medium text-primary-ink underline">
                     Integrações
-                  </Link>
-                  .
+                  </Link>{' '}
+                  para vincular pastas e importar vídeos de lá.
                 </>
               ) : (
-                'Para vincular pastas, peça ao dono da conta — o Drive é conectado em Integrações.'
+                'Para usar o Google Drive, peça ao dono da conta — ele é conectado em Integrações.'
               )}
             </p>
           )}
@@ -523,6 +690,24 @@ export function ProjectDriveSection({ projectId, isOwner }: { projectId: string;
 
       {picking && (
         <DrivePickerModal linkedIds={linkedIds} onPick={link} onClose={() => setPicking(false)} />
+      )}
+      {importFrom && (
+        <DrivePickerModal
+          mode="import"
+          title={`Importar vídeos de “${importFrom.name}”`}
+          initialTrail={[{ id: importFrom.googleFileId, name: importFrom.name }]}
+          linkedIds={new Set()}
+          onPick={(file) => {
+            // Junta o lote e importa quando o seletor fechar (ver onClose).
+            pendingImport.current.push(file)
+          }}
+          onClose={() => {
+            const files = pendingImport.current
+            pendingImport.current = []
+            setImportFrom(null)
+            if (files.length > 0) void runImports(files)
+          }}
+        />
       )}
     </section>
   )

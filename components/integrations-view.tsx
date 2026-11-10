@@ -215,7 +215,7 @@ function GoogleDriveCard() {
     <IntegrationShell
       icon={<Image src="/icons/google-drive.svg" alt="" width={22} height={22} />}
       name="Google Drive"
-      description="Conecte pastas e arquivos do Drive aos seus projetos e entregas no Check."
+      description="Vincule pastas do Drive aos projetos e importe vídeos de lá direto para aprovação."
       badge={<StatusBadge connected={connected} />}
       action={
         connected ? (
@@ -239,10 +239,24 @@ function GoogleDriveCard() {
       {connected && (
         <p className="mt-4 flex items-center gap-1.5 border-t border-border pt-4 text-xs text-muted-foreground">
           <Check className="size-3.5 shrink-0 text-emerald-400" />
-          {status?.email
-            ? `Conectado como ${status.email}. Suas pastas do Drive já podem ser vinculadas ao criar um projeto.`
-            : 'Suas pastas do Drive já podem ser vinculadas ao criar um projeto.'}
+          {status?.email ? `Conectado como ${status.email}.` : 'Conectado.'}
         </p>
+      )}
+      {connected && (
+        <ul className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+          <li className="rounded-lg bg-secondary/50 px-3 py-2">
+            <span className="font-medium text-foreground">Vincular pastas</span>
+            <span className="mt-0.5 block text-muted-foreground">
+              Na tela do projeto, crie um atalho para a pasta do Drive (brutos, briefing). Nada é copiado.
+            </span>
+          </li>
+          <li className="rounded-lg bg-secondary/50 px-3 py-2">
+            <span className="font-medium text-foreground">Importar vídeos</span>
+            <span className="mt-0.5 block text-muted-foreground">
+              Em “Enviar vídeo” ou na pasta vinculada do projeto, traga vídeos do Drive para aprovação.
+            </span>
+          </li>
+        </ul>
       )}
     </IntegrationShell>
   )
