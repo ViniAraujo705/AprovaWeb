@@ -140,6 +140,7 @@ import type {
   BillingCycle,
   PlanId,
   PlanStatus,
+  PlanSubscription,
   Portfolio,
   PortfolioCategory,
   PortfolioHubItem,
@@ -3002,6 +3003,17 @@ function mapPlanStatus(raw: Raw): PlanStatus {
       videosThisMonth: Number(pick(usageRaw, ['videosThisMonth'], 0)) || 0,
       ratingQuestions: Number(pick(usageRaw, ['ratingQuestions'], 0)) || 0,
     },
+    subscription: mapPlanSubscription(pick<Raw | null>(raw, ['assinatura', 'subscription'], null)),
+  }
+}
+
+function mapPlanSubscription(raw: Raw | null): PlanSubscription | null {
+  if (!raw) return null
+  const cycle = String(pick(raw, ['ciclo', 'cycle'], '')).toUpperCase()
+  return {
+    active: Boolean(pick(raw, ['ativa', 'active'], false)),
+    cycle: cycle === 'YEARLY' || cycle === 'MONTHLY' ? cycle : null,
+    suspended: Boolean(pick(raw, ['suspensa', 'suspended'], false)),
   }
 }
 
@@ -3058,6 +3070,19 @@ export const billingService = {
     if (isDemo()) return delay({ plan: demoPlanStatus().plan }, 200)
     const res = await api.post<Raw>('/billing/sync')
     return { plan: normalizePlanId(pick(res, ['plan'], 'free')) }
+  },
+
+  /**
+   * Sobe/desce de plano dentro da assinatura já paga: o back muda o valor da
+   * mesma assinatura na Asaas e o plano novo vale na hora (sem checkout).
+   */
+  async changePlan(plan: PlanId): Promise<{ plan: PlanId }> {
+    if (isDemo()) {
+      demoSetPlan(plan)
+      return delay({ plan }, 400)
+    }
+    const res = await api.post<Raw>('/billing/change-plan', { plan })
+    return { plan: normalizePlanId(pick(res, ['plan'], plan)) }
   },
 
   /** Cancela a assinatura na hora, sem período de graça. */
