@@ -72,6 +72,11 @@ import {
   demoTeamPerformance,
   demoGoogleDriveItems,
   demoGoogleDriveStatus,
+  demoLinkProjectDriveItem,
+  demoStartDriveImport,
+  demoDriveImportStatus,
+  demoProjectDriveItems,
+  demoUnlinkProjectDriveItem,
   demoSetGoogleDriveConnected,
   demoGoogleCalendarStatus,
   demoSetGoogleCalendarConnected,
@@ -125,6 +130,9 @@ import type {
   GalleryVideoItem,
   GoogleDriveItem,
   GoogleDriveStatus,
+  ProjectDriveItem,
+  DriveImport,
+  DriveImportStatus,
   LoginResult,
   MemberStatus,
   NotificationType,
@@ -3414,6 +3422,36 @@ function mapGoogleDriveItem(raw: Raw): GoogleDriveItem {
     isFolder: pick(raw, ['isFolder', 'is_folder'], mimeType === 'application/vnd.google-apps.folder'),
     iconLink: pick(raw, ['iconLink', 'icon_link'], null),
     webViewLink: pick(raw, ['webViewLink', 'webViewLinkUrl', 'web_view_link'], null),
+    sizeBytes: (() => {
+      const n = Number(pick(raw, ['sizeBytes', 'size'], NaN))
+      return Number.isFinite(n) && n > 0 ? n : null
+    })(),
+  }
+}
+
+function mapDriveImport(raw: Raw): DriveImport {
+  const status = String(pick(raw, ['status'], 'na_fila')) as DriveImportStatus
+  return {
+    importId: String(pick(raw, ['importId', 'id'], '')),
+    status: ['na_fila', 'importando', 'concluido', 'erro'].includes(status) ? status : 'na_fila',
+    progress: Number(pick(raw, ['progresso', 'progress'], 0)) || 0,
+    videoId: pick(raw, ['videoId'], null),
+    error: pick(raw, ['erro', 'error'], null),
+  }
+}
+
+function mapProjectDriveItem(raw: Raw): ProjectDriveItem {
+  const mimeType = pick<string>(raw, ['mimeType', 'mime_type'], '')
+  const linkedBy = pick<Raw | null>(raw, ['linkedByUser', 'linkedBy'], null)
+  return {
+    id: String(pick(raw, ['id'], '')),
+    googleFileId: String(pick(raw, ['googleFileId', 'google_file_id'], '')),
+    name: pick(raw, ['nome', 'name'], ''),
+    mimeType,
+    isFolder: Boolean(pick(raw, ['isFolder', 'is_folder'], mimeType === 'application/vnd.google-apps.folder')),
+    webViewLink: pick(raw, ['webViewLink', 'web_view_link'], null),
+    linkedAt: pick(raw, ['criadoEm', 'createdAt', 'linkedAt'], null),
+    linkedByName: linkedBy ? pick(linkedBy, ['nome', 'name'], null) : null,
   }
 }
 
@@ -3458,9 +3496,62 @@ export const googleDriveService = {
     query?: { q?: string; parentId?: string },
     signal?: AbortSignal,
   ): Promise<GoogleDriveItem[]> {
-    if (isDemo()) return delay(demoGoogleDriveItems)
+    if (isDemo()) return delay(demoGoogleDriveItems(query))
     const res = await api.get('/integrations/google-drive/items', { query, signal })
     return asArray(res).map(mapGoogleDriveItem)
+  },
+
+  /**
+   * Importa um vídeo do Drive para aprovação no projeto. O backend copia
+   * Drive → armazenamento em segundo plano e registra o vídeo pelo mesmo
+   * fluxo do upload; acompanhe com `getImport` até `concluido`/`erro`.
+   */
+  async startImport(input: {
+    projectId: string
+    googleFileId: string
+    name?: string
+  }): Promise<DriveImport> {
+    if (isDemo()) return delay(demoStartDriveImport(input), 300)
+    const res = await api.post<Raw>('/integrations/google-drive/import', {
+      projectId: input.projectId,
+      googleFileId: input.googleFileId,
+      ...(input.name ? { nomeArquivo: input.name } : {}),
+    })
+    return mapDriveImport(res)
+  },
+
+  async getImport(importId: string): Promise<DriveImport> {
+    if (isDemo()) return delay(demoDriveImportStatus(importId), 150)
+    return mapDriveImport(await api.get<Raw>(`/integrations/google-drive/import/${importId}`))
+  },
+
+  /** Itens do Drive vinculados ao projeto (mais recentes primeiro). */
+  async listProjectItems(projectId: string, signal?: AbortSignal): Promise<ProjectDriveItem[]> {
+    if (isDemo()) return delay(demoProjectDriveItems(projectId))
+    const res = await api.get(`/projects/${projectId}/google-drive-items`, { signal })
+    return asArray(res).map(mapProjectDriveItem)
+  },
+
+  /**
+   * Vincula uma pasta/arquivo do Drive de QUEM ESTÁ LOGADO ao projeto. O
+   * backend relê o item no Google (nome/link atualizados) e é idempotente:
+   * vincular de novo o mesmo item só atualiza os dados.
+   */
+  async linkToProject(projectId: string, item: GoogleDriveItem): Promise<ProjectDriveItem> {
+    if (isDemo()) return delay(demoLinkProjectDriveItem(projectId, item), 300)
+    const res = await api.post<Raw>(`/projects/${projectId}/google-drive-items`, {
+      googleFileId: item.id,
+    })
+    return mapProjectDriveItem(res)
+  },
+
+  /** Desfaz o vínculo — nada é apagado no Drive. */
+  async unlinkFromProject(projectId: string, itemId: string): Promise<void> {
+    if (isDemo()) {
+      demoUnlinkProjectDriveItem(projectId, itemId)
+      return delay(undefined, 250)
+    }
+    await api.delete(`/projects/${projectId}/google-drive-items/${itemId}`)
   },
 }
 

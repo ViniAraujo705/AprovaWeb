@@ -34,6 +34,8 @@ import type {
   GalleryVideoItem,
   GoogleDriveItem,
   GoogleDriveStatus,
+  ProjectDriveItem,
+  DriveImport,
   PlanId,
   PlanStatus,
   Portfolio,
@@ -1632,7 +1634,7 @@ export function demoRemoveCrewMember(id: string): void {
   for (const ev of demoCalendarActivities) ev.crew = ev.crew.filter((c) => c.id !== id)
 }
 
-export const demoGoogleDriveItems: GoogleDriveItem[] = [
+const demoDriveFiles: (GoogleDriveItem & { parentId?: string })[] = [
   {
     id: 'gd-1',
     name: 'Bela Cosméticos — Campanha Verão',
@@ -1640,6 +1642,7 @@ export const demoGoogleDriveItems: GoogleDriveItem[] = [
     isFolder: true,
     iconLink: null,
     webViewLink: null,
+    sizeBytes: null,
   },
   {
     id: 'gd-2',
@@ -1648,6 +1651,7 @@ export const demoGoogleDriveItems: GoogleDriveItem[] = [
     isFolder: false,
     iconLink: null,
     webViewLink: null,
+    sizeBytes: null,
   },
   {
     id: 'gd-3',
@@ -1656,8 +1660,123 @@ export const demoGoogleDriveItems: GoogleDriveItem[] = [
     isFolder: false,
     iconLink: null,
     webViewLink: null,
+    sizeBytes: null,
+  },
+  {
+    id: 'gd-4',
+    name: 'Brutos — dia 1',
+    mimeType: 'application/vnd.google-apps.folder',
+    isFolder: true,
+    iconLink: null,
+    webViewLink: null,
+    sizeBytes: null,
+    parentId: 'gd-1',
+  },
+  {
+    id: 'gd-5',
+    name: 'moodboard.png',
+    mimeType: 'image/png',
+    isFolder: false,
+    iconLink: null,
+    webViewLink: null,
+    sizeBytes: 2_400_000,
+    parentId: 'gd-1',
+  },
+  {
+    id: 'gd-6',
+    name: 'reel-verao-final.mp4',
+    mimeType: 'video/mp4',
+    isFolder: false,
+    iconLink: null,
+    webViewLink: null,
+    sizeBytes: 184_000_000,
+    parentId: 'gd-1',
+  },
+  {
+    id: 'gd-7',
+    name: 'teaser-blush-v2.mov',
+    mimeType: 'video/quicktime',
+    isFolder: false,
+    iconLink: null,
+    webViewLink: null,
+    sizeBytes: 96_000_000,
+    parentId: 'gd-4',
   },
 ]
+
+/** Imports simulados: o progresso anda com o tempo desde o início. */
+const demoDriveImports = new Map<string, { startedAt: number; name: string }>()
+const DEMO_IMPORT_MS = 3500
+
+export function demoStartDriveImport(input: { googleFileId: string; name?: string }): DriveImport {
+  const importId = `demo-import-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+  const file = demoDriveFiles.find((f) => f.id === input.googleFileId)
+  demoDriveImports.set(importId, { startedAt: Date.now(), name: input.name || file?.name || 'Vídeo do Drive' })
+  return { importId, status: 'na_fila', progress: 0, videoId: null, error: null }
+}
+
+export function demoDriveImportStatus(importId: string): DriveImport {
+  const entry = demoDriveImports.get(importId)
+  if (!entry) return { importId, status: 'erro', progress: 0, videoId: null, error: 'Importação não encontrada' }
+  const pct = Math.min(100, Math.round(((Date.now() - entry.startedAt) / DEMO_IMPORT_MS) * 100))
+  return pct >= 100
+    ? { importId, status: 'concluido', progress: 100, videoId: demoVideos[0]?.id ?? null, error: null }
+    : { importId, status: 'importando', progress: pct, videoId: null, error: null }
+}
+
+/** Navegação do Drive no demo: raiz, conteúdo de uma pasta ou busca por nome. */
+export function demoGoogleDriveItems(query?: { q?: string; parentId?: string }): GoogleDriveItem[] {
+  const q = query?.q?.trim().toLowerCase()
+  return demoDriveFiles
+    .filter((f) =>
+      q ? f.name.toLowerCase().includes(q) : (f.parentId ?? null) === (query?.parentId ?? null),
+    )
+    .map(({ parentId: _parentId, ...item }) => item)
+}
+
+const demoProjectDriveLinks: Record<string, ProjectDriveItem[]> = {
+  p1: [
+    {
+      id: 'pdi-1',
+      googleFileId: 'gd-1',
+      name: 'Bela Cosméticos — Campanha Verão',
+      mimeType: 'application/vnd.google-apps.folder',
+      isFolder: true,
+      webViewLink: null,
+      linkedAt: '2026-11-03T14:00:00.000Z',
+      linkedByName: 'Você',
+    },
+  ],
+}
+
+export function demoProjectDriveItems(projectId: string): ProjectDriveItem[] {
+  return [...(demoProjectDriveLinks[projectId] ?? [])]
+}
+
+export function demoLinkProjectDriveItem(projectId: string, item: GoogleDriveItem): ProjectDriveItem {
+  const list = (demoProjectDriveLinks[projectId] ??= [])
+  const existing = list.find((l) => l.googleFileId === item.id)
+  if (existing) return existing
+  const linked: ProjectDriveItem = {
+    id: `pdi-${Date.now()}`,
+    googleFileId: item.id,
+    name: item.name,
+    mimeType: item.mimeType,
+    isFolder: item.isFolder,
+    webViewLink: item.webViewLink,
+    linkedAt: new Date().toISOString(),
+    linkedByName: 'Você',
+  }
+  list.unshift(linked)
+  return linked
+}
+
+export function demoUnlinkProjectDriveItem(projectId: string, itemId: string): void {
+  const list = demoProjectDriveLinks[projectId]
+  if (!list) return
+  const idx = list.findIndex((l) => l.id === itemId)
+  if (idx !== -1) list.splice(idx, 1)
+}
 
 /* ----------------------- canais interno / cliente ------------------------ */
 

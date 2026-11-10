@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import Image from 'next/image'
+import { DrivePickerModal } from '@/components/project-drive'
 import {
   UploadCloud,
   Film,
@@ -15,8 +17,15 @@ import {
   RotateCcw,
   Info,
 } from 'lucide-react'
-import { clientService, demandService, projectService, teamService, videoService } from '@/lib/services'
-import type { Client, Project, TeamMember } from '@/lib/types'
+import {
+  clientService,
+  demandService,
+  googleDriveService,
+  projectService,
+  teamService,
+  videoService,
+} from '@/lib/services'
+import type { Client, GoogleDriveItem, Project, TeamMember } from '@/lib/types'
 import { useQuery } from '@/lib/use-query'
 import { Skeleton } from '@/components/states'
 import { ApiError } from '@/lib/api'
@@ -38,7 +47,10 @@ const MAX_UPLOAD_ATTEMPTS = 4
 
 interface PendingFile {
   id: string
-  file: File
+  /** Arquivo local — `null` quando o vídeo vem do Google Drive (ver `drive`). */
+  file: File | null
+  /** Vídeo escolhido no Drive: o backend copia direto Drive → armazenamento. */
+  drive?: { googleFileId: string; fileName: string; sizeBytes: number | null }
   /** Nome de exibição do vídeo, editável — pré-preenchido com o nome do arquivo sem extensão. */
   name: string
   status: ItemStatus
@@ -148,7 +160,40 @@ function createVideoThumbnail(file: File): Promise<string | null> {
 /** 'submitting' cobre tanto o upload pro R2 quanto o registro no backend de cada arquivo. */
 type Phase = 'idle' | 'submitting' | 'done'
 
+/** Nome original do arquivo (local ou no Drive). */
+function sourceName(item: PendingFile) {
+  return item.file?.name ?? item.drive?.fileName ?? item.name
+}
+
+function sourceSize(item: PendingFile) {
+  return item.file?.size ?? item.drive?.sizeBytes ?? null
+}
+
+/** Consulta o andamento de um import do Drive até terminar. */
+const DRIVE_IMPORT_POLL_MS = 2000
+const DRIVE_IMPORT_TIMEOUT_MS = 2 * 60 * 60 * 1000 // 2h: arquivo de 2GB numa conexão lenta do Drive
+
 function VideoThumbnail({ item, onPreview }: { item: PendingFile; onPreview: () => void }) {
+  if (item.drive) {
+    return (
+      <span
+        title="Importado do Google Drive"
+        className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-secondary"
+      >
+        <Image src="/icons/google-drive.svg" alt="Google Drive" width={22} height={22} />
+        {item.status === 'done' && (
+          <span className="absolute bottom-1 right-1 grid size-4 place-items-center rounded-full bg-emerald-500 text-white">
+            <Check className="size-3" />
+          </span>
+        )}
+        {item.status === 'error' && (
+          <span className="absolute bottom-1 right-1 grid size-4 place-items-center rounded-full bg-destructive text-destructive-foreground">
+            <AlertTriangle className="size-3" />
+          </span>
+        )}
+      </span>
+    )
+  }
   return (
     <button type="button" onClick={onPreview} aria-label={`Ver take de ${item.name}`} title="Ver take" className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-secondary text-muted-foreground transition-opacity hover:opacity-80">
       {item.thumbnailUrl ? (
@@ -204,6 +249,9 @@ export function UploadView() {
   const [selecting, setSelecting] = useState(false)
   const [items, setItems] = useState<PendingFile[]>([])
   const [previewing, setPreviewing] = useState<PendingFile | null>(null)
+  // Importar do Google Drive: só aparece pra quem conectou o próprio Drive.
+  const driveStatus = useQuery((signal) => googleDriveService.getStatus(signal), [])
+  const [drivePicking, setDrivePicking] = useState(false)
   const [fileError, setFileError] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [clientId, setClientId] = useState('')
@@ -344,13 +392,59 @@ export function UploadView() {
     if (accepted.length === 0) return
 
     setItems((prev) => [...prev, ...accepted])
-    if (!title.trim()) setTitle(accepted[0].file.name.replace(/\.[^.]+$/, ''))
+    if (!title.trim()) setTitle(sourceName(accepted[0]).replace(/\.[^.]+$/, ''))
 
     for (const item of accepted) {
+      if (!item.file) continue
       void createVideoThumbnail(item.file).then((thumbnailUrl) =>
         updateItem(item.id, { thumbnailUrl, thumbnailLoading: false }),
       )
     }
+  }
+
+  /** Vídeo escolhido no seletor do Drive entra na mesma lista do lote. */
+  function addDriveItem(driveItem: GoogleDriveItem) {
+    setFileError(null)
+    const item: PendingFile = {
+      id: String(nextId.current++),
+      file: null,
+      drive: { googleFileId: driveItem.id, fileName: driveItem.name, sizeBytes: driveItem.sizeBytes },
+      name: driveItem.name.replace(/\.[^.]+$/, ''),
+      status: 'pending',
+      progress: 0,
+      thumbnailUrl: null,
+      thumbnailLoading: false,
+      previewUrl: '',
+    }
+    setItems((prev) => [...prev, item])
+    if (!title.trim()) setTitle(item.name)
+  }
+
+  /** Importa do Drive e espera o backend terminar; devolve o id do vídeo criado. */
+  async function importFromDrive(item: PendingFile, targetProjectId: string): Promise<string> {
+    const drive = item.drive!
+    let current = await googleDriveService.startImport({
+      projectId: targetProjectId,
+      googleFileId: drive.googleFileId,
+      name: item.name.trim() || drive.fileName,
+    })
+    const startedAt = Date.now()
+    while (current.status !== 'concluido') {
+      if (current.status === 'erro') throw new UploadError(current.error || 'Falha ao importar do Google Drive.')
+      if (Date.now() - startedAt > DRIVE_IMPORT_TIMEOUT_MS)
+        throw new UploadError('A importação está demorando demais. Confira o projeto daqui a pouco.')
+      updateItem(item.id, { progress: current.progress })
+      await new Promise((r) => setTimeout(r, DRIVE_IMPORT_POLL_MS))
+      try {
+        current = await googleDriveService.getImport(current.importId)
+      } catch (err) {
+        // Oscilação de rede no polling não derruba o import (ele segue no
+        // servidor); só desiste se o backend disser que não existe.
+        if (err instanceof ApiError && err.status === 404) throw err
+      }
+    }
+    if (!current.videoId) throw new UploadError('Importação concluída sem o vídeo criado. Confira o projeto.')
+    return current.videoId
   }
 
   function removeItem(id: string) {
@@ -409,9 +503,14 @@ export function UploadView() {
     for (const item of pending) {
       updateItem(item.id, { status: 'uploading', progress: 0, error: undefined, reconnecting: false })
       try {
+        let createdId: string
+        if (item.drive) {
+          createdId = await importFromDrive(item, targetProjectId)
+        } else {
+        const file = item.file!
         const presigned = await videoService.getUploadUrl({
-          fileName: item.file.name,
-          contentType: resolveContentType(item.file),
+          fileName: file.name,
+          contentType: resolveContentType(file),
         })
         if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
         if (!presigned.publicUrl)
@@ -424,7 +523,7 @@ export function UploadView() {
           try {
             await uploadToPresignedUrl({
               url: presigned.uploadUrl,
-              file: item.file,
+              file,
               headers: presigned.headers,
               onProgress: (p, info) =>
                 updateItem(item.id, {
@@ -446,19 +545,21 @@ export function UploadView() {
         const created = await videoService.create({
           projectId: targetProjectId,
           urlStorage: presigned.publicUrl,
-          nomeArquivo: item.name.trim() || item.file.name,
+          nomeArquivo: item.name.trim() || file.name,
         })
+        createdId = created.id
+        }
         bumpUsage({ videosThisMonth: 1 })
 
         if (editorId) {
           // Falha em atribuir o editor não deve derrubar o upload em si —
           // o vídeo já foi criado com sucesso.
-          await videoService.assignEditor(created.id, editorId).catch(() => {})
+          await videoService.assignEditor(createdId, editorId).catch(() => {})
         }
 
         if (deadline) {
           const isoDeadline = new Date(`${deadline}T00:00:00`).toISOString()
-          await videoService.updateDeadline(created.id, isoDeadline).catch(() => {})
+          await videoService.updateDeadline(createdId, isoDeadline).catch(() => {})
         }
 
         updateItem(item.id, { status: 'done', progress: 100 })
@@ -501,6 +602,12 @@ export function UploadView() {
     if (isDemo()) {
       for (const item of items.filter((i) => i.status === 'pending')) {
         updateItem(item.id, { status: 'uploading', progress: 0 })
+        if (item.drive) {
+          // Mesmo caminho do real (start + polling), com o backend simulado.
+          await importFromDrive(item, 'demo-project')
+          updateItem(item.id, { status: 'done', progress: 100 })
+          continue
+        }
         for (let p = 20; p <= 100; p += 20) {
           await new Promise((r) => setTimeout(r, 80))
           updateItem(item.id, { progress: p })
@@ -806,6 +913,28 @@ export function UploadView() {
               </>
             )}
           </div>
+          {driveStatus.data?.connected && !busy && (
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
+              <span>ou</span>
+              <button
+                type="button"
+                onClick={() => setDrivePicking(true)}
+                className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:border-primary-ink/50"
+              >
+                <Image src="/icons/google-drive.svg" alt="" width={16} height={16} />
+                Importar do Google Drive
+              </button>
+            </div>
+          )}
+          {drivePicking && (
+            <DrivePickerModal
+              mode="import"
+              title="Importar vídeos do Google Drive"
+              linkedIds={new Set(items.flatMap((i) => (i.drive ? [i.drive.googleFileId] : [])))}
+              onPick={addDriveItem}
+              onClose={() => setDrivePicking(false)}
+            />
+          )}
           {fileError && (
             <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
               <AlertTriangle className="size-4 shrink-0" /> {fileError}
@@ -826,8 +955,8 @@ export function UploadView() {
                       <input
                         value={item.name}
                         onChange={(e) => updateItem(item.id, { name: e.target.value })}
-                        aria-label={`Nome do vídeo (${item.file.name})`}
-                        placeholder={item.file.name}
+                        aria-label={`Nome do vídeo (${sourceName(item)})`}
+                        placeholder={sourceName(item)}
                         className="min-h-8 w-full rounded-md border border-transparent bg-transparent px-1 -mx-1 text-sm font-medium text-foreground outline-none hover:border-border focus:border-primary-ink focus:bg-secondary"
                       />
                     ) : (
@@ -845,7 +974,11 @@ export function UploadView() {
                             style={{ width: `${item.progress}%` }}
                           />
                         </div>
-                        {item.reconnecting ? (
+                        {item.drive ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Importando do Google Drive… {item.progress}%
+                          </p>
+                        ) : item.reconnecting ? (
                           <p className="mt-1 text-xs text-amber-500">
                             Conexão caiu — recomeçando este vídeo…
                           </p>
@@ -858,7 +991,9 @@ export function UploadView() {
                       </>
                     ) : (
                       <p className="text-xs text-muted-foreground">
-                        {(item.file.size / (1024 * 1024)).toFixed(1)} MB
+                        {item.drive && 'Google Drive'}
+                        {item.drive && sourceSize(item) != null && ' · '}
+                        {sourceSize(item) != null && `${((sourceSize(item) ?? 0) / (1024 * 1024)).toFixed(1)} MB`}
                       </p>
                     )}
                   </div>
@@ -866,7 +1001,7 @@ export function UploadView() {
                     <button
                       type="button"
                       onClick={() => removeItem(item.id)}
-                      aria-label={`Remover ${item.file.name}`}
+                      aria-label={`Remover ${sourceName(item)}`}
                       className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
                     >
                       <X className="size-4" />

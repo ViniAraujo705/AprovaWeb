@@ -19,8 +19,8 @@ import {
   ImagePlus,
   HardDrive,
 } from 'lucide-react'
-import { clientService, projectService, videoService } from '@/lib/services'
-import type { Client, Project, Video } from '@/lib/types'
+import { clientService, googleDriveService, projectService, videoService } from '@/lib/services'
+import type { Client, GoogleDriveItem, Project, Video } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
@@ -35,6 +35,7 @@ import { uploadProjectPhoto } from '@/lib/project-photo'
 import { useAuth } from '@/components/auth-provider'
 import { publicUrl } from '@/lib/site'
 import { DeadlineBadge } from '@/components/deadline-badge'
+import { DrivePickerModal } from '@/components/project-drive'
 
 const ALL_CLIENTS = 'Todos os clientes'
 // Filtro/grupo dos projetos sem cliente cadastrado.
@@ -118,6 +119,11 @@ export function ProjectsView() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoCropFile, setPhotoCropFile] = useState<File | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
+  // Pastas/arquivos do Drive escolhidos no formulário: vinculados logo depois
+  // do POST /projects (o vínculo precisa do id do projeto).
+  const [driveItems, setDriveItems] = useState<GoogleDriveItem[]>([])
+  const [drivePicking, setDrivePicking] = useState(false)
+  const driveStatus = useQuery((signal) => googleDriveService.getStatus(signal), [])
   const photoInputRef = useRef<HTMLInputElement>(null)
 
   function setPhoto(file: File | null) {
@@ -181,6 +187,18 @@ export function ProjectsView() {
           toast.error(
             'Projeto criado, mas a foto não subiu',
             err instanceof UploadError || err instanceof ApiError ? err.message : undefined,
+          )
+        }
+      }
+      if (driveItems.length > 0) {
+        const results = await Promise.allSettled(
+          driveItems.map((item) => googleDriveService.linkToProject(created.id, item)),
+        )
+        const failed = results.filter((r) => r.status === 'rejected').length
+        if (failed > 0) {
+          toast.error(
+            'Projeto criado, mas parte do Drive não foi vinculada',
+            `${failed} de ${driveItems.length} itens falharam — vincule de novo pela tela do projeto.`,
           )
         }
       }
@@ -567,6 +585,51 @@ export function ProjectsView() {
                 setPhotoCropFile(null)
                 setPhoto(cropped)
               }}
+            />
+          )}
+          {driveStatus.data?.connected && (
+            <div className="mt-3 rounded-xl border border-dashed border-border p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="flex items-center gap-2 text-xs font-medium text-foreground">
+                  <Image src="/icons/google-drive.svg" alt="" width={14} height={14} />
+                  Pastas do Google Drive (opcional)
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setDrivePicking(true)}
+                  className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:border-primary-ink/50"
+                >
+                  <Plus className="size-3.5" /> Vincular do Drive
+                </button>
+              </div>
+              {driveItems.length > 0 && (
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  {driveItems.map((item) => (
+                    <li
+                      key={item.id}
+                      className="inline-flex max-w-full items-center gap-1 rounded-lg bg-secondary px-2 py-1 text-xs text-foreground"
+                    >
+                      <span className="truncate">{item.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setDriveItems((prev) => prev.filter((p) => p.id !== item.id))}
+                        aria-label={`Remover ${item.name}`}
+                        className="shrink-0 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {drivePicking && (
+            <DrivePickerModal
+              title="Escolher do Google Drive"
+              linkedIds={new Set(driveItems.map((i) => i.id))}
+              onPick={(item) => setDriveItems((prev) => [...prev, item])}
+              onClose={() => setDrivePicking(false)}
             />
           )}
           {photoError && <p className="mt-2 text-xs text-destructive">{photoError}</p>}

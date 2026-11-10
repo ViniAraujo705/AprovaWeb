@@ -26,6 +26,7 @@ import {
   ImagePlus,
   HardDrive,
 } from 'lucide-react'
+import { ProjectDriveSection } from '@/components/project-drive'
 import {
   projectService,
   publicService,
@@ -635,6 +636,12 @@ export function ProjectDetailView({ id }: { id: string }) {
           />
         )}
       </AnimatePresence>
+
+      {project.data && (
+        <div className="mt-4">
+          <ProjectDriveSection projectId={id} isOwner={isOwner} />
+        </div>
+      )}
 
       {isOwner && project.data && (
         <div className="mt-4">
