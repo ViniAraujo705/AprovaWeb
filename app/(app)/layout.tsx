@@ -1,6 +1,8 @@
 import { AgencyShell } from '@/components/agency-shell'
 import { RequireAuth } from '@/components/require-auth'
+import { Suspense } from 'react'
 import { PlanLimitProvider } from '@/components/plan-limit-provider'
+import { LaunchPromoCelebration } from '@/components/launch-promo-celebration'
 
 /**
  * Layout das rotas protegidas do profissional de marketing.
@@ -11,6 +13,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <RequireAuth>
       <PlanLimitProvider>
         <AgencyShell>{children}</AgencyShell>
+        <Suspense fallback={null}>
+          <LaunchPromoCelebration />
+        </Suspense>
       </PlanLimitProvider>
     </RequireAuth>
   )

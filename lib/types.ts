@@ -31,6 +31,8 @@ export interface User {
   photoUrl: string | null
   /** Marca própria da agência (logo/nome), quando configurada. */
   branding?: Branding | null
+  /** Quando o usuário se cadastrou (ISO). Usado pela tela da promo de lançamento. */
+  createdAt?: string | null
 }
 
 export interface AuthResponse {
