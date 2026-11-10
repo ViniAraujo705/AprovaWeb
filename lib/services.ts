@@ -256,6 +256,7 @@ function mapUser(raw: Raw): User {
     teamRole: normalizeTeamRole(roleSource),
     photoUrl: pick<string | null>(raw, ['fotoUrl', 'foto_url', 'photoUrl', 'avatarUrl'], null),
     branding: mapBranding(pick<Raw | null>(raw, ['branding'], null)),
+    createdAt: pick<string | null>(raw, ['criadoEm', 'criado_em', 'createdAt'], null),
   }
 }
 
