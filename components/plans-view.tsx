@@ -78,7 +78,14 @@ export function PlansView() {
   const changingToPricing = PLAN_PRICING.find((p) => p.id === changingTo) ?? null
 
   async function confirmChangePlan(plan: PlanId) {
-    await billingService.changePlan(plan)
+    try {
+      await billingService.changePlan(plan)
+    } catch (err) {
+      // O back pode ter desfeito um vínculo com assinatura que não existe mais
+      // na Asaas: recarrega pra o botão voltar a levar ao checkout.
+      refetch()
+      throw err
+    }
     refetch()
     setChangingTo(null)
     toast.success(`Pronto! Você agora está no plano ${planPricing(plan).name}`)
