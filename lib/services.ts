@@ -634,16 +634,40 @@ function normalizePerformanceTier(raw: unknown): PerformanceTier {
   return 'sem_dados'
 }
 
+function numOrNull(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
 function mapEditorPerformance(raw: Raw): EditorPerformance {
-  const scoreRaw = pick<number | string | null>(raw, ['notaMedia', 'nota_media'], null)
+  const videos = Array.isArray(raw.videos) ? (raw.videos as Raw[]) : []
   return {
     editorId: String(pick(raw, ['editorId', 'editor_id'], '')),
     name: pick(raw, ['nome', 'name'], ''),
     avatarUrl: pick<string | null>(raw, ['avatarUrl', 'avatar_url'], null),
-    averageScore: scoreRaw === null || scoreRaw === '' ? null : Number(scoreRaw),
+    role: pick<string>(raw, ['papel', 'role'], 'editor') === 'owner' ? 'owner' : 'editor',
+    averageScore: numOrNull(pick(raw, ['notaMedia', 'nota_media'], null)),
     approvedVideosCount:
       Number(pick(raw, ['videosAprovadosCount', 'videos_aprovados_count'], 0)) || 0,
     tier: normalizePerformanceTier(pick(raw, ['faixa'], 'sem_dados')),
+    averageVersions: numOrNull(pick(raw, ['mediaVersoes'], null)),
+    approvedFirstTry: Number(pick(raw, ['aprovadosDePrimeira'], 0)) || 0,
+    approvedWithDeadline: Number(pick(raw, ['aprovadosComPrazo'], 0)) || 0,
+    approvedOnTime: Number(pick(raw, ['aprovadosNoPrazo'], 0)) || 0,
+    previousAverageScore: numOrNull(pick(raw, ['notaMediaAnterior'], null)),
+    inProgress: Number(pick(raw, ['emAndamento'], 0)) || 0,
+    inAdjustment: Number(pick(raw, ['emAjuste'], 0)) || 0,
+    overdue: Number(pick(raw, ['atrasados'], 0)) || 0,
+    videos: videos.map((v) => ({
+      videoId: String(pick(v, ['videoId', 'id'], '')),
+      name: pick(v, ['nome', 'name'], ''),
+      projectName: pick(v, ['projetoNome', 'projectName'], ''),
+      score: numOrNull(pick(v, ['nota', 'score'], null)),
+      versions: Number(pick(v, ['versoes', 'versions'], 1)) || 1,
+      approvedAt: pick(v, ['aprovadoEm', 'approvedAt'], ''),
+      onTime: pick<boolean | null>(v, ['noPrazo', 'onTime'], null),
+    })),
   }
 }
 
@@ -3258,9 +3282,16 @@ export const ratingQuestionService = {
 /* ------------------------- desempenho da equipe --------------------------- */
 
 export const teamPerformanceService = {
-  async list(signal?: AbortSignal): Promise<EditorPerformance[]> {
+  /** `from`/`to` (ISO) filtram pela data de aprovação; sem eles, desde sempre. */
+  async list(
+    signal?: AbortSignal,
+    period?: { from?: string | null; to?: string | null },
+  ): Promise<EditorPerformance[]> {
     if (isDemo()) return delay(demoTeamPerformance())
-    const res = await api.get('/team/performance', { signal })
+    const params: Record<string, string> = {}
+    if (period?.from) params.de = period.from
+    if (period?.to) params.ate = period.to
+    const res = await api.get('/team/performance', { signal, query: params })
     return asArray(res).map(mapEditorPerformance)
   },
 }

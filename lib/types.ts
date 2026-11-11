@@ -762,15 +762,42 @@ export interface Session {
 /** Faixa de desempenho do editor, conforme a nota média (0-10). */
 export type PerformanceTier = 'verde' | 'amarelo' | 'laranja' | 'vermelho' | 'sem_dados'
 
+/** Vídeo aprovado que entrou na conta do desempenho de uma pessoa. */
+export interface PerformanceVideo {
+  videoId: string
+  name: string
+  projectName: string
+  /** Nota 0-10; null quando aprovado sem nota. */
+  score: number | null
+  /** Versões até aprovar (1 = de primeira). */
+  versions: number
+  approvedAt: string
+  /** null quando o vídeo não tinha prazo. */
+  onTime: boolean | null
+}
+
 /** Uma linha de GET /team/performance. */
 export interface EditorPerformance {
   editorId: string
   name: string
   avatarUrl: string | null
-  /** Nota média (0-10) dos vídeos aprovados; null quando "sem_dados". */
+  role: 'owner' | 'editor'
+  /** Nota média (0-10) dos vídeos aprovados no período; null quando "sem_dados". */
   averageScore: number | null
   approvedVideosCount: number
   tier: PerformanceTier
+  /** Média de versões até aprovar (1,0 = tudo de primeira). */
+  averageVersions: number | null
+  approvedFirstTry: number
+  approvedWithDeadline: number
+  approvedOnTime: number
+  /** Nota média do período anterior de mesmo tamanho. */
+  previousAverageScore: number | null
+  /** Fotografia de agora, independe do período. */
+  inProgress: number
+  inAdjustment: number
+  overdue: number
+  videos: PerformanceVideo[]
 }
 
 /* ---------------------------- notificações --------------------------------- */
