@@ -800,6 +800,77 @@ export interface EditorPerformance {
   videos: PerformanceVideo[]
 }
 
+/* ------------------------ relatório de produtividade ---------------------- */
+
+/** Bloco de métricas de aprovação de um período (GET /reports/productivity). */
+export interface ProductivityApprovals {
+  approved: number
+  averageScore: number | null
+  rated: number
+  firstTry: number
+  averageVersions: number | null
+  medianHoursToApprove: number | null
+  averageHoursToApprove: number | null
+  withDeadline: number
+  onTime: number
+  clientCommentsPerDelivery: number | null
+}
+
+export interface ProductivityListItem {
+  videoId: string
+  name: string
+  projectName: string
+  clientName: string
+  days: number
+}
+
+export interface ProductivityReport {
+  period: { from: string | null; to: string | null; hasPrevious: boolean }
+  summary: ProductivityApprovals & {
+    sent: number
+    previousSent: number | null
+    previous: ProductivityApprovals | null
+  }
+  now: {
+    open: number
+    waitingClient: number
+    inAdjustment: number
+    overdue: number
+    byStage: { stage: ProductionStage; total: number }[]
+    overdueList: ProductivityListItem[]
+    waitingList: ProductivityListItem[]
+  }
+  monthly: { month: string; sent: number; approved: number; averageScore: number | null }[]
+  ratingDistribution: { stars: number; total: number }[]
+  approvalTime: { bucket: string; total: number }[]
+  clients: {
+    clientId: string | null
+    name: string
+    photoUrl: string | null
+    sent: number
+    approved: number
+    averageScore: number | null
+    averageVersions: number | null
+    medianHoursToApprove: number | null
+    withDeadline: number
+    onTime: number
+    open: number
+    waitingClient: number
+    overdue: number
+  }[]
+  team: {
+    userId: string
+    name: string
+    avatarUrl: string | null
+    role: 'owner' | 'editor'
+    approved: number
+    averageScore: number | null
+    open: number
+    overdue: number
+    recordings: number
+  }[]
+}
+
 /* ---------------------------- notificações --------------------------------- */
 
 export type NotificationType =
