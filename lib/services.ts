@@ -70,6 +70,7 @@ import {
   demoSessions,
   demoTeamMembers,
   demoTeamPerformance,
+  demoProductivityReport,
   demoGoogleDriveItems,
   demoGoogleDriveStatus,
   demoLinkProjectDriveItem,
@@ -99,6 +100,9 @@ import {
   isDemoVideoLink,
 } from '@/lib/demo'
 import type {
+  ProductivityApprovals,
+  ProductivityListItem,
+  ProductivityReport,
   AccountOption,
   AdminMetrics,
   AdminUser,
@@ -3276,6 +3280,121 @@ export const ratingQuestionService = {
   async remove(id: string): Promise<void> {
     if (isDemo()) return void (await delay(null, 250))
     await api.delete(`/rating-questions/${id}`)
+  },
+}
+
+/* ---------------------- relatório de produtividade ------------------------ */
+
+function mapProductivityApprovals(raw: Raw): ProductivityApprovals {
+  const n = (keys: string[]) => Number(pick(raw, keys, 0)) || 0
+  const nn = (keys: string[]) => {
+    const v = pick<number | string | null>(raw, keys, null)
+    return v === null || v === '' ? null : Number(v)
+  }
+  return {
+    approved: n(['aprovados']),
+    averageScore: nn(['notaMedia']),
+    rated: n(['avaliados']),
+    firstTry: n(['aprovadosDePrimeira']),
+    averageVersions: nn(['mediaVersoes']),
+    medianHoursToApprove: nn(['horasAteAprovarMediana']),
+    averageHoursToApprove: nn(['horasAteAprovarMedia']),
+    withDeadline: n(['aprovadosComPrazo']),
+    onTime: n(['aprovadosNoPrazo']),
+    clientCommentsPerDelivery: nn(['comentariosClientePorEntrega']),
+  }
+}
+
+function mapProductivityReport(raw: Raw): ProductivityReport {
+  const obj = (v: unknown): Raw => (v && typeof v === 'object' ? (v as Raw) : {})
+  const arr = (v: unknown): Raw[] => (Array.isArray(v) ? (v as Raw[]) : [])
+  const nn = (v: unknown) => (v === null || v === undefined || v === '' ? null : Number(v))
+  const periodo = obj(raw.periodo)
+  const resumo = obj(raw.resumo)
+  const agora = obj(raw.agora)
+  const item = (r: Raw, daysKey: string): ProductivityListItem => ({
+    videoId: String(pick(r, ['videoId'], '')),
+    name: pick(r, ['nome'], ''),
+    projectName: pick(r, ['projetoNome'], ''),
+    clientName: pick(r, ['clienteNome'], ''),
+    days: Number(r[daysKey] ?? 0) || 0,
+  })
+  return {
+    period: {
+      from: pick<string | null>(periodo, ['de'], null),
+      to: pick<string | null>(periodo, ['ate'], null),
+      hasPrevious: Boolean(pick(periodo, ['temAnterior'], false)),
+    },
+    summary: {
+      ...mapProductivityApprovals(resumo),
+      sent: Number(pick(resumo, ['enviados'], 0)) || 0,
+      previousSent: nn(resumo.enviadosAnterior),
+      previous: resumo.anterior ? mapProductivityApprovals(obj(resumo.anterior)) : null,
+    },
+    now: {
+      open: Number(agora.emAberto ?? 0) || 0,
+      waitingClient: Number(agora.esperandoCliente ?? 0) || 0,
+      inAdjustment: Number(agora.emAjuste ?? 0) || 0,
+      overdue: Number(agora.atrasados ?? 0) || 0,
+      byStage: arr(agora.porEtapa).map((r) => ({
+        stage: pick(r, ['etapa'], 'planejado') as ProductionStage,
+        total: Number(r.total ?? 0) || 0,
+      })),
+      overdueList: arr(agora.atrasadosLista).map((r) => item(r, 'diasAtraso')),
+      waitingList: arr(agora.esperandoLista).map((r) => item(r, 'diasEsperando')),
+    },
+    monthly: arr(raw.mensal).map((r) => ({
+      month: pick(r, ['mes'], ''),
+      sent: Number(r.enviados ?? 0) || 0,
+      approved: Number(r.aprovados ?? 0) || 0,
+      averageScore: nn(r.notaMedia),
+    })),
+    ratingDistribution: arr(raw.distribuicaoNotas).map((r) => ({
+      stars: Number(r.estrelas ?? 0) || 0,
+      total: Number(r.total ?? 0) || 0,
+    })),
+    approvalTime: arr(raw.tempoAprovacao).map((r) => ({
+      bucket: pick(r, ['faixa'], ''),
+      total: Number(r.total ?? 0) || 0,
+    })),
+    clients: arr(raw.clientes).map((r) => ({
+      clientId: pick<string | null>(r, ['clienteId'], null),
+      name: pick(r, ['nome'], ''),
+      photoUrl: pick<string | null>(r, ['fotoUrl'], null),
+      sent: Number(r.enviados ?? 0) || 0,
+      approved: Number(r.aprovados ?? 0) || 0,
+      averageScore: nn(r.notaMedia),
+      averageVersions: nn(r.mediaVersoes),
+      medianHoursToApprove: nn(r.horasAteAprovarMediana),
+      withDeadline: Number(r.aprovadosComPrazo ?? 0) || 0,
+      onTime: Number(r.aprovadosNoPrazo ?? 0) || 0,
+      open: Number(r.emAberto ?? 0) || 0,
+      waitingClient: Number(r.esperandoCliente ?? 0) || 0,
+      overdue: Number(r.atrasados ?? 0) || 0,
+    })),
+    team: arr(raw.equipe).map((r) => ({
+      userId: String(pick(r, ['userId'], '')),
+      name: pick(r, ['nome'], ''),
+      avatarUrl: pick<string | null>(r, ['avatarUrl'], null),
+      role: pick<string>(r, ['papel'], 'editor') === 'owner' ? 'owner' : 'editor',
+      approved: Number(r.aprovados ?? 0) || 0,
+      averageScore: nn(r.notaMedia),
+      open: Number(r.emAberto ?? 0) || 0,
+      overdue: Number(r.atrasados ?? 0) || 0,
+      recordings: Number(r.gravacoes ?? 0) || 0,
+    })),
+  }
+}
+
+export const productivityReportService = {
+  /** `from`/`to` em ISO; sem eles, desde sempre. */
+  async get(signal?: AbortSignal, period?: { from?: string | null; to?: string | null }): Promise<ProductivityReport> {
+    if (isDemo()) return delay(demoProductivityReport(), 700)
+    const query: Record<string, string> = {}
+    if (period?.from) query.de = period.from
+    if (period?.to) query.ate = period.to
+    const res = await api.get<Raw>('/reports/productivity', { signal, query })
+    return mapProductivityReport((res ?? {}) as Raw)
   },
 }
 

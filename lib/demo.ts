@@ -31,6 +31,7 @@ import type {
   Demand,
   DemandKind,
   EditorPerformance,
+  ProductivityReport,
   GalleryVideoItem,
   GoogleDriveItem,
   GoogleDriveStatus,
@@ -2138,4 +2139,93 @@ export function demoUpdateCheckDayNote(
 
 export function demoDeleteCheckDayNote(id: string): void {
   checkDayNotes = checkDayNotes.filter((note) => note.id !== id)
+}
+
+/** Relatório de produtividade de /relatorios (aba Produtividade) no modo demo. */
+export function demoProductivityReport(): ProductivityReport {
+  const now = new Date()
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+  const sent = [6, 8, 7, 9, 11, 10, 12, 14, 13, 15, 17, 9]
+  const approved = [5, 7, 7, 8, 9, 10, 11, 12, 13, 13, 16, 7]
+  const scores = [7.8, 8.0, 7.6, 8.2, 8.4, 8.0, 8.6, 8.8, 8.4, 8.8, 9.0, 9.2]
+  return {
+    period: { from: new Date(now.getTime() - 30 * 86_400_000).toISOString(), to: null, hasPrevious: true },
+    summary: {
+      sent: 18,
+      previousSent: 15,
+      approved: 16,
+      averageScore: 8.9,
+      rated: 14,
+      firstTry: 11,
+      averageVersions: 1.4,
+      medianHoursToApprove: 30,
+      averageHoursToApprove: 52,
+      withDeadline: 13,
+      onTime: 11,
+      clientCommentsPerDelivery: 2.1,
+      previous: {
+        approved: 13,
+        averageScore: 8.4,
+        rated: 11,
+        firstTry: 7,
+        averageVersions: 1.7,
+        medianHoursToApprove: 46,
+        averageHoursToApprove: 70,
+        withDeadline: 10,
+        onTime: 7,
+        clientCommentsPerDelivery: 2.8,
+      },
+    },
+    now: {
+      open: 9,
+      waitingClient: 4,
+      inAdjustment: 2,
+      overdue: 2,
+      byStage: [
+        { stage: 'planejado', total: 2 },
+        { stage: 'producao', total: 1 },
+        { stage: 'edicao', total: 2 },
+        { stage: 'aguardando_aprovacao', total: 3 },
+        { stage: 'ajustes', total: 1 },
+      ],
+      overdueList: [
+        { videoId: 'v2', name: 'Institucional 60s', projectName: 'Institucional', clientName: 'Clínica Sorriso', days: 4 },
+        { videoId: 'v3', name: 'Aftermovie evento', projectName: 'Evento Anual', clientName: 'Academia Forte', days: 1 },
+      ],
+      waitingList: [
+        { videoId: 'v1', name: 'Reels lançamento', projectName: 'Lançamento Verão', clientName: 'Padaria Pão Bom', days: 6 },
+        { videoId: 'v4', name: 'Depoimento cliente', projectName: 'Institucional', clientName: 'Clínica Sorriso', days: 3 },
+        { videoId: 'v5', name: 'Stories promo', projectName: 'Lançamento Verão', clientName: 'Padaria Pão Bom', days: 1 },
+      ],
+    },
+    monthly: months.map((month, i) => ({ month, sent: sent[i], approved: approved[i], averageScore: scores[i] })),
+    ratingDistribution: [
+      { stars: 1, total: 0 },
+      { stars: 2, total: 1 },
+      { stars: 3, total: 1 },
+      { stars: 4, total: 4 },
+      { stars: 5, total: 8 },
+    ],
+    approvalTime: [
+      { bucket: 'ate_1d', total: 6 },
+      { bucket: '1_3d', total: 5 },
+      { bucket: '3_7d', total: 3 },
+      { bucket: '7_14d', total: 1 },
+      { bucket: 'mais_14d', total: 1 },
+    ],
+    clients: [
+      { clientId: 'c1', name: 'Padaria Pão Bom', photoUrl: null, sent: 7, approved: 6, averageScore: 9.4, averageVersions: 1.2, medianHoursToApprove: 18, withDeadline: 5, onTime: 5, open: 3, waitingClient: 2, overdue: 0 },
+      { clientId: 'c2', name: 'Academia Forte', photoUrl: null, sent: 5, approved: 5, averageScore: 8.0, averageVersions: 2.2, medianHoursToApprove: 96, withDeadline: 4, onTime: 3, open: 2, waitingClient: 0, overdue: 1 },
+      { clientId: 'c3', name: 'Clínica Sorriso', photoUrl: null, sent: 4, approved: 3, averageScore: 8.7, averageVersions: 1.3, medianHoursToApprove: 40, withDeadline: 3, onTime: 2, open: 3, waitingClient: 2, overdue: 1 },
+      { clientId: null, name: 'Ana e João', photoUrl: null, sent: 2, approved: 2, averageScore: 10, averageVersions: 1, medianHoursToApprove: 6, withDeadline: 1, onTime: 1, open: 1, waitingClient: 0, overdue: 0 },
+    ],
+    team: [
+      { userId: 'm2', name: 'Marina Alves', avatarUrl: null, role: 'editor', approved: 8, averageScore: 9.2, open: 3, overdue: 0, recordings: 4 },
+      { userId: 'm3', name: 'Rafael Souza', avatarUrl: null, role: 'editor', approved: 6, averageScore: 8.4, open: 4, overdue: 2, recordings: 3 },
+      { userId: 'm5', name: 'Bruno Lima', avatarUrl: null, role: 'editor', approved: 2, averageScore: 8.0, open: 2, overdue: 0, recordings: 1 },
+    ],
+  }
 }
