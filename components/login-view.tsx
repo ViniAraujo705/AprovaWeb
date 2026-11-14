@@ -1,9 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Loader2, Mail, Lock, Check, Eye, EyeOff, Building2, ChevronRight } from 'lucide-react'
+import {
+  Loader2,
+  Mail,
+  Lock,
+  Check,
+  Eye,
+  EyeOff,
+  Building2,
+  ChevronRight,
+  ArrowRight,
+  Sparkles,
+  ShieldCheck,
+  DoorOpen,
+  X,
+} from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ApiError } from '@/lib/api'
@@ -11,6 +25,8 @@ import { cn } from '@/lib/utils'
 import { teamRoleLabel, type AccountOption } from '@/lib/types'
 import { CheckLogo } from '@/components/page-header'
 import { AuthLayout } from '@/components/auth-layout'
+import { Gesture } from '@/components/gestures'
+import { AnimatePresence, motion } from '@/components/motion'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -106,7 +122,10 @@ export function LoginView() {
   // Vindo da tela de redefinir senha: senha alterada com sucesso.
   const justReset = params.get('reset') === '1'
 
+  const [confirmDemo, setConfirmDemo] = useState(false)
+
   function handleDemo() {
+    setConfirmDemo(false)
     loginDemo()
     router.replace('/dashboard')
   }
@@ -276,12 +295,125 @@ export function LoginView() {
 
         <button
           type="button"
-          onClick={handleDemo}
+          onClick={() => setConfirmDemo(true)}
           className="mt-3 w-full text-center text-sm font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
         >
-          Entrar como demo
+          Ver demonstração (dados fictícios)
         </button>
       </div>
+
+      <AnimatePresence>
+        {confirmDemo && <DemoConfirmDialog onConfirm={handleDemo} onCancel={() => setConfirmDemo(false)} />}
+      </AnimatePresence>
     </AuthLayout>
+  )
+}
+
+/** Confirmação antes de entrar no modo demo — evita que um clique acidental pareça login na conta de outra pessoa. */
+function DemoConfirmDialog({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onCancel])
+
+  const points = [
+    { icon: Sparkles, title: 'Dados 100% fictícios', text: 'Clientes, vídeos e equipe foram inventados para o tour.' },
+    { icon: ShieldCheck, title: 'Nada é salvo', text: 'Mexa à vontade: nenhuma alteração sai do seu navegador.' },
+    { icon: DoorOpen, title: 'Saia quando quiser', text: 'Uma faixa no topo mostra que é demo e leva de volta ao login.' },
+  ]
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end p-0 sm:place-items-center sm:p-4">
+      <motion.div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onCancel}
+        aria-hidden="true"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+      />
+      <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="demo-confirm-title"
+        className="relative w-full overflow-hidden rounded-t-3xl border border-border bg-card shadow-2xl sm:max-w-md sm:rounded-3xl"
+        initial={{ y: 24, opacity: 0, scale: 0.98 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        exit={{ y: 24, opacity: 0, scale: 0.98 }}
+        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {/* Topo em verde profundo, com o gesto da marca */}
+        <div className="relative overflow-hidden bg-deep px-6 pb-6 pt-6 text-deep-foreground">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-primary/20 blur-3xl"
+          />
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Fechar"
+            className="absolute right-3 top-3 grid size-9 place-items-center rounded-full text-deep-muted transition hover:bg-white/10 hover:text-deep-foreground"
+          >
+            <X className="size-4" />
+          </button>
+          <div className="relative flex items-end justify-between gap-4">
+            <div className="min-w-0">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary-foreground">
+                <span className="size-1.5 rounded-full bg-primary-foreground/70" />
+                Modo demonstração
+              </span>
+              <h2 id="demo-confirm-title" className="mt-4 font-display text-2xl font-bold leading-tight">
+                Conheça o Check
+                <br />
+                por dentro
+              </h2>
+            </div>
+            <Gesture state="check" onDeep className="-mb-2 h-24 w-24 shrink-0" />
+          </div>
+        </div>
+
+        <div className="px-6 pb-6 pt-5">
+          <p className="text-sm text-muted-foreground">
+            Você vai entrar numa <strong className="font-semibold text-foreground">conta de exemplo</strong>. Ela não
+            pertence a ninguém.
+          </p>
+
+          <ul className="mt-5 space-y-3">
+            {points.map(({ icon: Icon, title, text }) => (
+              <li key={title} className="flex items-start gap-3">
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-secondary text-foreground ring-1 ring-border">
+                  <Icon className="size-4" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 pt-0.5">
+                  <p className="text-sm font-semibold text-foreground">{title}</p>
+                  <p className="text-[13px] leading-snug text-muted-foreground">{text}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <button
+            type="button"
+            onClick={onConfirm}
+            autoFocus
+            className="group mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3.5 text-sm font-semibold text-primary-foreground transition hover:brightness-95 active:scale-[0.99]"
+          >
+            Começar o tour
+            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="mt-2 w-full rounded-2xl px-4 py-3 text-sm font-medium text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+          >
+            Agora não
+          </button>
+        </div>
+      </motion.div>
+    </div>
   )
 }

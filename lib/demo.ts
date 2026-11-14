@@ -108,8 +108,8 @@ export function clearDemoFlag() {
 
 export const demoUser: User = {
   id: 'demo-user',
-  name: 'Você (demo)',
-  email: 'demo@aprova.app',
+  name: 'Visitante (exemplo)',
+  email: 'demonstracao@checkprod.com.br',
   role: 'admin',
   teamRole: 'owner',
   photoUrl: null,
@@ -1059,7 +1059,7 @@ export const demoCalendarActivities: CalendarActivity[] = [
     endAt: plusHours(iso(20), 1),
     clientId: 'c3',
     clientName: 'Studio Moda',
-    crew: [{ id: 'demo-user', name: 'Você (demo)', userId: 'demo-user' }],
+    crew: [{ id: 'demo-user', name: 'Visitante (exemplo)', userId: 'demo-user' }],
     demandId: null,
     notes: null,
   },
@@ -1176,7 +1176,7 @@ export const demoClientFiles: (ClientFile & { clientId: string })[] = [
     sizeBytes: 482_000,
     category: 'briefing',
     description: 'Briefing do lançamento de batom matte',
-    uploadedByName: 'Você (demo)',
+    uploadedByName: 'Visitante (exemplo)',
     createdAt: iso(72),
   },
 ]
@@ -1433,7 +1433,7 @@ function demoPreviousVersionCommentsFor(videoId: string): PreviousVersionComment
   return [
     { id: 'pc1', author: 'Cliente', timestamp: 1, text: 'A logo está pequena demais na abertura, dá pra aumentar?', audioUrl: null, createdAt: iso(4320), authorRole: 'client', parentId: null, version: 1 },
     { id: 'pc2', author: 'Cliente', timestamp: 6, text: 'Troca a trilha, essa está muito agitada pra marca.', audioUrl: null, createdAt: iso(4300), authorRole: 'client', parentId: null, version: 1 },
-    { id: 'pc3', author: 'Você (demo)', timestamp: 6, text: 'Combinado, trocamos por uma mais suave na próxima versão.', audioUrl: null, createdAt: iso(4200), authorRole: 'agency', parentId: null, version: 1 },
+    { id: 'pc3', author: 'Visitante (exemplo)', timestamp: 6, text: 'Combinado, trocamos por uma mais suave na próxima versão.', audioUrl: null, createdAt: iso(4200), authorRole: 'agency', parentId: null, version: 1 },
   ]
 }
 
@@ -1912,7 +1912,7 @@ export function demoReorderPortfolioVideos(portfolioId: string, orderedVideoIds:
 }
 
 export const demoAdminUsers: AdminUser[] = [
-  { id: 'demo-user', name: 'Você (demo)', email: 'demo@aprova.app', role: 'admin', teamRole: 'owner', photoUrl: null, status: 'active', createdAt: iso(240), plan: 'agencia' },
+  { id: 'demo-user', name: 'Visitante (exemplo)', email: 'demonstracao@checkprod.com.br', role: 'admin', teamRole: 'owner', photoUrl: null, status: 'active', createdAt: iso(240), plan: 'agencia' },
   { id: 'u2', name: 'Marina Alves', email: 'marina@agencia.com', role: 'user', teamRole: 'editor', photoUrl: null, status: 'active', createdAt: iso(200) },
   { id: 'u3', name: 'Rafael Souza', email: 'rafael@agencia.com', role: 'user', teamRole: 'editor', photoUrl: null, status: 'suspended', createdAt: iso(120) },
   { id: 'u4', name: 'Bruno Lima', email: 'bruno@agencia.com', role: 'user', teamRole: 'editor', photoUrl: null, status: 'inactive', createdAt: iso(60) },
@@ -2246,7 +2246,7 @@ export function demoInternalComments(_videoId: string): Comment[] {
     },
     {
       id: 'ic1-r1',
-      author: 'Você (demo)',
+      author: 'Visitante (exemplo)',
       timestamp: 3,
       text: 'Pode subir a final. Só confirma o LUT antes de mandar pro cliente.',
       audioUrl: null,
@@ -2256,7 +2256,7 @@ export function demoInternalComments(_videoId: string): Comment[] {
     },
     {
       id: 'ic2',
-      author: 'Você (demo)',
+      author: 'Visitante (exemplo)',
       timestamp: 9,
       text: 'Aqui o corte ficou seco. Vamos adicionar um crossfade de 4 frames.',
       audioUrl: null,
@@ -2294,7 +2294,7 @@ export function demoClientChannel(_videoId: string): PublicVideo {
   const base = demoPublicVideo()
   const agencyReply: Comment = {
     id: 'ag1',
-    author: 'Você (demo)',
+    author: 'Visitante (exemplo)',
     timestamp: 5,
     text: 'Boa! Já seguramos esse plano por mais 1s na nova versão. 🙌',
     audioUrl: null,
@@ -2366,7 +2366,7 @@ export function demoMemberSessions(memberId: string): Session[] {
 /** Membros da conta/agência para /configuracoes/equipe. */
 export function demoTeamMembers(): TeamMember[] {
   return [
-    { id: 'demo-user', name: 'Você (demo)', email: 'demo@aprova.app', photoUrl: null, teamRole: 'owner', status: 'active', createdAt: iso(240), expiresAt: null },
+    { id: 'demo-user', name: 'Visitante (exemplo)', email: 'demonstracao@checkprod.com.br', photoUrl: null, teamRole: 'owner', status: 'active', createdAt: iso(240), expiresAt: null },
     { id: 'm2', name: 'Marina Alves', email: 'marina@agencia.com', photoUrl: null, teamRole: 'editor', status: 'active', createdAt: iso(200), expiresAt: null },
     { id: 'm3', name: 'Rafael Souza', email: 'rafael@agencia.com', photoUrl: null, teamRole: 'editor', status: 'suspended', createdAt: iso(120), expiresAt: null },
     { id: 'm4', name: '', email: 'novo.editor@agencia.com', photoUrl: null, teamRole: 'editor', status: 'invited', createdAt: iso(6), expiresAt: iso(-66) },

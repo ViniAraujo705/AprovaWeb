@@ -1170,7 +1170,7 @@ export const authService = {
   async myAccounts(signal?: AbortSignal): Promise<AccountOption[]> {
     if (isDemo()) {
       await delay(null, 200)
-      return [{ accountId: 'demo-account', nomeAgencia: 'Demo', role: demoUser.teamRole, isCurrent: true }]
+      return [{ accountId: 'demo-account', nomeAgencia: 'Agência de exemplo', role: demoUser.teamRole, isCurrent: true }]
     }
     const res = await api.get<Raw[]>('/auth/my-accounts', { signal })
     return asArray<Raw>(res).map(mapAccountOption)

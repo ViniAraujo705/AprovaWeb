@@ -53,6 +53,7 @@ import { AgencyLogo } from '@/components/agency-logo'
 import { teamRoleLabel, type Role, type TeamRole } from '@/lib/types'
 import { AnimatePresence, motion, useReducedMotion } from '@/components/motion'
 import { useBrandAccentStyle } from '@/lib/theme'
+import { DemoBanner } from '@/components/demo-banner'
 
 type NavItem = {
   href: string
@@ -698,6 +699,7 @@ export function AgencyShell({ children }: { children: React.ReactNode }) {
           commit visual do fechamento.
         */}
         <main className="flex min-w-0 flex-col" inert={overlayBlocking || undefined}>
+          <DemoBanner />
           {pathname !== '/dashboard' && (
             <div className="px-4 pt-4 sm:px-6 lg:px-10 lg:pt-6 print:hidden">
               <BackButton />
