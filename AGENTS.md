@@ -141,13 +141,3 @@ Same as the general **Commands** section above — `npm run dev` to run it, `npx
 3. Quando as rotas de arquivos existirem, criar uma aba **Arquivos** na central, usando o mesmo fluxo presigned URL → PUT R2 → registro que os vídeos usam.
 4. Confirmar as rotas reais de calendário e remover quaisquer suposições de fixture; depois avaliar o endpoint consolidado se a central ficar pesada.
 5. Separar/commitar apenas as alterações locais pendentes de ambiente e documentação quando fizer sentido; não misturá-las com features de produto sem revisão.
-
-<!-- BEGIN:nextjs-agent-rules -->
-
-# This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
