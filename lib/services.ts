@@ -10,6 +10,7 @@ import { api, ApiError } from '@/lib/api'
 import { API_URL } from '@/lib/config'
 import { getToken } from '@/lib/auth'
 import { siteOrigin } from '@/lib/site'
+import { resolveContentType, uploadToPresignedUrl } from '@/lib/upload'
 import {
   buildDemoReport,
   DEMO_TOKEN,
@@ -32,6 +33,31 @@ import {
   demoClients,
   demoCreateCategory,
   demoCreateDemand,
+  demoListBoards,
+  demoCreateBoard,
+  demoRenameBoard,
+  demoRemoveBoard,
+  demoAddBoardColumn,
+  demoUpdateBoardColumn,
+  demoRemoveBoardColumn,
+  demoUpdateDemandColumn,
+  demoFindDemandOrThrow,
+  demoAddDemandAttachment,
+  demoRemoveDemandAttachment,
+  demoSetDemandCover,
+  demoListDemandComments,
+  demoAddDemandComment,
+  demoUpdateDemandComment,
+  demoRemoveDemandComment,
+  demoListDemandActivity,
+  demoAddChecklistItem,
+  demoUpdateChecklistItem,
+  demoRemoveChecklistItem,
+  demoSetDemandArchived,
+  demoCreateLabel,
+  demoLabels,
+  demoRemoveLabel,
+  demoUpdateLabel,
   demoCreatePortfolio,
   demoCrewRoster,
   demoDeletePortfolio,
@@ -125,6 +151,14 @@ import type {
   CrewMember,
   DashboardInsights,
   Demand,
+  ChecklistItem,
+  DemandActivity,
+  DemandAttachment,
+  KanbanBoard,
+  DemandAuthor,
+  DemandComment,
+  BoardLabel,
+  LabelColor,
   DemandKind,
   EditorPerformance,
   GalleryVideoItem,
@@ -363,6 +397,151 @@ function mapDemand(raw: Raw): Demand {
     deadline: pick<string | null>(raw, ['prazo', 'deadline'], null),
     productionStage: normalizeProductionStage(pick(raw, ['etapa', 'productionStage'], 'planejado')),
     createdAt: pick(raw, ['criadoEm', 'createdAt', 'created_at'], new Date().toISOString()),
+    labelIds: asStringIds(pick<unknown>(raw, ['labelIds', 'labels'], [])),
+    collaboratorIds: asStringIds(pick<unknown>(raw, ['collaboratorIds', 'collaborators'], [])),
+    description: pick<string | null>(raw, ['descricao', 'description'], null),
+    position: Number(pick(raw, ['posicao', 'position'], 0)) || 0,
+    archivedAt: pick<string | null>(raw, ['arquivadaEm', 'archivedAt'], null),
+    deadlineDone: Boolean(pick(raw, ['prazoConcluido', 'deadlineDone'], false)),
+    checklist: asArray(pick<unknown>(raw, ['checklist'], [])).map(mapChecklistItem),
+    commentsCount: Number(pick(raw, ['comentariosCount', 'commentsCount'], 0)) || 0,
+    attachments: asArray(pick<unknown>(raw, ['anexos', 'attachments'], [])).map(mapDemandAttachment),
+    coverAttachmentId: pick<string | null>(raw, ['capaAnexoId', 'coverAttachmentId'], null),
+    boardId: pick<string | null>(raw, ['quadroId', 'boardId'], null),
+    columnId: pick<string | null>(raw, ['colunaId', 'columnId'], null),
+  }
+}
+
+function mapKanbanBoard(raw: Raw): KanbanBoard {
+  return {
+    id: String(pick(raw, ['id'], '')),
+    name: pick(raw, ['nome', 'name'], 'Quadro'),
+    position: Number(pick(raw, ['posicao', 'position'], 0)) || 0,
+    columns: asArray(pick<unknown>(raw, ['colunas', 'columns'], []))
+      .map((c: Raw) => ({
+        id: String(pick(c, ['id'], '')),
+        name: pick(c, ['nome', 'name'], ''),
+        position: Number(pick(c, ['posicao', 'position'], 0)) || 0,
+      }))
+      .sort((a, b) => a.position - b.position),
+    cardsCount: Number(pick(raw, ['demandasCount', 'cardsCount'], 0)) || 0,
+  }
+}
+
+const cloneBoard = (b: KanbanBoard): KanbanBoard => ({ ...b, columns: b.columns.map((c) => ({ ...c })) })
+
+/** Quadros extras do Kanban (colunas livres). */
+export const boardService = {
+  async list(signal?: AbortSignal): Promise<KanbanBoard[]> {
+    if (isDemo()) return delay(demoListBoards().map(cloneBoard))
+    return asArray(await api.get('/quadros', { signal })).map(mapKanbanBoard)
+  },
+  /** Sem `columns`: A fazer / Fazendo / Feito. */
+  async create(name: string, columns?: string[]): Promise<KanbanBoard> {
+    if (isDemo()) return delay(cloneBoard(demoCreateBoard(name, columns)), 250)
+    return mapKanbanBoard(await api.post<Raw>('/quadros', { nome: name, colunas: columns }))
+  },
+  async rename(id: string, name: string): Promise<KanbanBoard> {
+    if (isDemo()) return delay(cloneBoard(demoRenameBoard(id, name)), 200)
+    return mapKanbanBoard(await api.patch<Raw>(`/quadros/${id}`, { nome: name }))
+  },
+  /** Apaga o quadro com todas as colunas e cards. */
+  async remove(id: string): Promise<void> {
+    if (isDemo()) {
+      demoRemoveBoard(id)
+      return delay(undefined, 200)
+    }
+    await api.delete(`/quadros/${id}`)
+  },
+  async addColumn(id: string, name: string): Promise<KanbanBoard> {
+    if (isDemo()) return delay(cloneBoard(demoAddBoardColumn(id, name)), 200)
+    return mapKanbanBoard(await api.post<Raw>(`/quadros/${id}/colunas`, { nome: name }))
+  },
+  async updateColumn(id: string, columnId: string, patch: { name?: string; position?: number }): Promise<KanbanBoard> {
+    if (isDemo()) return delay(cloneBoard(demoUpdateBoardColumn(id, columnId, patch)), 200)
+    return mapKanbanBoard(
+      await api.patch<Raw>(`/quadros/${id}/colunas/${columnId}`, { nome: patch.name, posicao: patch.position }),
+    )
+  },
+  /** Coluna com cards exige `moveTo` (outra coluna do mesmo quadro). */
+  async removeColumn(id: string, columnId: string, moveTo?: string): Promise<KanbanBoard> {
+    if (isDemo()) return delay(cloneBoard(demoRemoveBoardColumn(id, columnId, moveTo)), 200)
+    const qs = moveTo ? `?moverPara=${encodeURIComponent(moveTo)}` : ''
+    return mapKanbanBoard(await api.delete<Raw>(`/quadros/${id}/colunas/${columnId}${qs}`))
+  },
+}
+
+function mapDemandAttachment(raw: Raw): DemandAttachment {
+  const by = pick<Raw | null>(raw, ['enviadoPor', 'uploadedBy'], null)
+  const size = pick<unknown>(raw, ['tamanhoBytes', 'sizeBytes'], null)
+  return {
+    id: String(pick(raw, ['id'], '')),
+    name: pick(raw, ['nomeArquivo', 'name'], 'arquivo'),
+    url: pick(raw, ['urlStorage', 'url'], ''),
+    mimeType: pick(raw, ['mimeType'], 'application/octet-stream'),
+    sizeBytes: typeof size === 'number' ? size : null,
+    createdAt: pick(raw, ['criadoEm', 'createdAt'], new Date().toISOString()),
+    uploadedBy: by ? { id: String(pick(by, ['id'], '')), name: pick(by, ['nome', 'name'], '') } : null,
+  }
+}
+
+function mapDemandAuthor(raw: unknown): DemandAuthor | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Raw
+  return {
+    id: String(pick(r, ['id'], '')),
+    name: pick(r, ['nome', 'name'], ''),
+    photoUrl: pick<string | null>(r, ['avatarUrl', 'photoUrl'], null),
+  }
+}
+
+function mapDemandComment(raw: Raw): DemandComment {
+  return {
+    id: String(pick(raw, ['id'], '')),
+    text: pick(raw, ['texto', 'text'], ''),
+    mentions: asStringIds(pick<unknown>(raw, ['mencionados', 'mentions'], [])),
+    createdAt: pick(raw, ['criadoEm', 'createdAt'], new Date().toISOString()),
+    editedAt: pick<string | null>(raw, ['editadoEm', 'editedAt'], null),
+    author: mapDemandAuthor(pick<unknown>(raw, ['autor', 'author'], null)),
+  }
+}
+
+function mapDemandActivity(raw: Raw): DemandActivity {
+  const data = pick<unknown>(raw, ['dados', 'data'], null)
+  return {
+    id: String(pick(raw, ['id'], '')),
+    type: pick(raw, ['tipo', 'type'], ''),
+    data: data && typeof data === 'object' ? (data as Record<string, unknown>) : null,
+    createdAt: pick(raw, ['criadoEm', 'createdAt'], new Date().toISOString()),
+    author: mapDemandAuthor(pick<unknown>(raw, ['autor', 'author'], null)),
+  }
+}
+
+function mapChecklistItem(raw: Raw): ChecklistItem {
+  return {
+    id: String(pick(raw, ['id'], '')),
+    text: pick(raw, ['texto', 'text'], ''),
+    done: Boolean(pick(raw, ['concluido', 'done'], false)),
+    position: Number(pick(raw, ['posicao', 'position'], 0)) || 0,
+  }
+}
+
+/** Aceita `['id']` ou `[{ labelId | userId | id }]` — o formato da relação varia entre endpoints. */
+function asStringIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((x) => (typeof x === 'string' ? x : x && typeof x === 'object' ? pick<string>(x as Raw, ['labelId', 'userId', 'id'], '') : ''))
+    .filter(Boolean)
+}
+
+const LABEL_COLOR_IDS: LabelColor[] = ['red', 'orange', 'amber', 'emerald', 'sky', 'violet', 'pink']
+
+function mapLabel(raw: Raw): BoardLabel {
+  const color = pick<string>(raw, ['color', 'cor'], 'sky') as LabelColor
+  return {
+    id: String(pick(raw, ['id'], '')),
+    text: pick(raw, ['text', 'texto', 'nome'], ''),
+    color: LABEL_COLOR_IDS.includes(color) ? color : 'sky',
   }
 }
 
@@ -844,8 +1023,12 @@ function normalizeNotificationType(raw: unknown): NotificationType {
     s === 'prazo_proximo' ||
     s === 'prazo_vencido' ||
     s === 'nova_demanda' ||
+    s === 'mencao_demanda' ||
+    s === 'comentario_demanda' ||
     s === 'aguardando_cliente' ||
-    s === 'lembrete_gravacao'
+    s === 'lembrete_gravacao' ||
+    s === 'publicacao_ok' ||
+    s === 'publicacao_erro'
   )
     return s
   return 'comentario_cliente'
@@ -1779,6 +1962,44 @@ export const projectService = {
   },
 }
 
+/** Cópia funda o bastante para o estado do componente não apontar para o fixture mutável do demo. */
+function cloneDemand(d: Demand): Demand {
+  return {
+    ...d,
+    labelIds: [...d.labelIds],
+    collaboratorIds: [...d.collaboratorIds],
+    checklist: d.checklist.map((c) => ({ ...c })),
+    attachments: d.attachments.map((a) => ({ ...a })),
+  }
+}
+
+/* ------------------------------ etiquetas ---------------------------------- */
+
+/** Etiquetas do Kanban, da conta inteira — toda a equipe vê as mesmas. */
+export const labelService = {
+  async list(signal?: AbortSignal): Promise<BoardLabel[]> {
+    if (isDemo()) return delay(demoLabels.map((l) => ({ ...l })))
+    const res = await api.get('/labels', { signal })
+    return asArray(res).map(mapLabel)
+  },
+  async create(input: { text: string; color: LabelColor }): Promise<BoardLabel> {
+    if (isDemo()) return delay(demoCreateLabel(input), 200)
+    return mapLabel(await api.post<Raw>('/labels', input))
+  },
+  async update(id: string, input: { text?: string; color?: LabelColor }): Promise<BoardLabel> {
+    if (isDemo()) return delay(demoUpdateLabel(id, input), 200)
+    return mapLabel(await api.patch<Raw>(`/labels/${id}`, input))
+  },
+  /** Apagar a etiqueta tira ela de todos os cards (cascade no backend). */
+  async remove(id: string): Promise<void> {
+    if (isDemo()) {
+      await delay(demoRemoveLabel(id), 200)
+      return
+    }
+    await api.delete(`/labels/${id}`)
+  },
+}
+
 /* ------------------------------ demandas ---------------------------------- */
 
 /**
@@ -1787,15 +2008,39 @@ export const projectService = {
  * contrato completo negociado com o backend.
  */
 export const demandService = {
-  async list(signal?: AbortSignal): Promise<Demand[]> {
+  /** `archived: true` lista só os arquivados; padrão = os que estão no quadro. */
+  /** Cards de um quadro: sem `boardId`, o quadro de produção. */
+  async list(signal?: AbortSignal, opts?: { archived?: boolean; boardId?: string | null }): Promise<Demand[]> {
+    const archived = Boolean(opts?.archived)
+    const boardId = opts?.boardId ?? null
     // Cópia rasa: `demoDemands` é mutado in-place por create/update/remove (ver
     // lib/demo.ts), e o array retornado aqui vira o estado local do componente
     // (`useQuery` + `setData`). Sem a cópia, os dois apontam pro mesmo array e
     // uma criação otimista duplica a entrada (a mutação síncrona do módulo já
     // inclui o item novo antes do componente fazer o próprio append).
-    if (isDemo()) return delay([...demoDemands])
-    const res = await api.get('/demandas', { signal })
+    if (isDemo())
+      return delay(
+        demoDemands.filter((d) => Boolean(d.archivedAt) === archived && d.boardId === boardId).map(cloneDemand),
+      )
+    const qs = new URLSearchParams()
+    if (archived) qs.set('arquivadas', 'true')
+    if (boardId) qs.set('quadroId', boardId)
+    const res = await api.get(`/demandas${qs.size ? `?${qs}` : ''}`, { signal })
     return asArray(res).map(mapDemand)
+  },
+  /** Um card (ativo ou arquivado), de qualquer quadro. */
+  async get(id: string, signal?: AbortSignal): Promise<Demand> {
+    if (isDemo()) return delay(cloneDemand(demoFindDemandOrThrow(id)))
+    return mapDemand(await api.get<Raw>(`/demandas/${id}`, { signal }))
+  },
+  /** Move um card de quadro extra para outra coluna do mesmo quadro. */
+  async updateColumn(id: string, columnId: string, position?: number): Promise<Demand> {
+    if (isDemo()) return delay(cloneDemand(demoUpdateDemandColumn(id, columnId, position)), 300)
+    const res = await api.patch<Raw>(
+      `/demandas/${id}/coluna`,
+      position === undefined ? { colunaId: columnId } : { colunaId: columnId, posicao: position },
+    )
+    return mapDemand(res)
   },
   async create(input: {
     title: string
@@ -1803,14 +2048,25 @@ export const demandService = {
     clientId?: string | null
     responsibleId?: string | null
     deadline?: string | null
+    description?: string | null
+    labelIds?: string[]
+    collaboratorIds?: string[]
+    /** Quadro extra; sem ele vai para o quadro de produção. */
+    boardId?: string | null
+    columnId?: string | null
   }): Promise<Demand> {
-    if (isDemo()) return delay(demoCreateDemand(input), 300)
+    if (isDemo()) return delay(cloneDemand(demoCreateDemand(input)), 300)
     const res = await api.post<Raw>('/demandas', {
+      quadroId: input.boardId || undefined,
+      colunaId: input.boardId ? input.columnId || undefined : undefined,
       titulo: input.title,
       tipo: input.kind,
       clienteId: input.clientId,
       responsavelId: input.responsibleId,
       prazo: input.deadline,
+      descricao: input.description,
+      labelIds: input.labelIds,
+      collaboratorIds: input.collaboratorIds,
     })
     return mapDemand(res)
   },
@@ -1822,23 +2078,129 @@ export const demandService = {
       clientId?: string | null
       responsibleId?: string | null
       deadline?: string | null
+      description?: string | null
+      deadlineDone?: boolean
+      /** Substitui o conjunto inteiro; `[]` limpa. */
+      labelIds?: string[]
+      /** Substitui o conjunto inteiro; `[]` limpa. */
+      collaboratorIds?: string[]
     },
   ): Promise<Demand> {
-    if (isDemo()) return delay(demoUpdateDemand(id, input), 300)
+    if (isDemo()) return delay(cloneDemand(demoUpdateDemand(id, input)), 300)
     const res = await api.patch<Raw>(`/demandas/${id}`, {
       titulo: input.title,
       tipo: input.kind,
       clienteId: input.clientId,
       responsavelId: input.responsibleId,
       prazo: input.deadline,
+      descricao: input.description,
+      prazoConcluido: input.deadlineDone,
+      labelIds: input.labelIds,
+      collaboratorIds: input.collaboratorIds,
     })
     return mapDemand(res)
   },
   /** Move a demanda entre etapas do quadro Kanban — mesmo shape de `videoService.updateStage`. */
-  async updateStage(id: string, etapa: ProductionStage): Promise<Demand> {
-    if (isDemo()) return delay(demoUpdateDemandStage(id, etapa), 300)
-    const res = await api.patch<Raw>(`/demandas/${id}/etapa`, { etapa })
+  async updateStage(id: string, etapa: ProductionStage, position?: number): Promise<Demand> {
+    if (isDemo()) return delay(cloneDemand(demoUpdateDemandStage(id, etapa, position)), 300)
+    const res = await api.patch<Raw>(`/demandas/${id}/etapa`, position === undefined ? { etapa } : { etapa, posicao: position })
     return mapDemand(res)
+  },
+  /** Tira o card do quadro sem apagar (dá para restaurar). */
+  async archive(id: string): Promise<Demand> {
+    if (isDemo()) return delay(cloneDemand(demoSetDemandArchived(id, true)), 250)
+    return mapDemand(await api.post<Raw>(`/demandas/${id}/arquivar`, {}))
+  },
+  /** Devolve o card ao fim da coluna em que estava. */
+  async unarchive(id: string): Promise<Demand> {
+    if (isDemo()) return delay(cloneDemand(demoSetDemandArchived(id, false)), 250)
+    return mapDemand(await api.post<Raw>(`/demandas/${id}/desarquivar`, {}))
+  },
+  async addChecklistItem(id: string, text: string): Promise<ChecklistItem> {
+    if (isDemo()) return delay({ ...demoAddChecklistItem(id, text) }, 200)
+    return mapChecklistItem(await api.post<Raw>(`/demandas/${id}/checklist`, { texto: text }))
+  },
+  async updateChecklistItem(
+    id: string,
+    itemId: string,
+    input: { text?: string; done?: boolean; position?: number },
+  ): Promise<ChecklistItem> {
+    if (isDemo()) return delay({ ...demoUpdateChecklistItem(id, itemId, input) }, 200)
+    return mapChecklistItem(
+      await api.patch<Raw>(`/demandas/${id}/checklist/${itemId}`, {
+        texto: input.text,
+        concluido: input.done,
+        posicao: input.position,
+      }),
+    )
+  },
+  /**
+   * Anexa um arquivo ao card: URL assinada → PUT direto no R2 (com progresso)
+   * → registro. Devolve o card atualizado (a 1ª imagem vira capa sozinha).
+   * No demo o arquivo fica só na memória da aba (object URL).
+   */
+  async uploadAttachment(id: string, file: File, onProgress?: (pct: number) => void, signal?: AbortSignal): Promise<Demand> {
+    const contentType = resolveContentType(file)
+    if (isDemo()) {
+      onProgress?.(100)
+      return delay(cloneDemand(demoAddDemandAttachment(id, file.name, URL.createObjectURL(file), contentType, file.size)), 400)
+    }
+    const presigned = await api.post<Raw>(`/demandas/${id}/anexos/upload-url`, { nomeArquivo: file.name, contentType })
+    await uploadToPresignedUrl({
+      url: pick(presigned, ['uploadUrl'], ''),
+      file,
+      headers: pick<Record<string, string> | undefined>(presigned, ['headers'], undefined),
+      onProgress: (pct) => onProgress?.(pct),
+      signal,
+    })
+    const res = await api.post<Raw>(`/demandas/${id}/anexos`, {
+      nomeArquivo: file.name,
+      urlStorage: pick(presigned, ['publicUrl'], ''),
+      mimeType: contentType,
+    })
+    return mapDemand(res)
+  },
+  async removeAttachment(id: string, attachmentId: string): Promise<Demand> {
+    if (isDemo()) return delay(cloneDemand(demoRemoveDemandAttachment(id, attachmentId)), 250)
+    return mapDemand(await api.delete<Raw>(`/demandas/${id}/anexos/${attachmentId}`))
+  },
+  /** `null` tira a capa. */
+  async setCover(id: string, attachmentId: string | null): Promise<Demand> {
+    if (isDemo()) return delay(cloneDemand(demoSetDemandCover(id, attachmentId)), 200)
+    return mapDemand(await api.patch<Raw>(`/demandas/${id}/capa`, { anexoId: attachmentId }))
+  },
+  /** Comentários do card, mais recente primeiro. */
+  async listComments(id: string, signal?: AbortSignal): Promise<DemandComment[]> {
+    if (isDemo()) return delay(demoListDemandComments(id))
+    return asArray(await api.get(`/demandas/${id}/comentarios`, { signal })).map(mapDemandComment)
+  },
+  /** `mentions` = ids marcados com @ (recebem notificação). */
+  async addComment(id: string, text: string, mentions: string[]): Promise<DemandComment> {
+    if (isDemo()) return delay(demoAddDemandComment(id, text, mentions), 250)
+    return mapDemandComment(await api.post<Raw>(`/demandas/${id}/comentarios`, { texto: text, mencionados: mentions }))
+  },
+  async updateComment(id: string, commentId: string, text: string): Promise<DemandComment> {
+    if (isDemo()) return delay(demoUpdateDemandComment(id, commentId, text), 200)
+    return mapDemandComment(await api.patch<Raw>(`/demandas/${id}/comentarios/${commentId}`, { texto: text }))
+  },
+  async removeComment(id: string, commentId: string): Promise<void> {
+    if (isDemo()) {
+      await delay(demoRemoveDemandComment(id, commentId), 200)
+      return
+    }
+    await api.delete(`/demandas/${id}/comentarios/${commentId}`)
+  },
+  /** Histórico do card, mais recente primeiro. */
+  async listActivity(id: string, signal?: AbortSignal): Promise<DemandActivity[]> {
+    if (isDemo()) return delay(demoListDemandActivity(id))
+    return asArray(await api.get(`/demandas/${id}/atividades`, { signal })).map(mapDemandActivity)
+  },
+  async removeChecklistItem(id: string, itemId: string): Promise<void> {
+    if (isDemo()) {
+      await delay(demoRemoveChecklistItem(id, itemId), 200)
+      return
+    }
+    await api.delete(`/demandas/${id}/checklist/${itemId}`)
   },
   async remove(id: string): Promise<void> {
     if (isDemo()) return void (await delay(demoRemoveDemand(id), 300))

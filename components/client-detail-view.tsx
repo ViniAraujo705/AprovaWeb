@@ -58,7 +58,7 @@ import { statusLabel } from '@/lib/types'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
-import { validateImageFile, validateClientFile, uploadToPresignedUrl, UploadError, resolveContentType } from '@/lib/upload'
+import { validateImageFile, validateImageBeforeCrop, validateClientFile, uploadToPresignedUrl, UploadError, resolveContentType } from '@/lib/upload'
 import { isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
 import { StatCard } from '@/components/page-header'
@@ -730,7 +730,7 @@ function ClientForm({
   /** Valida e abre o recorte antes de subir — SVG não passa por canvas (perderia a nitidez vetorial). */
   function onFileSelected(file: File | undefined | null) {
     if (!file) return
-    const invalid = validateImageFile(file)
+    const invalid = validateImageBeforeCrop(file)
     if (invalid) {
       setFileError(invalid)
       return
@@ -1153,7 +1153,7 @@ function ClientBrandingForm({
       return
     }
     if (!file) return
-    const invalid = validateImageFile(file)
+    const invalid = validateImageBeforeCrop(file)
     if (invalid) {
       setFileError(invalid)
       return

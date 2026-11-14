@@ -16,7 +16,7 @@ export type Role = 'admin' | 'user'
 export type TeamRole = 'owner' | 'editor'
 
 export const teamRoleLabel: Record<TeamRole, string> = {
-  owner: 'Owner',
+  owner: 'Dono',
   editor: 'Editor',
 }
 
@@ -262,6 +262,101 @@ export interface Demand {
   deadline: string | null
   productionStage: ProductionStage
   createdAt: string
+  /** Etiquetas da conta aplicadas ao card (`DemandaLabel`). Compartilhado com a equipe toda. */
+  labelIds: string[]
+  /** Membros marcados como colaboradores, além do responsável (`DemandaCollaborator`). */
+  collaboratorIds: string[]
+  /** Texto livre do card (briefing, links, observações). */
+  description: string | null
+  /** Ordem dentro da coluna, crescente — compartilhada com a equipe. */
+  position: number
+  /** Quando foi arquivado; `null` = está no quadro. */
+  archivedAt: string | null
+  /** Prazo marcado como cumprido (para de alertar). */
+  deadlineDone: boolean
+  checklist: ChecklistItem[]
+  /** Quantos comentários da equipe o card tem. */
+  commentsCount: number
+  attachments: DemandAttachment[]
+  /** Anexo de imagem usado como capa do card (null = sem capa). */
+  coverAttachmentId: string | null
+  /** Quadro extra do card; null = quadro de produção (coluna = `productionStage`). */
+  boardId: string | null
+  /** Coluna do quadro extra (ignorada no quadro de produção). */
+  columnId: string | null
+}
+
+/** Coluna livre de um quadro extra do Kanban. */
+export interface KanbanColumn {
+  id: string
+  name: string
+  position: number
+}
+
+/** Quadro extra do Kanban (o de produção, com as etapas fixas, não é um destes). */
+export interface KanbanBoard {
+  id: string
+  name: string
+  position: number
+  columns: KanbanColumn[]
+  /** Cards ativos (não arquivados). */
+  cardsCount: number
+}
+
+/** Arquivo anexado a um card do Kanban. */
+export interface DemandAttachment {
+  id: string
+  name: string
+  url: string
+  mimeType: string
+  sizeBytes: number | null
+  createdAt: string
+  uploadedBy: { id: string; name: string } | null
+}
+
+/** Quem escreveu um comentário/fez uma ação no card (null = saiu da conta). */
+export interface DemandAuthor {
+  id: string
+  name: string
+  photoUrl: string | null
+}
+
+/** Comentário da equipe num card do Kanban. */
+export interface DemandComment {
+  id: string
+  text: string
+  /** Ids dos membros marcados com @. */
+  mentions: string[]
+  createdAt: string
+  editedAt: string | null
+  author: DemandAuthor | null
+}
+
+/** Linha do histórico do card ("Marina moveu para Edição"). */
+export interface DemandActivity {
+  id: string
+  type: string
+  data: Record<string, unknown> | null
+  createdAt: string
+  author: DemandAuthor | null
+}
+
+/** Item do checklist de um card do Kanban. */
+export interface ChecklistItem {
+  id: string
+  text: string
+  done: boolean
+  position: number
+}
+
+/** Cores aceitas pelo backend (`enum LabelColor`). */
+export type LabelColor = 'red' | 'orange' | 'amber' | 'emerald' | 'sky' | 'violet' | 'pink'
+
+/** Etiqueta do Kanban, da conta inteira (GET/POST/PATCH/DELETE /labels). */
+export interface BoardLabel {
+  id: string
+  text: string
+  color: LabelColor
 }
 
 // Estado do processamento do vídeo otimizado no backend. Enquanto está
@@ -810,8 +905,15 @@ export type NotificationType =
   | 'prazo_proximo'
   | 'prazo_vencido'
   | 'nova_demanda'
+  /** Alguém marcou a pessoa (@nome) num comentário de card do Kanban. */
+  | 'mencao_demanda'
+  /** Comentário novo num card em que a pessoa é responsável/colaboradora. */
+  | 'comentario_demanda'
   | 'aguardando_cliente'
   | 'lembrete_gravacao'
+  /** Publicação agendada no Instagram/Facebook saiu / falhou. */
+  | 'publicacao_ok'
+  | 'publicacao_erro'
 
 /**
  * Notificação de ação do cliente num vídeo, ou lembrete de gravação próxima

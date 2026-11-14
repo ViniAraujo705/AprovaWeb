@@ -93,7 +93,10 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
+/* `.theme-light` reaplica os tokens claros num trecho da página (prévia da
+   marca em Configurações › Marca, mostrada nos dois temas lado a lado). */
+:root,
+.theme-light {
   /*
    * Identidade Check (out/2026): verde profundo + off-white + lima. Âmbar e
    * coral existem só como cor de status. Os valores vêm do PDF "ID NOVA -

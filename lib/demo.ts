@@ -29,6 +29,12 @@ import type {
   CrewMember,
   DashboardInsights,
   Demand,
+  ChecklistItem,
+  DemandActivity,
+  DemandAuthor,
+  DemandComment,
+  BoardLabel,
+  LabelColor,
   DemandKind,
   EditorPerformance,
   GalleryVideoItem,
@@ -59,6 +65,7 @@ import type {
   TeamMember,
   User,
   Video,
+  KanbanBoard,
 } from '@/lib/types'
 
 export const DEMO_TOKEN = 'demo'
@@ -304,6 +311,41 @@ export const demoDemands: Demand[] = [
     deadline: null,
     productionStage: 'planejado',
     createdAt: new Date(Date.now() - 48 * 3600_000).toISOString(),
+    labelIds: ['l-vip'],
+    collaboratorIds: [],
+    description: 'Três peças para Reels e uma para o feed. Referências na pasta do cliente.',
+    position: 1024,
+    archivedAt: null,
+    deadlineDone: false,
+    checklist: [
+      { id: 'ck1', text: 'Briefing aprovado', done: true, position: 1024 },
+      { id: 'ck2', text: 'Roteiro das 3 peças', done: false, position: 2048 },
+      { id: 'ck3', text: 'Enviar para o cliente', done: false, position: 3072 },
+    ],
+    commentsCount: 2,
+    attachments: [
+      {
+        id: 'da-img1',
+        name: 'referencia-reels.png',
+        url: '/videos/reel-cosmetics.png',
+        mimeType: 'image/png',
+        sizeBytes: 482_000,
+        createdAt: new Date(Date.now() - 30 * 3600_000).toISOString(),
+        uploadedBy: { id: 'm2', name: 'Marina Alves' },
+      },
+      {
+        id: 'da-pdf1',
+        name: 'briefing-verao.pdf',
+        url: '/videos/reel-cosmetics.png',
+        mimeType: 'application/pdf',
+        sizeBytes: 1_250_000,
+        createdAt: new Date(Date.now() - 44 * 3600_000).toISOString(),
+        uploadedBy: { id: 'm3', name: 'Rafael Souza' },
+      },
+    ],
+    coverAttachmentId: 'da-img1',
+    boardId: null,
+    columnId: null,
   },
   {
     id: 'd2',
@@ -314,8 +356,374 @@ export const demoDemands: Demand[] = [
     deadline: null,
     productionStage: 'producao',
     createdAt: new Date(Date.now() - 24 * 3600_000).toISOString(),
+    labelIds: ['l-urgente'],
+    collaboratorIds: [],
+    description: null,
+    position: 1024,
+    archivedAt: null,
+    deadlineDone: false,
+    checklist: [],
+    commentsCount: 0,
+    attachments: [],
+    coverAttachmentId: null,
+    boardId: null,
+    columnId: null,
+  },
+  {
+    id: 'd-sm1',
+    title: 'Calendário de posts de dezembro',
+    kind: 'demanda',
+    clientId: 'c1',
+    responsibleId: 'm2',
+    deadline: new Date(Date.now() + 4 * 86400_000).toISOString(),
+    productionStage: 'planejado',
+    createdAt: new Date(Date.now() - 20 * 3600_000).toISOString(),
+    labelIds: [],
+    collaboratorIds: [],
+    description: null,
+    position: 1024,
+    archivedAt: null,
+    deadlineDone: false,
+    checklist: [],
+    commentsCount: 0,
+    attachments: [],
+    coverAttachmentId: null,
+    boardId: 'qb-social',
+    columnId: 'qc-ideias',
+  },
+  {
+    id: 'd-sm2',
+    title: 'Carrossel 5 dicas de skincare',
+    kind: 'demanda',
+    clientId: 'c1',
+    responsibleId: 'm3',
+    deadline: null,
+    productionStage: 'planejado',
+    createdAt: new Date(Date.now() - 50 * 3600_000).toISOString(),
+    labelIds: [],
+    collaboratorIds: [],
+    description: null,
+    position: 1024,
+    archivedAt: null,
+    deadlineDone: false,
+    checklist: [],
+    commentsCount: 0,
+    attachments: [],
+    coverAttachmentId: null,
+    boardId: 'qb-social',
+    columnId: 'qc-producao',
   },
 ]
+
+/** Quadros extras do demo (colunas livres). */
+const demoBoards: KanbanBoard[] = [
+  {
+    id: 'qb-social',
+    name: 'Social media',
+    position: 1024,
+    columns: [
+      { id: 'qc-ideias', name: 'Ideias', position: 1024 },
+      { id: 'qc-producao', name: 'Em criação', position: 2048 },
+      { id: 'qc-agendado', name: 'Agendado', position: 3072 },
+    ],
+    cardsCount: 0,
+  },
+]
+
+function demoBoardOrThrow(id: string): KanbanBoard {
+  const b = demoBoards.find((x) => x.id === id)
+  if (!b) throw new Error('Quadro não encontrado.')
+  return b
+}
+
+function demoBoardWithCount(b: KanbanBoard): KanbanBoard {
+  b.columns.sort((x, y) => x.position - y.position)
+  b.cardsCount = demoDemands.filter((d) => d.boardId === b.id && !d.archivedAt).length
+  return b
+}
+
+export function demoListBoards(): KanbanBoard[] {
+  return demoBoards.map(demoBoardWithCount)
+}
+
+export function demoCreateBoard(name: string, columns?: string[]): KanbanBoard {
+  const names = (columns ?? ['A fazer', 'Fazendo', 'Feito']).map((n) => n.trim()).filter(Boolean)
+  const id = `qb-${Date.now()}`
+  const board: KanbanBoard = {
+    id,
+    name: name.trim(),
+    position: Math.max(0, ...demoBoards.map((b) => b.position)) + 1024,
+    columns: names.map((n, i) => ({ id: `${id}-c${i}`, name: n, position: (i + 1) * 1024 })),
+    cardsCount: 0,
+  }
+  demoBoards.push(board)
+  return board
+}
+
+export function demoRenameBoard(id: string, name: string): KanbanBoard {
+  const b = demoBoardOrThrow(id)
+  b.name = name.trim()
+  return demoBoardWithCount(b)
+}
+
+export function demoRemoveBoard(id: string): void {
+  const i = demoBoards.findIndex((b) => b.id === id)
+  if (i !== -1) demoBoards.splice(i, 1)
+  for (let k = demoDemands.length - 1; k >= 0; k--) if (demoDemands[k].boardId === id) demoDemands.splice(k, 1)
+}
+
+export function demoAddBoardColumn(id: string, name: string): KanbanBoard {
+  const b = demoBoardOrThrow(id)
+  b.columns.push({ id: `${id}-c${Date.now()}`, name: name.trim(), position: Math.max(0, ...b.columns.map((c) => c.position)) + 1024 })
+  return demoBoardWithCount(b)
+}
+
+export function demoUpdateBoardColumn(id: string, columnId: string, patch: { name?: string; position?: number }): KanbanBoard {
+  const b = demoBoardOrThrow(id)
+  const c = b.columns.find((x) => x.id === columnId)
+  if (!c) throw new Error('Coluna não encontrada.')
+  if (patch.name !== undefined) c.name = patch.name.trim()
+  if (patch.position !== undefined) c.position = patch.position
+  return demoBoardWithCount(b)
+}
+
+export function demoRemoveBoardColumn(id: string, columnId: string, moveTo?: string): KanbanBoard {
+  const b = demoBoardOrThrow(id)
+  if (b.columns.length <= 1) throw new Error('O quadro precisa de ao menos uma coluna.')
+  const cards = demoDemands.filter((d) => d.columnId === columnId)
+  if (cards.length > 0) {
+    if (!moveTo || moveTo === columnId) throw new Error('A coluna tem cards: escolha para onde movê-los.')
+    let pos = Math.max(0, ...demoDemands.filter((d) => d.columnId === moveTo).map((d) => d.position))
+    for (const d of cards) {
+      pos += 1024
+      d.columnId = moveTo
+      d.position = pos
+    }
+  }
+  b.columns = b.columns.filter((c) => c.id !== columnId)
+  return demoBoardWithCount(b)
+}
+
+export function demoUpdateDemandColumn(id: string, columnId: string, position?: number): Demand {
+  const found = demoFindDemand(id)
+  if (found.columnId !== columnId) {
+    const cols = found.boardId ? demoBoardOrThrow(found.boardId).columns : []
+    demoLogDemandActivity(id, 'moveu', {
+      de: cols.find((c) => c.id === found.columnId)?.name ?? null,
+      para: cols.find((c) => c.id === columnId)?.name ?? null,
+      coluna: true,
+    })
+  }
+  found.columnId = columnId
+  if (position !== undefined) found.position = position
+  return found
+}
+
+export function demoFindDemandOrThrow(id: string): Demand {
+  return demoFindDemand(id)
+}
+
+const DEMO_COVER_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+
+export function demoAddDemandAttachment(demandId: string, name: string, url: string, mimeType: string, size: number): Demand {
+  const d = demoFindDemand(demandId)
+  const att = {
+    id: `da-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    name,
+    url,
+    mimeType,
+    sizeBytes: size,
+    createdAt: new Date().toISOString(),
+    uploadedBy: { id: demoUser.id, name: demoUser.name },
+  }
+  d.attachments.unshift(att)
+  if (!d.coverAttachmentId && DEMO_COVER_TYPES.includes(mimeType)) d.coverAttachmentId = att.id
+  demoLogDemandActivity(demandId, 'anexou', { arquivo: name })
+  return d
+}
+
+export function demoRemoveDemandAttachment(demandId: string, attachmentId: string): Demand {
+  const d = demoFindDemand(demandId)
+  const att = d.attachments.find((a) => a.id === attachmentId)
+  d.attachments = d.attachments.filter((a) => a.id !== attachmentId)
+  if (d.coverAttachmentId === attachmentId) d.coverAttachmentId = null
+  if (att) demoLogDemandActivity(demandId, 'removeu_anexo', { arquivo: att.name })
+  return d
+}
+
+export function demoSetDemandCover(demandId: string, attachmentId: string | null): Demand {
+  const d = demoFindDemand(demandId)
+  d.coverAttachmentId = attachmentId
+  return d
+}
+
+const demoAuthorMarina: DemandAuthor = { id: 'm2', name: 'Marina Alves', photoUrl: null }
+const demoAuthorRafael: DemandAuthor = { id: 'm3', name: 'Rafael Souza', photoUrl: null }
+
+/** Comentários e histórico de exemplo dos cards — em memória, como `demoDemands`. */
+const demoDemandComments: Record<string, DemandComment[]> = {
+  d1: [
+    {
+      id: 'dc2',
+      text: '@Visitante (exemplo) deixei as referências na pasta. Consegue olhar até amanhã?',
+      mentions: ['demo-user'],
+      createdAt: new Date(Date.now() - 2 * 3600_000).toISOString(),
+      editedAt: null,
+      author: demoAuthorMarina,
+    },
+    {
+      id: 'dc1',
+      text: 'Cliente pediu tom mais leve nas peças de Reels.',
+      mentions: [],
+      createdAt: new Date(Date.now() - 26 * 3600_000).toISOString(),
+      editedAt: null,
+      author: demoAuthorRafael,
+    },
+  ],
+}
+
+const demoDemandActivity: Record<string, DemandActivity[]> = {
+  d1: [
+    { id: 'da3', type: 'checklist_feito', data: { item: 'Briefing aprovado' }, createdAt: new Date(Date.now() - 20 * 3600_000).toISOString(), author: demoAuthorMarina },
+    { id: 'da2', type: 'responsavel', data: { para: 'Marina Alves' }, createdAt: new Date(Date.now() - 40 * 3600_000).toISOString(), author: demoAuthorRafael },
+    { id: 'da1', type: 'criou', data: { etapa: 'planejado' }, createdAt: new Date(Date.now() - 48 * 3600_000).toISOString(), author: demoAuthorRafael },
+  ],
+}
+
+function demoCardAuthor(): DemandAuthor {
+  return { id: demoUser.id, name: demoUser.name, photoUrl: null }
+}
+
+/** Registra uma linha no histórico do card (ações feitas no demo). */
+export function demoLogDemandActivity(demandId: string, type: string, data: Record<string, unknown> | null = null): void {
+  const list = (demoDemandActivity[demandId] ??= [])
+  list.unshift({ id: `da-${Date.now()}-${list.length}`, type, data, createdAt: new Date().toISOString(), author: demoCardAuthor() })
+}
+
+export function demoListDemandComments(demandId: string): DemandComment[] {
+  return (demoDemandComments[demandId] ?? []).map((c) => ({ ...c, mentions: [...c.mentions] }))
+}
+
+export function demoAddDemandComment(demandId: string, text: string, mentions: string[]): DemandComment {
+  const created: DemandComment = {
+    id: `dc-${Date.now()}`,
+    text: text.trim(),
+    mentions,
+    createdAt: new Date().toISOString(),
+    editedAt: null,
+    author: demoCardAuthor(),
+  }
+  ;(demoDemandComments[demandId] ??= []).unshift(created)
+  const d = demoDemands.find((x) => x.id === demandId)
+  if (d) d.commentsCount += 1
+  return { ...created }
+}
+
+export function demoUpdateDemandComment(demandId: string, commentId: string, text: string): DemandComment {
+  const c = (demoDemandComments[demandId] ?? []).find((x) => x.id === commentId)
+  if (!c) throw new Error('Comentário não encontrado.')
+  c.text = text.trim()
+  c.editedAt = new Date().toISOString()
+  return { ...c }
+}
+
+export function demoRemoveDemandComment(demandId: string, commentId: string): null {
+  const list = demoDemandComments[demandId] ?? []
+  const idx = list.findIndex((x) => x.id === commentId)
+  if (idx !== -1) {
+    list.splice(idx, 1)
+    const d = demoDemands.find((x) => x.id === demandId)
+    if (d) d.commentsCount = Math.max(0, d.commentsCount - 1)
+  }
+  return null
+}
+
+export function demoListDemandActivity(demandId: string): DemandActivity[] {
+  return (demoDemandActivity[demandId] ?? []).map((a) => ({ ...a }))
+}
+
+function demoFindDemand(id: string): Demand {
+  const found = demoDemands.find((d) => d.id === id)
+  if (!found) throw new Error('Demanda não encontrada.')
+  return found
+}
+
+function demoNextPosition(stage: ProductionStage): number {
+  const inStage = demoDemands.filter((d) => !d.boardId && d.productionStage === stage && !d.archivedAt)
+  return Math.max(0, ...inStage.map((d) => d.position)) + 1024
+}
+
+export function demoSetDemandArchived(id: string, archived: boolean): Demand {
+  const found = demoFindDemand(id)
+  demoLogDemandActivity(id, archived ? 'arquivou' : 'desarquivou')
+  if (archived) {
+    found.archivedAt = new Date().toISOString()
+  } else {
+    found.archivedAt = null
+    found.position = demoNextPosition(found.productionStage)
+  }
+  return found
+}
+
+export function demoAddChecklistItem(demandId: string, text: string): ChecklistItem {
+  const found = demoFindDemand(demandId)
+  const item: ChecklistItem = {
+    id: `ck-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    text: text.trim(),
+    done: false,
+    position: Math.max(0, ...found.checklist.map((c) => c.position)) + 1024,
+  }
+  found.checklist.push(item)
+  return item
+}
+
+export function demoUpdateChecklistItem(
+  demandId: string,
+  itemId: string,
+  input: { text?: string; done?: boolean; position?: number },
+): ChecklistItem {
+  const item = demoFindDemand(demandId).checklist.find((c) => c.id === itemId)
+  if (!item) throw new Error('Item não encontrado.')
+  if (input.text !== undefined) item.text = input.text.trim()
+  if (input.done === true && !item.done) demoLogDemandActivity(demandId, 'checklist_feito', { item: item.text })
+  if (input.done !== undefined) item.done = input.done
+  if (input.position !== undefined) item.position = input.position
+  return item
+}
+
+export function demoRemoveChecklistItem(demandId: string, itemId: string): null {
+  const found = demoFindDemand(demandId)
+  found.checklist = found.checklist.filter((c) => c.id !== itemId)
+  return null
+}
+
+/** Etiquetas de exemplo do Kanban — mutação in-memory, como `demoDemands`. */
+export const demoLabels: BoardLabel[] = [
+  { id: 'l-urgente', text: 'Urgente', color: 'red' },
+  { id: 'l-revisao', text: 'Revisão', color: 'amber' },
+  { id: 'l-vip', text: 'Cliente VIP', color: 'violet' },
+]
+
+export function demoCreateLabel(input: { text: string; color: LabelColor }): BoardLabel {
+  const created: BoardLabel = { id: `l-${Date.now()}`, text: input.text, color: input.color }
+  demoLabels.push(created)
+  return { ...created }
+}
+
+export function demoUpdateLabel(id: string, input: { text?: string; color?: LabelColor }): BoardLabel {
+  const found = demoLabels.find((l) => l.id === id)
+  if (!found) throw new Error('Etiqueta não encontrada.')
+  if (input.text !== undefined) found.text = input.text
+  if (input.color !== undefined) found.color = input.color
+  return { ...found }
+}
+
+export function demoRemoveLabel(id: string): null {
+  const idx = demoLabels.findIndex((l) => l.id === id)
+  if (idx !== -1) demoLabels.splice(idx, 1)
+  for (const d of demoDemands) d.labelIds = d.labelIds.filter((x) => x !== id)
+  return null
+}
 
 function demoDemandId(): string {
   return `d-${Date.now()}-${Math.floor(Math.random() * 1000)}`
@@ -327,7 +735,14 @@ export function demoCreateDemand(input: {
   clientId?: string | null
   responsibleId?: string | null
   deadline?: string | null
+  description?: string | null
+  labelIds?: string[]
+  collaboratorIds?: string[]
+  boardId?: string | null
+  columnId?: string | null
 }): Demand {
+  const boardId = input.boardId ?? null
+  const columnId = boardId ? input.columnId ?? demoBoardOrThrow(boardId).columns[0]?.id ?? null : null
   const created: Demand = {
     id: demoDemandId(),
     title: input.title,
@@ -337,8 +752,23 @@ export function demoCreateDemand(input: {
     deadline: input.deadline ?? null,
     productionStage: 'planejado',
     createdAt: new Date().toISOString(),
+    labelIds: input.labelIds ?? [],
+    collaboratorIds: input.collaboratorIds ?? [],
+    description: input.description?.trim() || null,
+    position: boardId
+      ? Math.max(0, ...demoDemands.filter((d) => d.columnId === columnId && !d.archivedAt).map((d) => d.position)) + 1024
+      : demoNextPosition('planejado'),
+    archivedAt: null,
+    deadlineDone: false,
+    checklist: [],
+    commentsCount: 0,
+    attachments: [],
+    coverAttachmentId: null,
+    boardId,
+    columnId,
   }
   demoDemands.push(created)
+  demoLogDemandActivity(created.id, 'criou', { etapa: 'planejado' })
   return created
 }
 
@@ -350,22 +780,37 @@ export function demoUpdateDemand(
     clientId?: string | null
     responsibleId?: string | null
     deadline?: string | null
+    description?: string | null
+    deadlineDone?: boolean
+    labelIds?: string[]
+    collaboratorIds?: string[]
   },
 ): Demand {
   const found = demoDemands.find((d) => d.id === id)
   if (!found) throw new Error('Demanda não encontrada.')
+  if (input.labelIds !== undefined) found.labelIds = [...input.labelIds]
+  if (input.collaboratorIds !== undefined) found.collaboratorIds = [...input.collaboratorIds]
+  if (input.title !== undefined && input.title !== found.title) demoLogDemandActivity(id, 'titulo', { de: found.title, para: input.title })
+  if (input.deadlineDone === true && !found.deadlineDone) demoLogDemandActivity(id, 'prazo_cumprido')
   if (input.title !== undefined) found.title = input.title
   if (input.kind !== undefined) found.kind = input.kind
   if (input.clientId !== undefined) found.clientId = input.clientId
   if (input.responsibleId !== undefined) found.responsibleId = input.responsibleId
-  if (input.deadline !== undefined) found.deadline = input.deadline
+  if (input.description !== undefined) found.description = input.description?.trim() || null
+  if (input.deadline !== undefined && input.deadline !== found.deadline) {
+    found.deadline = input.deadline
+    if (input.deadlineDone === undefined) found.deadlineDone = false
+  }
+  if (input.deadlineDone !== undefined) found.deadlineDone = input.deadlineDone
   return found
 }
 
-export function demoUpdateDemandStage(id: string, stage: ProductionStage): Demand {
+export function demoUpdateDemandStage(id: string, stage: ProductionStage, position?: number): Demand {
   const found = demoDemands.find((d) => d.id === id)
   if (!found) throw new Error('Demanda não encontrada.')
+  if (found.productionStage !== stage) demoLogDemandActivity(id, 'moveu', { de: found.productionStage, para: stage })
   found.productionStage = stage
+  if (position !== undefined) found.position = position
   return found
 }
 
@@ -811,6 +1256,7 @@ function buildDemoDemandNotification(
 export const demoNotifications: AppNotification[] = [
   buildDemoRecordingReminder('n0', 'ev-1', 0.5, false),
   buildDemoNotification('n-prazo', 'prazo_proximo', 'rv-02', 0.8, false),
+  buildDemoDemandNotification('n-mencao', 'mencao_demanda', 'd1', 2, false),
   buildDemoDemandNotification('n-demanda', 'nova_demanda', 'd1', 3, false),
   buildDemoNotification('n-aguardando', 'aguardando_cliente', 'rv-01', 8, true),
   buildDemoNotification('n1', 'comentario_cliente', 'rv-01', 1, false),
