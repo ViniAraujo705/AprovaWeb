@@ -5,7 +5,7 @@
  * (owner/editor). Nunca deve ser renderizado nas telas do cliente.
  */
 import { useEffect, useRef, useState } from 'react'
-import { CalendarClock, Loader2 } from 'lucide-react'
+import { CalendarClock, CircleCheck, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDeadline, getDeadlineUrgency, type DeadlineUrgency } from '@/lib/format'
 import { ApiError } from '@/lib/api'
@@ -21,10 +21,26 @@ const urgencyStyles: Record<DeadlineUrgency, string> = {
 export function DeadlineBadge({
   deadline,
   className,
+  done = false,
 }: {
   deadline: string | null
   className?: string
+  /** Prazo marcado como cumprido: fica verde e para de mostrar urgência. */
+  done?: boolean
 }) {
+  if (deadline && done) {
+    return (
+      <span
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-1 text-xs font-semibold text-success-ink ring-1 ring-success-border',
+          className,
+        )}
+      >
+        <CircleCheck className="size-3.5" />
+        Cumprido · {formatDeadline(deadline)}
+      </span>
+    )
+  }
   const urgency = getDeadlineUrgency(deadline)
   if (!deadline || !urgency) {
     return (

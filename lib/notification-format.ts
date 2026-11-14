@@ -8,6 +8,9 @@ import {
   AlarmClock,
   ClipboardList,
   UserRoundSearch,
+  Send,
+  TriangleAlert,
+  AtSign,
 } from 'lucide-react'
 import type { AppNotification, NotificationType } from '@/lib/types'
 
@@ -19,8 +22,12 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   prazo_proximo: 'vence nas próximas 24h',
   prazo_vencido: 'está com o prazo vencido',
   nova_demanda: 'é uma nova demanda pra você',
+  mencao_demanda: 'tem uma menção a você',
+  comentario_demanda: 'tem comentário novo',
   aguardando_cliente: 'está esperando o cliente há 3 dias',
   lembrete_gravacao: 'tem gravação agendada em breve',
+  publicacao_ok: 'foi publicado nas redes',
+  publicacao_erro: 'não foi publicado: a publicação agendada falhou',
 }
 
 /** Nome curto de cada tipo — usado nas preferências de e-mail (Configurações). */
@@ -32,8 +39,12 @@ export const NOTIFICATION_TYPE_NAME: Record<NotificationType, string> = {
   prazo_proximo: 'Prazo chegando (1 dia antes)',
   prazo_vencido: 'Prazo vencido',
   nova_demanda: 'Novas demandas pra você',
+  mencao_demanda: 'Menções a você nos cards',
+  comentario_demanda: 'Comentários nos seus cards',
   aguardando_cliente: 'Vídeo parado esperando o cliente',
   lembrete_gravacao: 'Lembretes de gravação',
+  publicacao_ok: 'Publicação agendada saiu',
+  publicacao_erro: 'Publicação agendada falhou',
 }
 
 export const NOTIFICATION_TYPE_ICON: Record<NotificationType, typeof MessageSquare> = {
@@ -44,12 +55,20 @@ export const NOTIFICATION_TYPE_ICON: Record<NotificationType, typeof MessageSqua
   prazo_proximo: AlarmClock,
   prazo_vencido: Hourglass,
   nova_demanda: ClipboardList,
+  mencao_demanda: AtSign,
+  comentario_demanda: MessageSquare,
   aguardando_cliente: UserRoundSearch,
   lembrete_gravacao: CalendarClock,
+  publicacao_ok: Send,
+  publicacao_erro: TriangleAlert,
 }
 
 /** Tipos que o backend manda por e-mail na hora (o resto vai no resumo diário). */
-export const IMMEDIATE_EMAIL_TYPES: NotificationType[] = ['aprovacao_cliente', 'prazo_vencido']
+export const IMMEDIATE_EMAIL_TYPES: NotificationType[] = [
+  'aprovacao_cliente',
+  'prazo_vencido',
+  'publicacao_erro',
+]
 
 const CLIENT_ACTION_TYPES: NotificationType[] = [
   'comentario_cliente',
@@ -90,7 +109,7 @@ export function describeNotification(
       subject: n.demand.title,
       text,
       context: n.demand.clientName ?? 'Kanban',
-      href: '/kanban',
+      href: `/kanban?card=${encodeURIComponent(n.demand.id)}`,
     }
   }
   return {

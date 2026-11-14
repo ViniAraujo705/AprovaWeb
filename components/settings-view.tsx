@@ -1,42 +1,40 @@
 'use client'
 
-import {
-  BrandColorField,
-  BrandColorPreview,
-  DEFAULT_PRIMARY_COLOR,
-  DEFAULT_SECONDARY_COLOR,
-  colorOrNull,
-} from '@/components/brand-color-field'
+/**
+ * Telas de Configurações › Minha conta e › Agência › Marca:
+ *  - /configuracoes               → ProfileSettings (foto, nome, e-mail)
+ *  - /configuracoes/seguranca     → SecuritySettings (senha, sessões)
+ *  - /configuracoes/notificacoes  → NotificationSettings (o que vai por e-mail)
+ *  - /configuracoes/marca         → BrandSettings (logo, nome, cor; só owner)
+ * Layout comum em `settings-ui.tsx`.
+ */
+
 import Image from 'next/image'
 import { useRef, useState } from 'react'
-import {
-  ImagePlus,
-  Loader2,
-  Check,
-  AlertTriangle,
-  Trash2,
-  Building2,
-  Camera,
-  Mail,
-  Lock,
-  Monitor,
-  BellRing,
-} from 'lucide-react'
+import { ImagePlus, Loader2, Check, AlertTriangle, Trash2, Camera, Mail, Lock, Star, Moon, Sun } from 'lucide-react'
 import { authService, notificationService, sessionService, userService } from '@/lib/services'
 import type { NotificationPreferences, NotificationType, Session, User } from '@/lib/types'
 import { IMMEDIATE_EMAIL_TYPES, NOTIFICATION_TYPE_NAME } from '@/lib/notification-format'
 import { ApiError } from '@/lib/api'
-import { validateImageFile, uploadToPresignedUrl, UploadError, resolveContentType } from '@/lib/upload'
+import { validateImageFile, validateImageBeforeCrop, uploadToPresignedUrl, UploadError, resolveContentType } from '@/lib/upload'
 import { isDemo } from '@/lib/demo'
 import { cn } from '@/lib/utils'
+import { brandAccentStyle } from '@/lib/theme'
 import { useAuth } from '@/components/auth-provider'
-import { FadeIn, AnimatePresence, motion } from '@/components/motion'
 import { toast } from '@/lib/toast'
 import { useQuery } from '@/lib/use-query'
 import { ErrorState, Skeleton } from '@/components/states'
 import { SessionRow, RevokeAllSessionsButton } from '@/components/session-row'
 import { usePlanLimit } from '@/components/plan-limit-provider'
 import { ImageCropModal } from '@/components/image-crop-modal'
+import {
+  SaveFooter,
+  SettingsCard,
+  SettingsPage,
+  SettingsRow,
+  Switch,
+  settingsInputClass,
+} from '@/components/settings-ui'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -50,290 +48,253 @@ function readAsDataUrl(file: File): Promise<string> {
   })
 }
 
-export function SettingsView() {
-  // O usuário logado já está em memória (sessão) — não há `GET /users/me` no
-  // backend para "recarregar" o perfil, então usamos direto o que veio do login.
-  const { user } = useAuth()
-
+function ErrorLine({ message }: { message: string | null }) {
+  if (!message) return null
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-      <p className="eyebrow">Conta da agência</p>
-      <h1 className="mt-3 font-display text-4xl leading-[1.05] sm:text-5xl">Configurações</h1>
-      <p className="mt-3 max-w-2xl text-base text-muted-foreground">
-        Gerencie seu perfil e a marca que seus clientes veem nos links de aprovação.
-      </p>
-
-      {user && (
-        <>
-          <ProfileForm user={user} />
-          <SecurityForm user={user} />
-          <SessionsSection />
-          <NotificationPreferencesSection />
-          {/* Branding é exclusivo do owner — gate inline, não na rota, pois
-              editores também acessam esta tela para editar o próprio perfil. */}
-          {user.teamRole === 'owner' && <BrandingForm user={user} />}
-        </>
-      )}
-    </div>
+    <p className="mt-4 flex items-center gap-2 rounded-[10px] border border-danger-border bg-danger-soft px-3 py-2 text-sm text-destructive">
+      <AlertTriangle className="size-4 shrink-0" /> {message}
+    </p>
   )
 }
 
-function ProfileForm({ user }: { user: User }) {
+const TEAM_ROLE_LABEL: Record<User['teamRole'], string> = { owner: 'Dono da conta', editor: 'Editor' }
+
+/* -------------------------------------------------------------------------- */
+/*                                   Perfil                                   */
+/* -------------------------------------------------------------------------- */
+
+export function ProfileSettings() {
+  // O usuário logado já está em memória (sessão) — não há `GET /users/me` no
+  // backend para "recarregar" o perfil, então usamos direto o que veio do login.
+  const { user } = useAuth()
+  return (
+    <SettingsPage title="Perfil" description="Como você aparece para o resto da equipe nos comentários, cards e menções.">
+      {user && (
+        <>
+          <PhotoCard user={user} />
+          <IdentityCard user={user} />
+        </>
+      )}
+    </SettingsPage>
+  )
+}
+
+function PhotoCard({ user }: { user: User }) {
   const { updateUser } = useAuth()
   const inputRef = useRef<HTMLInputElement>(null)
-
   const [photoUrl, setPhotoUrl] = useState<string | null>(user.photoUrl)
-  const [name, setName] = useState(user.name)
-  const [email, setEmail] = useState(user.email)
-  const [nameError, setNameError] = useState<string | null>(null)
-  const [emailError, setEmailError] = useState<string | null>(null)
-  const [fileError, setFileError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [busyPhoto, setBusyPhoto] = useState(false)
-  const [busySave, setBusySave] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [busy, setBusy] = useState(false)
   const [cropFile, setCropFile] = useState<File | null>(null)
-
-  function flashSaved() {
-    setSaved(true)
-    toast.success('Perfil atualizado')
-    setTimeout(() => setSaved(false), 2000)
-  }
 
   /** Valida e abre o recorte antes de subir — SVG não passa por canvas (perderia a nitidez vetorial). */
   function onFileSelected(file: File | undefined | null) {
     if (!file) return
-    const invalid = validateImageFile(file)
+    const invalid = validateImageBeforeCrop(file)
     if (invalid) {
-      setFileError(invalid)
+      setError(invalid)
       return
     }
-    setFileError(null)
+    setError(null)
     if (file.type === 'image/svg+xml') {
-      void handlePhoto(file)
+      void upload(file)
       return
     }
     setCropFile(file)
   }
 
-  async function handlePhoto(file: File | undefined | null) {
-    if (!file) return
+  async function upload(file: File) {
     const invalid = validateImageFile(file)
     if (invalid) {
-      setFileError(invalid)
+      setError(invalid)
       return
     }
-    setFileError(null)
     setError(null)
-    setBusyPhoto(true)
+    setBusy(true)
     try {
       if (isDemo()) {
         const dataUrl = await readAsDataUrl(file)
         setPhotoUrl(dataUrl)
         updateUser({ photoUrl: dataUrl })
-        flashSaved()
+        toast.success('Foto atualizada')
         return
       }
-
       const presigned = await userService.getProfileUploadUrl({
         fileName: file.name,
         contentType: resolveContentType(file),
       })
       if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
-
       await uploadToPresignedUrl({ url: presigned.uploadUrl, file, headers: presigned.headers })
-
       const updated = await userService.updateProfile({ photoUrl: presigned.publicUrl })
       setPhotoUrl(updated.photoUrl)
       updateUser({ photoUrl: updated.photoUrl })
-      flashSaved()
+      toast.success('Foto atualizada')
     } catch (err) {
       if (err instanceof UploadError || err instanceof ApiError) setError(err.message)
       else setError('Falha ao enviar a foto. Tente novamente.')
     } finally {
-      setBusyPhoto(false)
-    }
-  }
-
-  async function saveProfile(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    const trimmedName = name.trim()
-    const trimmedEmail = email.trim()
-    let hasError = false
-    if (!trimmedName) {
-      setNameError('Informe seu nome.')
-      hasError = true
-    } else {
-      setNameError(null)
-    }
-    if (!EMAIL_RE.test(trimmedEmail)) {
-      setEmailError('E-mail inválido.')
-      hasError = true
-    } else {
-      setEmailError(null)
-    }
-    if (hasError) return
-
-    setBusySave(true)
-    try {
-      if (isDemo()) {
-        updateUser({ name: trimmedName, email: trimmedEmail })
-        flashSaved()
-        return
-      }
-      const updated = await userService.updateProfile({ name: trimmedName, email: trimmedEmail })
-      updateUser({ name: updated.name, email: updated.email })
-      flashSaved()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Falha ao salvar. Tente novamente.')
-    } finally {
-      setBusySave(false)
+      setBusy(false)
     }
   }
 
   return (
-    <FadeIn className="mt-8" y={6}>
-      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <div className="flex items-center gap-3 font-display text-lg text-foreground">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
-            <Camera className="size-5" />
+    <SettingsCard
+      title="Foto"
+      description="Clique na foto para trocar. Aparece no seu avatar em todo o Check."
+      footer={<p className="text-xs text-muted-foreground">PNG, JPG ou WEBP (até 25 MB, reduzimos no recorte) ou SVG até 2 MB.</p>}
+    >
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={() => !busy && inputRef.current?.click()}
+          disabled={busy}
+          aria-label="Trocar foto"
+          className="group relative grid size-20 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-secondary disabled:cursor-not-allowed"
+        >
+          {photoUrl ? (
+            <Image src={photoUrl} alt="" fill className="object-cover" sizes="80px" unoptimized />
+          ) : (
+            <span className="font-display text-2xl font-bold uppercase text-muted-foreground">
+              {(user.name || user.email || '?').slice(0, 1)}
+            </span>
+          )}
+          <span className="absolute inset-0 grid place-items-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+            {busy ? <Loader2 className="size-5 animate-spin text-white" /> : <Camera className="size-5 text-white" />}
           </span>
-          Perfil
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Seu nome, e-mail e foto — visíveis para o resto da sua equipe.
-        </p>
-
-        <div className="mt-4 flex items-center gap-4">
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/svg+xml,image/webp"
+          className="hidden"
+          onChange={(e) => {
+            onFileSelected(e.target.files?.[0])
+            e.target.value = ''
+          }}
+        />
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => !busyPhoto && inputRef.current?.click()}
-            disabled={busyPhoto}
-            className="group relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-secondary disabled:cursor-not-allowed"
+            onClick={() => !busy && inputRef.current?.click()}
+            disabled={busy}
+            className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
           >
-            {photoUrl ? (
-              <Image src={photoUrl} alt="" fill className="object-cover" sizes="64px" unoptimized />
-            ) : (
-              <span className="text-lg font-bold uppercase text-muted-foreground">
-                {(name || email || '?').slice(0, 1)}
-              </span>
-            )}
-            <span className="absolute inset-0 grid place-items-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-              {busyPhoto ? (
-                <Loader2 className="size-5 animate-spin text-white" />
-              ) : (
-                <Camera className="size-5 text-white" />
-              )}
-            </span>
+            <ImagePlus className="size-4" /> {photoUrl ? 'Trocar foto' : 'Enviar foto'}
           </button>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/svg+xml,image/webp"
-            className="hidden"
-            onChange={(e) => {
-              onFileSelected(e.target.files?.[0])
-              e.target.value = ''
-            }}
-          />
-          <div>
-            <button
-              type="button"
-              onClick={() => !busyPhoto && inputRef.current?.click()}
-              disabled={busyPhoto}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
-            >
-              <ImagePlus className="size-3.5" /> Alterar foto
-            </button>
-            {fileError && <p className="mt-1.5 text-xs text-destructive">{fileError}</p>}
-          </div>
         </div>
-
-        {cropFile && (
-          <ImageCropModal
-            file={cropFile}
-            aspect={1}
-            shape="circle"
-            title="Ajustar foto de perfil"
-            outputWidth={480}
-            outputType="image/jpeg"
-            onCancel={() => setCropFile(null)}
-            onConfirm={(cropped) => {
-              setCropFile(null)
-              void handlePhoto(cropped)
-            }}
-          />
-        )}
-
-        <form onSubmit={saveProfile} className="mt-6 flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-foreground">Nome</span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              aria-invalid={!!nameError}
-              placeholder="Seu nome"
-              className={cn(
-                'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
-                nameError ? 'border-destructive' : 'border-border',
-              )}
-            />
-            {nameError && <span className="text-xs text-destructive">{nameError}</span>}
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-foreground">E-mail</span>
-            <input
-              type="email"
-              inputMode="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              aria-invalid={!!emailError}
-              placeholder="voce@agencia.com"
-              className={cn(
-                'min-h-11 rounded-lg border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink',
-                emailError ? 'border-destructive' : 'border-border',
-              )}
-            />
-            {emailError && <span className="text-xs text-destructive">{emailError}</span>}
-          </label>
-
-          <button
-            type="submit"
-            disabled={busySave}
-            className="inline-flex min-h-11 w-fit items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
-          >
-            {busySave && <Loader2 className="size-3.5 animate-spin" />}
-            Salvar
-          </button>
-        </form>
-
-        {error && (
-          <p className="mt-4 flex items-center gap-2 rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-sm text-destructive">
-            <AlertTriangle className="size-4 shrink-0" /> {error}
-          </p>
-        )}
-
-        <AnimatePresence>
-          {saved && (
-            <motion.p
-              initial={{ y: -4 }}
-              animate={{ y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="mt-4 flex items-center gap-1.5 text-sm font-medium text-emerald-400"
-            >
-              <Check className="size-4" /> Alterações salvas
-            </motion.p>
-          )}
-        </AnimatePresence>
       </div>
-    </FadeIn>
+      <ErrorLine message={error} />
+      {cropFile && (
+        <ImageCropModal
+          file={cropFile}
+          aspect={1}
+          shape="circle"
+          title="Ajustar foto de perfil"
+          outputWidth={480}
+          outputType="image/jpeg"
+          onCancel={() => setCropFile(null)}
+          onConfirm={(cropped) => {
+            setCropFile(null)
+            void upload(cropped)
+          }}
+        />
+      )}
+    </SettingsCard>
   )
 }
 
-function SecurityForm({ user }: { user: User }) {
+function IdentityCard({ user }: { user: User }) {
+  const { updateUser } = useAuth()
+  const [name, setName] = useState(user.name)
+  const [email, setEmail] = useState(user.email)
+  const [nameError, setNameError] = useState<string | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const dirty = name.trim() !== user.name || email.trim() !== user.email
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    const trimmedName = name.trim()
+    const trimmedEmail = email.trim()
+    const nameErr = trimmedName ? null : 'Informe seu nome.'
+    const emailErr = EMAIL_RE.test(trimmedEmail) ? null : 'E-mail inválido.'
+    setNameError(nameErr)
+    setEmailError(emailErr)
+    if (nameErr || emailErr) return
+    setBusy(true)
+    try {
+      if (isDemo()) {
+        updateUser({ name: trimmedName, email: trimmedEmail })
+      } else {
+        const updated = await userService.updateProfile({ name: trimmedName, email: trimmedEmail })
+        updateUser({ name: updated.name, email: updated.email })
+      }
+      toast.success('Perfil atualizado')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Falha ao salvar. Tente novamente.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <SettingsCard
+      title="Dados pessoais"
+      footer={<SaveFooter form="perfil-dados" dirty={dirty} busy={busy} hint="O e-mail é usado para entrar e receber avisos." />}
+    >
+      <form id="perfil-dados" onSubmit={save} className="divide-y divide-border">
+        <SettingsRow label="Nome" description="Como a equipe te vê e te menciona (@)." htmlFor="perfil-nome">
+          <input
+            id="perfil-nome"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            aria-invalid={!!nameError}
+            placeholder="Seu nome"
+            className={settingsInputClass}
+          />
+          {nameError && <span className="mt-1 block text-xs text-destructive">{nameError}</span>}
+        </SettingsRow>
+        <SettingsRow label="E-mail" htmlFor="perfil-email">
+          <input
+            id="perfil-email"
+            type="email"
+            inputMode="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            aria-invalid={!!emailError}
+            placeholder="voce@agencia.com"
+            className={settingsInputClass}
+          />
+          {emailError && <span className="mt-1 block text-xs text-destructive">{emailError}</span>}
+        </SettingsRow>
+        <SettingsRow label="Papel na agência" description="Quem muda é o dono da conta, em Equipe.">
+          <span className="inline-flex h-8 items-center rounded-[8px] bg-secondary px-2.5 text-sm font-medium text-foreground">
+            {TEAM_ROLE_LABEL[user.teamRole] ?? user.teamRole}
+          </span>
+        </SettingsRow>
+      </form>
+      <ErrorLine message={error} />
+    </SettingsCard>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                  Segurança                                 */
+/* -------------------------------------------------------------------------- */
+
+export function SecuritySettings() {
+  const { user } = useAuth()
+  return (
+    <SettingsPage title="Segurança" description="Senha de acesso e os aparelhos em que sua conta está aberta.">
+      {user && <PasswordCard user={user} />}
+      <SessionsCard />
+    </SettingsPage>
+  )
+}
+
+function PasswordCard({ user }: { user: User }) {
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -353,55 +314,40 @@ function SecurityForm({ user }: { user: User }) {
   }
 
   return (
-    <FadeIn className="mt-8" y={6}>
-      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <div className="flex items-center gap-3 font-display text-lg text-foreground">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
-            <Lock className="size-5" />
-          </span>
-          Senha
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Enviamos um link de redefinição para <strong className="text-foreground">{user.email}</strong>{' '}
-          — clique nele para escolher uma nova senha.
-        </p>
-
-        <button
-          type="button"
-          onClick={sendResetEmail}
-          disabled={sending || sent}
-          className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50"
-        >
-          {sending ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : sent ? (
-            <Check className="size-3.5" />
-          ) : (
-            <Mail className="size-3.5" />
-          )}
-          {sent ? 'Link enviado' : 'Enviar link para trocar a senha'}
-        </button>
-
-        {error && (
-          <p className="mt-4 flex items-center gap-2 rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-sm text-destructive">
-            <AlertTriangle className="size-4 shrink-0" /> {error}
-          </p>
-        )}
-      </div>
-    </FadeIn>
+    <SettingsCard
+      title="Senha"
+      description={
+        <>
+          Para trocar, enviamos um link para <strong className="font-medium text-foreground">{user.email}</strong>. A
+          senha nova é escolhida pelo link.
+        </>
+      }
+      footer={
+        <>
+          <p className="text-xs text-muted-foreground">{sent ? 'Link enviado. Ele vale por tempo limitado.' : 'O link chega em até alguns minutos.'}</p>
+          <button
+            type="button"
+            onClick={sendResetEmail}
+            disabled={sending || sent}
+            className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+          >
+            {sending ? <Loader2 className="size-4 animate-spin" /> : sent ? <Check className="size-4" /> : <Mail className="size-4" />}
+            {sent ? 'Link enviado' : 'Enviar link de troca'}
+          </button>
+        </>
+      }
+    >
+      {error && <ErrorLine message={error} />}
+    </SettingsCard>
   )
 }
 
-function SessionsSection() {
-  const { data, loading, error, refetch, setData } = useQuery<Session[]>(
-    (signal) => sessionService.list(signal),
-    [],
-  )
+function SessionsCard() {
+  const { data, loading, error, refetch, setData } = useQuery<Session[]>((signal) => sessionService.list(signal), [])
   const sessions = data ?? []
-  // Mantém a sessão atual no topo e, em seguida, as atividades mais recentes.
-  // A lista completa pode crescer a cada login; quatro entradas bastam para a
-  // visão rápida sem esconder a ação de encerrar todas as demais de uma vez.
-  const visibleSessions = [...sessions]
+  // Sessão atual no topo, depois as mais recentes; quatro bastam para a visão
+  // rápida sem esconder a ação de encerrar todas as demais de uma vez.
+  const visible = [...sessions]
     .sort((a, b) => {
       if (a.current !== b.current) return a.current ? -1 : 1
       const aTime = Date.parse(a.lastActiveAt ?? a.createdAt ?? '') || 0
@@ -409,129 +355,77 @@ function SessionsSection() {
       return bTime - aTime
     })
     .slice(0, 4)
-  const hiddenCount = sessions.length - visibleSessions.length
-  const otherCount = sessions.filter((s) => !s.current).length
+  const hidden = sessions.length - visible.length
+  const others = sessions.filter((s) => !s.current).length
 
   return (
-    <FadeIn className="mt-8" y={6}>
-      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-3 font-display text-lg text-foreground">
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
-                <Monitor className="size-5" />
-              </span>
-              Sessões ativas
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Dispositivos onde sua conta está logada agora. Encerre remotamente qualquer um deles.
-            </p>
-          </div>
-          {!loading && !error && otherCount > 0 && (
-            <RevokeAllSessionsButton
-              onRevokeAll={async () => {
-                await sessionService.revokeAllOthers()
-                setData((prev) => (prev ?? []).filter((s) => s.current))
+    <SettingsCard
+      title="Sessões ativas"
+      description="Aparelhos com a sua conta aberta. Encerre qualquer um que você não reconheça."
+      aside={
+        !loading && !error && others > 0 ? (
+          <RevokeAllSessionsButton
+            onRevokeAll={async () => {
+              await sessionService.revokeAllOthers()
+              setData((prev) => (prev ?? []).filter((s) => s.current))
+            }}
+          />
+        ) : null
+      }
+      footer={
+        hidden > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Mostrando as 4 mais recentes. Há mais {hidden} {hidden === 1 ? 'sessão' : 'sessões'}: “Encerrar outras sessões” fecha todas.
+          </p>
+        ) : undefined
+      }
+    >
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
+        </div>
+      ) : error ? (
+        <ErrorState message={error} onRetry={refetch} className="py-8" />
+      ) : (
+        <div className="-my-2 divide-y divide-border">
+          {visible.map((s) => (
+            <SessionRow
+              key={s.id}
+              session={s}
+              onRevoke={async (id) => {
+                await sessionService.revoke(id)
+                setData((prev) => (prev ?? []).filter((item) => item.id !== id))
               }}
             />
-          )}
+          ))}
         </div>
-
-        <div className="mt-4">
-          {loading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 2 }).map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
-            </div>
-          ) : error ? (
-            <ErrorState message={error} onRetry={refetch} className="py-8" />
-          ) : (
-            <>
-              <div className="divide-y divide-border">
-                {visibleSessions.map((s) => (
-                  <SessionRow
-                    key={s.id}
-                    session={s}
-                    onRevoke={async (id) => {
-                      await sessionService.revoke(id)
-                      setData((prev) => (prev ?? []).filter((item) => item.id !== id))
-                    }}
-                  />
-                ))}
-              </div>
-              {hiddenCount > 0 && (
-                <p className="mt-3 text-center text-xs text-muted-foreground">
-                  Mostrando as 4 sessões mais recentes. Há mais {hiddenCount}{' '}
-                  {hiddenCount === 1 ? 'sessão ativa' : 'sessões ativas'} — use “Encerrar outras sessões”
-                  para removê-las de uma vez.
-                </p>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </FadeIn>
+      )}
+    </SettingsCard>
   )
 }
 
-const EMAIL_TYPE_ORDER: NotificationType[] = [
-  'aprovacao_cliente',
-  'prazo_vencido',
-  'prazo_proximo',
-  'ajuste_solicitado',
-  'comentario_cliente',
-  'avaliacao_cliente',
-  'nova_demanda',
-  'aguardando_cliente',
-  'lembrete_gravacao',
+/* -------------------------------------------------------------------------- */
+/*                                Notificações                                */
+/* -------------------------------------------------------------------------- */
+
+/** Tipos agrupados como a agência pensa neles; ordem dentro do grupo = importância. */
+const EMAIL_TYPE_GROUPS: { title: string; types: NotificationType[] }[] = [
+  { title: 'Cliente', types: ['aprovacao_cliente', 'ajuste_solicitado', 'comentario_cliente', 'avaliacao_cliente', 'aguardando_cliente'] },
+  { title: 'Prazos e agenda', types: ['prazo_vencido', 'prazo_proximo', 'lembrete_gravacao'] },
+  { title: 'Kanban', types: ['nova_demanda', 'mencao_demanda', 'comentario_demanda'] },
 ]
 
-function Switch({
-  checked,
-  onChange,
-  label,
-  description,
-}: {
-  checked: boolean
-  onChange: (value: boolean) => void
-  label: string
-  description: string
-}) {
-  return (
-    <label className="flex cursor-pointer items-start justify-between gap-4 py-3">
-      <span>
-        <span className="block text-sm font-medium text-foreground">{label}</span>
-        <span className="mt-0.5 block text-xs text-muted-foreground">{description}</span>
-      </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        onClick={() => onChange(!checked)}
-        className={cn(
-          'relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors',
-          checked ? 'bg-selected' : 'bg-secondary ring-1 ring-inset ring-border',
-        )}
-      >
-        <span
-          className={cn(
-            'absolute left-0.5 top-0.5 size-5 rounded-full bg-white shadow transition-transform',
-            checked && 'translate-x-5',
-          )}
-        />
-      </button>
-    </label>
-  )
-}
+/** Lista plana (usada para saber se algum tipo ficou de fora dos grupos). */
+export const EMAIL_TYPE_ORDER: NotificationType[] = EMAIL_TYPE_GROUPS.flatMap((g) => g.types)
 
 /**
- * Preferências de e-mail das notificações. O sininho e o pop-up continuam
- * mostrando tudo; isto só decide o que também vai para a caixa de e-mail.
- * Salva a cada mudança (sem botão "Salvar").
+ * Preferências de e-mail. O sininho e os avisos na tela continuam mostrando
+ * tudo; isto só decide o que também vai para a caixa de e-mail. Salva a cada
+ * mudança (sem botão "Salvar").
  */
-function NotificationPreferencesSection() {
+export function NotificationSettings() {
   const { data, loading, error, refetch, setData } = useQuery<NotificationPreferences>(
     (signal) => notificationService.preferences(signal),
     [],
@@ -549,438 +443,527 @@ function NotificationPreferencesSection() {
     }
   }
 
-  function toggleType(type: NotificationType, enabled: boolean) {
+  function setTypes(types: NotificationType[], enabled: boolean) {
     if (!data) return
     const muted = new Set(data.mutedTypes)
-    if (enabled) muted.delete(type)
-    else muted.add(type)
-    save({ mutedTypes: [...muted] })
+    for (const t of types) {
+      if (enabled) muted.delete(t)
+      else muted.add(t)
+    }
+    void save({ mutedTypes: [...muted] })
   }
 
   const anyEmail = !!data && (data.dailyDigest || data.immediate)
 
   return (
-    <FadeIn className="mt-8" y={6}>
-      <div id="notificacoes" className="scroll-mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <div className="flex items-center gap-3 font-display text-lg text-foreground">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
-            <BellRing className="size-5" />
-          </span>
-          Notificações por e-mail
+    <SettingsPage
+      title="Notificações"
+      description="O sininho e os avisos na tela mostram tudo, sempre. Aqui você escolhe o que também chega no seu e-mail."
+    >
+      {loading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-36 w-full rounded-[14px]" />
+          <Skeleton className="h-72 w-full rounded-[14px]" />
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          O sininho e os avisos na tela continuam mostrando tudo. Aqui você escolhe o que também chega no seu e-mail.
-        </p>
-
-        {loading ? (
-          <div className="mt-4 space-y-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-12 w-full" />
-            ))}
-          </div>
-        ) : error || !data ? (
-          <ErrorState message={error ?? 'Não foi possível carregar.'} onRetry={refetch} className="py-8" />
-        ) : (
-          <>
-            <div className="mt-2 divide-y divide-border">
-              <Switch
-                checked={data.dailyDigest}
-                onChange={(v) => save({ dailyDigest: v })}
-                label="Resumo diário às 8h"
-                description="Um e-mail por dia com o que você ainda não viu no Check."
-              />
-              <Switch
-                checked={data.immediate}
-                onChange={(v) => save({ immediate: v })}
-                label="Avisar na hora o que é urgente"
-                description="Aprovação do cliente e prazo vencido chegam no momento em que acontecem."
-              />
+      ) : error || !data ? (
+        <ErrorState message={error ?? 'Não foi possível carregar.'} onRetry={refetch} className="py-8" />
+      ) : (
+        <>
+          <SettingsCard title="Quando mandar e-mail" footer={<p className="text-xs text-muted-foreground">As mudanças são salvas na hora.</p>}>
+            <div className="divide-y divide-border">
+              <SettingsRow label="Resumo diário às 8h" description="Um e-mail por dia com o que você ainda não viu no Check.">
+                <div className="flex sm:justify-end">
+                  <Switch checked={data.dailyDigest} onChange={(v) => void save({ dailyDigest: v })} label="Resumo diário às 8h" />
+                </div>
+              </SettingsRow>
+              <SettingsRow label="Avisar na hora o que é urgente" description="Aprovação do cliente, prazo vencido e menções chegam no momento em que acontecem.">
+                <div className="flex sm:justify-end">
+                  <Switch checked={data.immediate} onChange={(v) => void save({ immediate: v })} label="Avisar na hora o que é urgente" />
+                </div>
+              </SettingsRow>
             </div>
+          </SettingsCard>
 
-            <div className={cn('mt-4 transition-opacity', !anyEmail && 'pointer-events-none opacity-50')}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">O que vai por e-mail</p>
-              <div className="mt-2 grid gap-x-4 sm:grid-cols-2">
-                {EMAIL_TYPE_ORDER.map((type) => (
-                  <label key={type} className="flex cursor-pointer items-center gap-2.5 py-1.5 text-sm text-foreground">
-                    <input
-                      type="checkbox"
-                      checked={!data.mutedTypes.includes(type)}
-                      onChange={(e) => toggleType(type, e.target.checked)}
-                      disabled={!anyEmail}
-                      className="size-4 shrink-0 accent-primary-ink"
-                    />
-                    <span>
-                      {NOTIFICATION_TYPE_NAME[type]}
-                      {IMMEDIATE_EMAIL_TYPES.includes(type) && data.immediate && (
-                        <span className="ml-1.5 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary-ink">
-                          na hora
-                        </span>
-                      )}
-                    </span>
-                  </label>
-                ))}
-              </div>
-              {!anyEmail && (
-                <p className="mt-2 text-xs text-muted-foreground">Os dois e-mails estão desligados — nada vai para a sua caixa.</p>
-              )}
+          <SettingsCard
+            title="O que vai por e-mail"
+            description={anyEmail ? 'Desligue o que não precisa chegar na sua caixa.' : 'Os dois e-mails acima estão desligados: nada vai para a sua caixa.'}
+          >
+            <div className={cn('flex flex-col gap-6 transition-opacity', !anyEmail && 'pointer-events-none opacity-50')}>
+              {EMAIL_TYPE_GROUPS.map((group) => {
+                const allOn = group.types.every((t) => !data.mutedTypes.includes(t))
+                return (
+                  <div key={group.title}>
+                    <div className="flex items-center justify-between gap-3 border-b border-border pb-2">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.title}</h3>
+                      <button
+                        type="button"
+                        disabled={!anyEmail}
+                        onClick={() => setTypes(group.types, !allOn)}
+                        className="rounded-[6px] px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                      >
+                        {allOn ? 'Desligar todos' : 'Ligar todos'}
+                      </button>
+                    </div>
+                    <ul className="divide-y divide-border">
+                      {group.types.map((type) => {
+                        const on = !data.mutedTypes.includes(type)
+                        return (
+                          <li key={type} className="flex items-center justify-between gap-4 py-2.5">
+                            <span className="text-sm text-foreground">
+                              {NOTIFICATION_TYPE_NAME[type]}
+                              {IMMEDIATE_EMAIL_TYPES.includes(type) && data.immediate && (
+                                <span className="ml-2 rounded-[4px] bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                  na hora
+                                </span>
+                              )}
+                            </span>
+                            <Switch checked={on} onChange={(v) => setTypes([type], v)} label={NOTIFICATION_TYPE_NAME[type]} disabled={!anyEmail} />
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                )
+              })}
             </div>
-          </>
-        )}
-      </div>
-    </FadeIn>
+          </SettingsCard>
+        </>
+      )}
+    </SettingsPage>
   )
 }
 
-function BrandingForm({ user }: { user: User }) {
+/* -------------------------------------------------------------------------- */
+/*                                    Marca                                   */
+/* -------------------------------------------------------------------------- */
+
+const DEFAULT_ACCENT_COLOR = '#0b0b0d'
+/** Secundária padrão (verde escuro do Check); igual a ela = `null` no backend. */
+const DEFAULT_SECONDARY_COLOR = '#253326'
+const HEX_RE = /^#[0-9a-fA-F]{6}$/
+const ACCENT_PRESETS = ['#0b0b0d', '#1f6f4a', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#ca8a04', '#ffffff']
+
+export function BrandSettings() {
+  const { user } = useAuth()
+  return (
+    <SettingsPage
+      wide
+      title="Marca"
+      description="Logo, nome e cor que seus clientes veem nos links de aprovação, galerias e portfólios, e que também aparecem no seu painel."
+    >
+      {user && <BrandForm user={user} />}
+    </SettingsPage>
+  )
+}
+
+function BrandForm({ user }: { user: User }) {
   const { updateUser } = useAuth()
   const inputRef = useRef<HTMLInputElement>(null)
+  const savedBranding = user.branding ?? null
 
-  const [logoUrl, setLogoUrl] = useState<string | null>(user.branding?.logoUrl ?? null)
-  const [agencyName, setAgencyName] = useState(user.branding?.agencyName ?? '')
-  const [accentColor, setAccentColor] = useState(user.branding?.accentColor ?? DEFAULT_PRIMARY_COLOR)
-  const [secondaryColor, setSecondaryColor] = useState(user.branding?.secondaryColor ?? DEFAULT_SECONDARY_COLOR)
+  const [logoUrl, setLogoUrl] = useState<string | null>(savedBranding?.logoUrl ?? null)
+  const [agencyName, setAgencyName] = useState(savedBranding?.agencyName ?? '')
+  const [accentColor, setAccentColor] = useState(savedBranding?.accentColor ?? DEFAULT_ACCENT_COLOR)
+  const [secondaryColor, setSecondaryColor] = useState(savedBranding?.secondaryColor ?? DEFAULT_SECONDARY_COLOR)
   const [dragging, setDragging] = useState(false)
-  const [fileError, setFileError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [busyLogo, setBusyLogo] = useState(false)
+  const [busySave, setBusySave] = useState(false)
+  const [logoError, setLogoError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
   const [cropFile, setCropFile] = useState<File | null>(null)
   const { handlePlanLimitError, planStatus, openUpgradeModal } = usePlanLimit()
   // Enquanto o plano ainda não carregou, não bloqueia (o 403 real continua
   // sendo o backstop) — evita prender a UI atrás de um estado de loading.
   const locked = planStatus ? !planStatus.limits.whiteLabel : false
+  const validHex = HEX_RE.test(accentColor)
+  const validSecondary = HEX_RE.test(secondaryColor)
+  const nextAccentOf = () => (accentColor.toLowerCase() === DEFAULT_ACCENT_COLOR ? null : accentColor.toLowerCase())
+  const nextSecondaryOf = () => (secondaryColor.toLowerCase() === DEFAULT_SECONDARY_COLOR ? null : secondaryColor.toLowerCase())
+  const dirty =
+    agencyName.trim() !== (savedBranding?.agencyName ?? '') ||
+    nextAccentOf() !== (savedBranding?.accentColor?.toLowerCase() ?? null) ||
+    nextSecondaryOf() !== (savedBranding?.secondaryColor?.toLowerCase() ?? null)
 
   function requireUpgrade() {
-    openUpgradeModal(
-      'Marca própria (logo e nome da agência sem marca d’água) é exclusiva dos planos pagos.',
-    )
-  }
-
-  function flashSaved() {
-    setSaved(true)
-    toast.success('Configuração salva')
-    setTimeout(() => setSaved(false), 2000)
+    openUpgradeModal('Marca própria (logo e nome da agência sem marca d’água) é exclusiva dos planos pagos.')
   }
 
   /** Valida e abre o recorte antes de subir — SVG não passa por canvas (perderia a nitidez vetorial). */
   function onFileSelected(file: File | undefined | null) {
-    if (locked) {
-      requireUpgrade()
-      return
-    }
+    if (locked) return requireUpgrade()
     if (!file) return
-    const invalid = validateImageFile(file)
+    const invalid = validateImageBeforeCrop(file)
     if (invalid) {
-      setFileError(invalid)
+      setLogoError(invalid)
       return
     }
-    setFileError(null)
+    setLogoError(null)
     if (file.type === 'image/svg+xml') {
-      void handleFile(file)
+      void uploadLogo(file)
       return
     }
     setCropFile(file)
   }
 
-  async function handleFile(file: File | undefined | null) {
-    if (locked) {
-      requireUpgrade()
-      return
-    }
-    if (!file) return
+  async function uploadLogo(file: File) {
+    if (locked) return requireUpgrade()
     const invalid = validateImageFile(file)
     if (invalid) {
-      setFileError(invalid)
+      setLogoError(invalid)
       return
     }
-    setFileError(null)
-    setError(null)
-    setBusy(true)
+    setLogoError(null)
+    setBusyLogo(true)
     try {
-      // Modo demo: preview local, sem tocar no backend/R2.
       if (isDemo()) {
         const dataUrl = await readAsDataUrl(file)
         setLogoUrl(dataUrl)
-        flashSaved()
+        updateUser({ branding: { logoUrl: dataUrl, agencyName: savedBranding?.agencyName ?? null, accentColor: savedBranding?.accentColor ?? null, secondaryColor: savedBranding?.secondaryColor ?? null } })
+        toast.success('Logo atualizado')
         return
       }
-
-      // 1) presigned URL
-      const presigned = await userService.getBrandingUploadUrl({
-        fileName: file.name,
-        contentType: resolveContentType(file),
-      })
+      const presigned = await userService.getBrandingUploadUrl({ fileName: file.name, contentType: resolveContentType(file) })
       if (!presigned.uploadUrl) throw new UploadError('Servidor não retornou URL de upload.')
-
-      // 2) upload direto pro R2
       await uploadToPresignedUrl({ url: presigned.uploadUrl, file, headers: presigned.headers })
-
-      // 3) salva o branding
-      const branding = await userService.updateBranding({
-        logoUrl: presigned.publicUrl,
-        agencyName: agencyName.trim() || null,
-      })
+      // Só o logo: nome e cor têm o próprio "Salvar".
+      const branding = await userService.updateBranding({ logoUrl: presigned.publicUrl })
       setLogoUrl(branding.logoUrl)
-      // Mantém a sessão local coerente com o que acabou de ser salvo. Sem
-      // isso, voltar para esta tela antes de um novo login ainda mostrava o
-      // branding anterior, apesar do PATCH já ter persistido o logo.
+      // Mantém a sessão local coerente com o que acabou de ser salvo.
       updateUser({ branding })
-      flashSaved()
+      toast.success('Logo atualizado')
     } catch (err) {
       if (handlePlanLimitError(err)) return
-      if (err instanceof UploadError || err instanceof ApiError) setError(err.message)
-      else setError('Falha ao enviar o logo. Tente novamente.')
+      if (err instanceof UploadError || err instanceof ApiError) setLogoError(err.message)
+      else setLogoError('Falha ao enviar o logo. Tente novamente.')
     } finally {
-      setBusy(false)
-    }
-  }
-
-  async function saveAppearance() {
-    if (locked) {
-      requireUpgrade()
-      return
-    }
-    setError(null)
-    setBusy(true)
-    try {
-      const nextAccentColor = colorOrNull(accentColor, DEFAULT_PRIMARY_COLOR)
-      const nextSecondaryColor = colorOrNull(secondaryColor, DEFAULT_SECONDARY_COLOR)
-      if (isDemo()) {
-        updateUser({
-          branding: {
-            logoUrl,
-            agencyName: agencyName.trim() || null,
-            accentColor: nextAccentColor,
-            secondaryColor: nextSecondaryColor,
-          },
-        })
-        flashSaved()
-        return
-      }
-      const branding = await userService.updateBranding({
-        agencyName: agencyName.trim() || null,
-        logoUrl,
-        accentColor: nextAccentColor,
-        // Só manda quando mudou (ver `userService.updateBranding`).
-        ...(nextSecondaryColor !== (user.branding?.secondaryColor ?? null)
-          ? { secondaryColor: nextSecondaryColor }
-          : {}),
-      })
-      updateUser({ branding })
-      flashSaved()
-    } catch (err) {
-      if (handlePlanLimitError(err)) return
-      setError(err instanceof ApiError ? err.message : 'Falha ao salvar. Tente novamente.')
-    } finally {
-      setBusy(false)
+      setBusyLogo(false)
     }
   }
 
   async function removeLogo() {
-    setError(null)
-    setBusy(true)
+    setLogoError(null)
+    setBusyLogo(true)
     try {
-      if (!isDemo()) {
-        const branding = await userService.updateBranding({ logoUrl: null })
-        updateUser({ branding })
+      if (isDemo()) {
+        updateUser({ branding: { logoUrl: null, agencyName: savedBranding?.agencyName ?? null, accentColor: savedBranding?.accentColor ?? null, secondaryColor: savedBranding?.secondaryColor ?? null } })
       } else {
-        updateUser({
-          branding: {
-            logoUrl: null,
-            agencyName: user.branding?.agencyName ?? null,
-            accentColor: user.branding?.accentColor ?? null,
-            secondaryColor: user.branding?.secondaryColor ?? null,
-          },
-        })
+        updateUser({ branding: await userService.updateBranding({ logoUrl: null }) })
       }
       setLogoUrl(null)
-      flashSaved()
+      toast.success('Logo removido')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Falha ao remover o logo.')
+      setLogoError(err instanceof ApiError ? err.message : 'Falha ao remover o logo.')
     } finally {
-      setBusy(false)
+      setBusyLogo(false)
     }
   }
 
+  async function saveIdentity() {
+    if (locked) return requireUpgrade()
+    if (!validHex || !validSecondary) {
+      setError('Cor inválida. Use o formato #RRGGBB.')
+      return
+    }
+    setError(null)
+    setBusySave(true)
+    try {
+      const nextAccent = nextAccentOf()
+      const nextSecondary = nextSecondaryOf()
+      if (isDemo()) {
+        updateUser({ branding: { logoUrl, agencyName: agencyName.trim() || null, accentColor: nextAccent, secondaryColor: nextSecondary } })
+      } else {
+        updateUser({
+          branding: await userService.updateBranding({
+            agencyName: agencyName.trim() || null,
+            logoUrl,
+            accentColor: nextAccent,
+            // Só manda quando mudou (ver `userService.updateBranding`).
+            ...(nextSecondary !== (savedBranding?.secondaryColor ?? null) ? { secondaryColor: nextSecondary } : {}),
+          }),
+        })
+      }
+      toast.success('Marca salva')
+    } catch (err) {
+      if (handlePlanLimitError(err)) return
+      setError(err instanceof ApiError ? err.message : 'Falha ao salvar. Tente novamente.')
+    } finally {
+      setBusySave(false)
+    }
+  }
+
+  const proBadge = locked ? (
+    <span className="inline-flex items-center gap-1 rounded-[6px] bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <Lock className="size-3" /> Pro
+    </span>
+  ) : null
+
   return (
-    <FadeIn className="mt-8" y={6}>
-      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <div className="flex items-center gap-3 font-display text-lg text-foreground">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-deep text-primary">
-            <Building2 className="size-5" />
-          </span>
-          Marca da agência
-          {locked && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-ink">
-              <Lock className="size-3" /> Pro
-            </span>
-          )}
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Logo (PNG, JPG, SVG ou WEBP até 2MB), nome e cores (primária e secundária) — aparecem na tela de
-          aprovação do cliente e no seu próprio painel.
-        </p>
-
-        {/* Preview atual */}
-        <div className="mt-4 flex items-center gap-4">
-          <div className="grid h-16 w-40 place-items-center overflow-hidden rounded-xl border border-border bg-card">
-            {logoUrl ? (
-              <span className="relative h-12 w-36">
-                <Image
-                  src={logoUrl}
-                  alt="Logo da agência"
-                  fill
-                  className="object-contain"
-                  sizes="144px"
-                  unoptimized
-                />
-              </span>
-            ) : (
-              <span className="text-xs text-muted-foreground">Logo padrão (CHECK)</span>
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+      <div className="flex min-w-0 flex-col gap-6">
+        <SettingsCard
+          title="Logo"
+          badge={proBadge}
+          description="Fica no topo da tela de aprovação do cliente. Use a versão horizontal, com fundo transparente."
+          footer={<p className="text-xs text-muted-foreground">PNG, JPG ou WEBP (até 25 MB, reduzimos no recorte) ou SVG até 2 MB. Sem logo, usamos a marca do Check.</p>}
+        >
+          <div
+            onDragOver={(e) => {
+              e.preventDefault()
+              if (!busyLogo && !locked) setDragging(true)
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setDragging(false)
+              if (!busyLogo) onFileSelected(e.dataTransfer.files?.[0])
+            }}
+            className={cn(
+              'flex flex-col items-center gap-4 rounded-[12px] border border-dashed p-5 transition-colors sm:flex-row',
+              dragging ? 'border-primary-ink bg-primary/10' : logoError ? 'border-destructive/60' : 'border-border',
             )}
+          >
+            <div className="grid h-16 w-44 shrink-0 place-items-center overflow-hidden rounded-[10px] border border-border bg-background">
+              {logoUrl ? (
+                <span className="relative h-12 w-40">
+                  <Image src={logoUrl} alt="Logo da agência" fill className="object-contain" sizes="160px" unoptimized />
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">Sem logo</span>
+              )}
+            </div>
+            <div className="flex flex-1 flex-col items-center gap-2 text-center sm:items-start sm:text-left">
+              <p className="text-sm text-muted-foreground">{busyLogo ? 'Enviando…' : 'Arraste o arquivo aqui ou'}</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => (locked ? requireUpgrade() : inputRef.current?.click())}
+                  disabled={busyLogo}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+                >
+                  {busyLogo ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
+                  {logoUrl ? 'Trocar logo' : 'Escolher arquivo'}
+                </button>
+                {logoUrl && (
+                  <button
+                    type="button"
+                    onClick={removeLogo}
+                    disabled={busyLogo}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-[10px] px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger-ink disabled:opacity-50"
+                  >
+                    <Trash2 className="size-4" /> Remover
+                  </button>
+                )}
+              </div>
+            </div>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/svg+xml,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                onFileSelected(e.target.files?.[0])
+                e.target.value = ''
+              }}
+            />
           </div>
-          {logoUrl && (
-            <button
-              type="button"
-              onClick={removeLogo}
-              disabled={busy}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
-            >
-              <Trash2 className="size-3.5" /> Remover
-            </button>
+          <ErrorLine message={logoError} />
+          {cropFile && (
+            <ImageCropModal
+              file={cropFile}
+              aspect={2.4}
+              shape="rect"
+              title="Ajustar logo"
+              outputWidth={800}
+              outputType="image/png"
+              onCancel={() => setCropFile(null)}
+              onConfirm={(cropped) => {
+                setCropFile(null)
+                void uploadLogo(cropped)
+              }}
+            />
           )}
-        </div>
+        </SettingsCard>
 
-        {/* Dropzone */}
-        <div
-          onDragOver={(e) => {
-            e.preventDefault()
-            if (!busy && !locked) setDragging(true)
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault()
-            setDragging(false)
-            if (!busy) onFileSelected(e.dataTransfer.files?.[0])
-          }}
-          onClick={() => {
-            if (locked) requireUpgrade()
-            else if (!busy) inputRef.current?.click()
-          }}
-          className={cn(
-            'mt-4 flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition-colors',
-            busy ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
-            fileError
-              ? 'border-destructive/60 bg-destructive/5'
-              : dragging
-                ? 'border-primary-ink bg-primary/10'
-                : 'border-primary-ink/50 bg-background hover:border-primary-ink hover:bg-primary/5',
-          )}
+        <SettingsCard
+          title="Nome e cores"
+          badge={proBadge}
+          footer={<SaveFooter dirty={dirty} busy={busySave} onSave={saveIdentity} hint="As cores valem para a tela do cliente, os links públicos e o seu painel." />}
         >
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/svg+xml,image/webp"
-            className="hidden"
-            onChange={(e) => {
-              onFileSelected(e.target.files?.[0])
-              e.target.value = ''
-            }}
-          />
-          <span className="grid size-12 place-items-center rounded-full bg-primary/15 text-primary-ink">
-            {busy ? <Loader2 className="size-6 animate-spin" /> : <ImagePlus className="size-6" />}
-          </span>
-          <p className="mt-2 text-sm font-medium text-foreground">
-            {busy ? 'Enviando…' : 'Arraste um logo ou clique para selecionar'}
-          </p>
-        </div>
-        {cropFile && (
-          <ImageCropModal
-            file={cropFile}
-            aspect={2.4}
-            shape="rect"
-            title="Ajustar logo"
-            outputWidth={800}
-            outputType="image/png"
-            onCancel={() => setCropFile(null)}
-            onConfirm={(cropped) => {
-              setCropFile(null)
-              void handleFile(cropped)
-            }}
-          />
-        )}
-        {fileError && (
-          <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
-            <AlertTriangle className="size-4" /> {fileError}
-          </p>
-        )}
-
-        {/* Nome da agência */}
-        <label className="mt-6 flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-foreground">Nome da agência</span>
-          <input
-            value={agencyName}
-            onChange={(e) => setAgencyName(e.target.value)}
-            placeholder="Ex: Estúdio Aurora"
-            className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
-          />
-        </label>
-
-        {/* Cores da marca — substituem a identidade Check na tela de aprovação, links públicos e no seu próprio painel. */}
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <BrandColorField
-            label="Cor primária"
-            hint="Botões de ação, links e ícones."
-            value={accentColor}
-            onChange={setAccentColor}
-            fallback={DEFAULT_PRIMARY_COLOR}
-          />
-          <BrandColorField
-            label="Cor secundária"
-            hint="Selos, painéis escuros e gráficos."
-            value={secondaryColor}
-            onChange={setSecondaryColor}
-            fallback={DEFAULT_SECONDARY_COLOR}
-          />
-        </div>
-        <div className="mt-4">
-          <BrandColorPreview
-            primary={colorOrNull(accentColor, DEFAULT_PRIMARY_COLOR)}
-            secondary={colorOrNull(secondaryColor, DEFAULT_SECONDARY_COLOR)}
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={saveAppearance}
-          disabled={busy}
-          className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
-        >
-          {busy && <Loader2 className="size-3.5 animate-spin" />}
-          Salvar
-        </button>
-
-        {error && (
-          <p className="mt-4 flex items-center gap-2 rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-sm text-destructive">
-            <AlertTriangle className="size-4 shrink-0" /> {error}
-          </p>
-        )}
-
-        {/* Confirmação */}
-        <AnimatePresence>
-          {saved && (
-            <motion.p
-              initial={{ y: -4 }}
-              animate={{ y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="mt-4 flex items-center gap-1.5 text-sm font-medium text-emerald-400"
-            >
-              <Check className="size-4" /> Alterações salvas
-            </motion.p>
-          )}
-        </AnimatePresence>
+          <div className="divide-y divide-border">
+            <SettingsRow label="Nome da agência" description="Aparece junto do logo e nos e-mails ao cliente." htmlFor="marca-nome">
+              <input
+                id="marca-nome"
+                value={agencyName}
+                onChange={(e) => setAgencyName(e.target.value)}
+                placeholder="Ex.: Estúdio Aurora"
+                maxLength={80}
+                className={settingsInputClass}
+              />
+            </SettingsRow>
+            <SettingsRow label="Cor primária" description="Botões, links e destaques. Cores muito claras ou escuras são ajustadas para continuar legíveis.">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap gap-2">
+                  {ACCENT_PRESETS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setAccentColor(c)}
+                      aria-label={`Usar a cor ${c}`}
+                      title={c === DEFAULT_ACCENT_COLOR ? 'Padrão do Check' : c}
+                      className={cn(
+                        'size-7 rounded-full border border-border transition-transform hover:scale-110',
+                        accentColor.toLowerCase() === c && 'ring-2 ring-foreground ring-offset-2 ring-offset-card',
+                      )}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={validHex ? accentColor : DEFAULT_ACCENT_COLOR}
+                    onChange={(e) => setAccentColor(e.target.value)}
+                    aria-label="Escolher outra cor"
+                    className="size-10 shrink-0 cursor-pointer rounded-[10px] border border-border bg-card p-1"
+                  />
+                  <input
+                    value={accentColor}
+                    onChange={(e) => setAccentColor(e.target.value.trim())}
+                    aria-label="Código da cor"
+                    aria-invalid={!validHex}
+                    maxLength={7}
+                    className={cn(settingsInputClass, 'w-28 font-mono uppercase')}
+                  />
+                  {accentColor !== DEFAULT_ACCENT_COLOR && (
+                    <button
+                      type="button"
+                      onClick={() => setAccentColor(DEFAULT_ACCENT_COLOR)}
+                      className="rounded-[8px] px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    >
+                      Usar padrão
+                    </button>
+                  )}
+                </div>
+              </div>
+            </SettingsRow>
+            <SettingsRow label="Cor secundária" description="Selos, painéis escuros, gráficos e itens selecionados.">
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={validSecondary ? secondaryColor : DEFAULT_SECONDARY_COLOR}
+                  onChange={(e) => setSecondaryColor(e.target.value)}
+                  aria-label="Escolher a cor secundária"
+                  className="size-10 shrink-0 cursor-pointer rounded-[10px] border border-border bg-card p-1"
+                />
+                <input
+                  value={secondaryColor}
+                  onChange={(e) => setSecondaryColor(e.target.value.trim())}
+                  aria-label="Código da cor secundária"
+                  aria-invalid={!validSecondary}
+                  maxLength={7}
+                  className={cn(settingsInputClass, 'w-28 font-mono uppercase')}
+                />
+                {secondaryColor.toLowerCase() !== DEFAULT_SECONDARY_COLOR && (
+                  <button
+                    type="button"
+                    onClick={() => setSecondaryColor(DEFAULT_SECONDARY_COLOR)}
+                    className="rounded-[8px] px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  >
+                    Usar padrão
+                  </button>
+                )}
+              </div>
+            </SettingsRow>
+          </div>
+          <ErrorLine message={error} />
+        </SettingsCard>
       </div>
-    </FadeIn>
+
+      <BrandPreview
+        logoUrl={logoUrl}
+        agencyName={agencyName.trim()}
+        accentColor={validHex ? nextAccentOf() : null}
+        secondaryColor={validSecondary ? nextSecondaryOf() : null}
+      />
+    </div>
+  )
+}
+
+/** Prévia da tela de aprovação, nos dois temas, com a mesma regra de contraste da tela real. */
+function BrandPreview({
+  logoUrl,
+  agencyName,
+  accentColor,
+  secondaryColor,
+}: {
+  logoUrl: string | null
+  agencyName: string
+  accentColor: string | null
+  secondaryColor: string | null
+}) {
+  const [dark, setDark] = useState(false)
+  return (
+    <aside className="lg:sticky lg:top-6">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prévia do cliente</p>
+        <div className="flex rounded-[8px] border border-border p-0.5" role="group" aria-label="Tema da prévia">
+          {[
+            { v: false, icon: Sun, label: 'Claro' },
+            { v: true, icon: Moon, label: 'Escuro' },
+          ].map((o) => (
+            <button
+              key={o.label}
+              type="button"
+              onClick={() => setDark(o.v)}
+              aria-pressed={dark === o.v}
+              className={cn(
+                'inline-flex h-7 items-center gap-1 rounded-[6px] px-2 text-xs font-medium transition-colors',
+                dark === o.v ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <o.icon className="size-3.5" />
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div
+        className={cn(dark ? 'dark' : 'theme-light', 'overflow-hidden rounded-[14px] border border-border bg-background text-foreground shadow-sm')}
+        style={brandAccentStyle(accentColor, { dark, secondary: secondaryColor })}
+        aria-label="Prévia da tela de aprovação"
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+          {logoUrl ? (
+            <span className="relative h-7 w-28">
+              <Image src={logoUrl} alt="" fill className="object-contain object-left" sizes="112px" unoptimized />
+            </span>
+          ) : (
+            <span className="font-display text-base font-bold">{agencyName || 'check'}</span>
+          )}
+          <span className="truncate text-xs text-muted-foreground">{agencyName || 'Sua agência'}</span>
+        </div>
+        <div className="p-4">
+          <div className="aspect-video w-full rounded-[10px] bg-[linear-gradient(135deg,#3a3f3c,#151816)]" />
+          <span className="mt-3 inline-flex rounded-full bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-foreground">Projeto · Campanha</span>
+          <p className="mt-2 font-display text-sm font-bold">Reel lançamento · versão 2</p>
+          <p className="text-xs text-muted-foreground">Enviado hoje para sua aprovação</p>
+          <div className="mt-3 flex items-center gap-1" aria-hidden="true">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star key={i} className={cn('size-4', i < 4 ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
+            ))}
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <span className="inline-flex h-9 items-center justify-center rounded-[10px] border border-border text-xs font-semibold">Pedir ajuste</span>
+            <span className="inline-flex h-9 items-center justify-center gap-1 rounded-[10px] bg-primary text-xs font-semibold text-primary-foreground">
+              <Check className="size-3.5" /> Aprovar
+            </span>
+          </div>
+          <p className="mt-3 text-center text-xs">
+            <span className="font-medium text-primary-ink underline-offset-2">Ver comentários (3)</span>
+          </p>
+        </div>
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">Representação simplificada. Use “Escuro” para conferir o contraste das duas versões.</p>
+    </aside>
   )
 }

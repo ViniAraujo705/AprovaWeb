@@ -86,6 +86,26 @@ export function validateImageFile(file: File): string | null {
   return null
 }
 
+/** Teto do arquivo ORIGINAL que entra no recorte (o canvas reduz bem antes de subir). */
+export const CROP_SOURCE_MAX_BYTES = 25 * 1024 * 1024 // 25MB
+
+/**
+ * Validação antes do recorte (logo/foto de perfil): o limite de 2MB vale para o
+ * arquivo que sobe, e o recorte já gera uma imagem pequena (480-800px). Aqui só
+ * o tipo e um teto para não travar o navegador. SVG não passa pelo recorte,
+ * então continua com o limite final.
+ */
+export function validateImageBeforeCrop(file: File): string | null {
+  const isSvg = file.type === 'image/svg+xml' || /\.svg$/i.test(file.name)
+  if (isSvg) return validateImageFile(file)
+  const typeOk =
+    LOGO_ACCEPTED_TYPES.includes(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name)
+  if (!typeOk) return 'Formato inválido. Envie um PNG, JPG, SVG ou WEBP.'
+  if (file.size === 0) return 'O arquivo está vazio.'
+  if (file.size > CROP_SOURCE_MAX_BYTES) return 'Imagem muito grande. O limite é 25MB.'
+  return null
+}
+
 // Fotos de portfólio (capa de álbum, item de álbum): fotografia de verdade
 // (câmera/celular), precisa de bem mais margem que o logo da agência.
 export const PHOTO_ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp']
@@ -118,6 +138,40 @@ export const CLIENT_FILE_ACCEPTED_TYPES = [
   'image/jpeg',
   'image/webp',
 ]
+/** Anexos de card do Kanban (mesma lista do backend, `ALLOWED_ANEXO_TYPES`). */
+export const ATTACHMENT_ACCEPTED_TYPES = [
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'image/svg+xml',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain',
+  'text/csv',
+  'application/zip',
+  'video/mp4',
+  'video/quicktime',
+  'audio/mpeg',
+  'audio/mp4',
+]
+export const ATTACHMENT_MAX_BYTES = 100 * 1024 * 1024 // 100MB
+/** Imagens que podem virar capa do card. */
+export const COVER_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+
+export function validateAttachmentFile(file: File): string | null {
+  if (!ATTACHMENT_ACCEPTED_TYPES.includes(resolveContentType(file))) {
+    return `"${file.name}": tipo não aceito. Use PDF, imagem, Office, texto, ZIP, MP4/MOV ou MP3.`
+  }
+  if (file.size > ATTACHMENT_MAX_BYTES) return `"${file.name}" passa de 100 MB.`
+  return null
+}
+
 export const CLIENT_FILE_MAX_BYTES = 25 * 1024 * 1024 // 25MB
 
 /** Valida um arquivo operacional do cliente antes de qualquer chamada de rede. */
