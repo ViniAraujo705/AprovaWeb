@@ -11,7 +11,7 @@ export function BackButton({ className }: { className?: string }) {
     if (typeof window !== 'undefined' && window.history.length > 1) {
       router.back()
     } else {
-      router.push('/')
+      router.push('/dashboard')
     }
   }
 

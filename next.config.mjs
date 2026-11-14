@@ -1,6 +1,30 @@
+import os from 'node:os'
+
+/**
+ * IPs da máquina na rede local, para abrir o app no celular durante o
+ * desenvolvimento (`next dev -H 0.0.0.0` + `http://<ip>:3000`).
+ *
+ * O Next 16 bloqueia por padrão os recursos de `/_next` quando a origem não é
+ * `localhost`: o HTML chega, mas nenhum chunk de JS carrega — a página fica
+ * branca com só os pedaços estáticos na tela, sem erro nenhum no aparelho (o
+ * aviso sai no terminal do dev server). Calcular a lista aqui, em vez de fixar
+ * um IP, evita ter que mexer neste arquivo toda vez que a máquina troca de
+ * rede (Wi-Fi ↔ hotspot dão faixas diferentes).
+ *
+ * Só vale em desenvolvimento — `allowedDevOrigins` é ignorado no build de
+ * produção.
+ */
+function lanOrigins() {
+  return Object.values(os.networkInterfaces())
+    .flat()
+    .filter((iface) => iface && iface.family === 'IPv4' && !iface.internal)
+    .map((iface) => iface.address)
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   devIndicators: false,
+  allowedDevOrigins: lanOrigins(),
   typescript: {
     ignoreBuildErrors: true,
   },

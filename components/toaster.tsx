@@ -61,7 +61,7 @@ export function Toaster() {
   return (
     <Toast.Provider toastManager={toastManager}>
       <Toast.Portal>
-        <Toast.Viewport className="fixed bottom-4 right-4 z-50 flex h-0 w-[min(23rem,calc(100vw-2rem))] flex-col items-end sm:bottom-6 sm:right-6">
+        <Toast.Viewport className="fixed bottom-4 right-4 z-50 flex h-0 w-[min(23rem,calc(100vw-2rem))] flex-col items-end sm:bottom-6 sm:right-6 in-data-jotinha:bottom-22 sm:in-data-jotinha:bottom-24">
           <ToastList />
         </Toast.Viewport>
       </Toast.Portal>

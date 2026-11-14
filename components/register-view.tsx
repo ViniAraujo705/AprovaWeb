@@ -10,6 +10,7 @@ import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { CheckLogo } from '@/components/page-header'
 import { AuthLayout } from '@/components/auth-layout'
+import { suggestEmail } from '@/lib/email-typo'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -24,6 +25,17 @@ export function RegisterView() {
   const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string }>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // Sugestão de correção do domínio ("gmail.com.br" -> "gmail.com").
+  // `keptEmail` guarda o e-mail que a pessoa confirmou estar certo.
+  const [emailSuggestion, setEmailSuggestion] = useState<string | null>(null)
+  const [keptEmail, setKeptEmail] = useState<string | null>(null)
+
+  function checkEmailTypo() {
+    const value = email.trim()
+    const suggestion = value === keptEmail ? null : suggestEmail(value)
+    setEmailSuggestion(suggestion)
+    return suggestion
+  }
 
   function validate() {
     const next: { name?: string; email?: string; password?: string } = {}
@@ -40,6 +52,8 @@ export function RegisterView() {
     e.preventDefault()
     setFormError(null)
     if (!validate()) return
+    // Segura o envio uma vez para a pessoa ver a sugestão antes de criar a conta.
+    if (checkEmailTypo()) return
     setSubmitting(true)
     try {
       await register(name.trim(), email.trim(), password)
@@ -102,7 +116,11 @@ export function RegisterView() {
                 inputMode="email"
                 autoComplete="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  setEmailSuggestion(null)
+                }}
+                onBlur={checkEmailTypo}
                 aria-invalid={!!errors.email}
                 placeholder="voce@agencia.com"
                 className={cn(
@@ -112,6 +130,38 @@ export function RegisterView() {
               />
             </div>
             {errors.email && <span className="text-xs text-destructive">{errors.email}</span>}
+            {!errors.email && emailSuggestion && (
+              <div
+                role="status"
+                className="rounded-xl border border-warning-border bg-warning-soft px-3 py-2.5 text-sm text-warning-ink"
+              >
+                <p>
+                  Você quis dizer <strong className="break-all">{emailSuggestion}</strong>?
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail(emailSuggestion)
+                      setEmailSuggestion(null)
+                    }}
+                    className="inline-flex min-h-9 items-center rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90"
+                  >
+                    Sim, corrigir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setKeptEmail(email.trim())
+                      setEmailSuggestion(null)
+                    }}
+                    className="inline-flex min-h-9 items-center rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-muted"
+                  >
+                    Não, está certo
+                  </button>
+                </div>
+              </div>
+            )}
           </label>
 
           <label className="flex flex-col gap-1.5">

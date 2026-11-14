@@ -98,7 +98,7 @@ export function NotificationPopups() {
   return createPortal(
     <div
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-4 bottom-4 z-[60] flex flex-col items-end gap-2 sm:inset-x-auto sm:right-6 sm:bottom-6 print:hidden"
+      className="pointer-events-none fixed inset-x-4 bottom-22 z-[60] flex flex-col items-end gap-2 sm:inset-x-auto sm:right-6 sm:bottom-24 print:hidden"
     >
       <AnimatePresence initial={false}>
         {visible.map((n) => {
