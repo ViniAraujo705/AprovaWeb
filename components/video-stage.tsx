@@ -78,6 +78,16 @@ interface VideoStageProps {
   clientPhotoUrl?: string | null
   /** Legenda do cliente (configurada pelo owner), exibida no chrome do Reels. Sem ela, cai no texto padrão. */
   clientDescription?: string | null
+  /**
+   * Aba Reels em tela focada no celular: quem usa o componente já enxugou a
+   * página em volta (cabeçalho, título, avisos), então a moldura pode usar a
+   * altura que sobrou e a navegação da fila vira um paginador compacto ao lado
+   * das abas, no lugar dos dois botões largos. Só chega como `true` no celular
+   * — ver `ClientReview` —, então o desktop nunca entra por aqui.
+   */
+  reelsFocus?: boolean
+  /** Posição na fila (base 0) e total, para o paginador do modo focado. */
+  queuePosition?: { index: number; total: number }
 }
 
 export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function VideoStage(
@@ -94,6 +104,8 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
     onTabChange,
     clientPhotoUrl,
     clientDescription,
+    reelsFocus = false,
+    queuePosition,
   },
   ref,
 ) {
@@ -633,13 +645,42 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
   return (
     <div className={className}>
       {/* Tabs */}
-      <div className="flex gap-2 px-4 lg:px-0">
+      <div className="flex items-center gap-2 px-4 lg:px-0">
         <TabButton active={tab === 'player'} onClick={() => setTab('player')}>
           Player
         </TabButton>
         <TabButton active={tab === 'reels'} onClick={switchToReels}>
-          Preview Reels
+          {reelsFocus ? 'Reels' : 'Preview Reels'}
         </TabButton>
+        {/*
+          Paginador da fila no modo focado: ocupa a mesma linha das abas, em vez
+          dos dois botões largos que empurravam o vídeo tela abaixo no celular.
+        */}
+        {reelsFocus && queuePosition && queuePosition.total > 1 && (
+          <div className="flex shrink-0 items-center rounded-lg bg-secondary">
+            <button
+              type="button"
+              onClick={goPrev}
+              disabled={!hasPrev}
+              aria-label="Vídeo anterior"
+              className="grid size-11 place-items-center rounded-l-lg text-foreground transition-colors hover:bg-secondary/70 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <span className="min-w-9 text-center text-xs font-medium tabular-nums text-muted-foreground">
+              {queuePosition.index + 1}/{queuePosition.total}
+            </span>
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={!hasNext}
+              aria-label="Próximo vídeo"
+              className="grid size-11 place-items-center rounded-r-lg text-foreground transition-colors hover:bg-secondary/70 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/*
@@ -654,6 +695,17 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
             // `w-full` sempre: sem isso, a caixa interna perde a referência de
             // largura e a aba Player colapsa. No Reels o max-width mantém uma
             // prévia confortável, sem simular o corpo de um aparelho.
+            //
+            // Modo focado (só celular): a página em volta já foi enxugada, então
+            // a moldura toma toda a altura que sobrou. 14rem é o que fica
+            // reservado para cabeçalho compacto + abas + aviso + barra de
+            // Aprovar/Pedir ajuste; × 0,5625 converte essa altura na largura
+            // que mantém o 9:16 exato.
+            style={
+              reelsFocus && tab === 'reels' && !reelsLandscape
+                ? { maxWidth: 'min(100%, calc((100svh - 14rem) * 0.5625))' }
+                : undefined
+            }
             className={cn(
               'w-full',
               tab === 'reels' &&
@@ -661,7 +713,15 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
                   'relative mx-auto',
                   reelsLandscape
                     ? 'max-w-[560px] lg:max-w-[520px]'
-                    : 'max-w-[360px] lg:max-w-[300px]',
+                    : // No celular a altura da tela é o limite real, não a
+                      // largura: como a moldura é 9:16 cravado (ver spacer
+                      // abaixo), quem precisa ceder é a LARGURA. 39.375svh =
+                      // 70svh ÷ 1,7778, ou seja, a prévia nunca passa de 70%
+                      // da tela de altura e ainda assim mostra o quadro
+                      // inteiro. Antes a largura ia a 360px e a altura era
+                      // cortada em 58svh, o que deformava a caixa e fazia o
+                      // `object-cover` comer o topo e o rodapé do reel.
+                      'max-w-[min(360px,39.375svh)] lg:max-w-[300px]',
                 ),
             )}
           >
@@ -715,15 +775,18 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
             */}
             <div
               className={cn(
-                // No celular, um Reels em proporção de aparelho ocupava quase
-                // duas telas inteiras dentro da página. O limite em 58svh deixa
-                // parte da página acessível para o usuário continuar rolando;
-                // no desktop o mockup mantém a altura real do iPhone.
+                // No celular a moldura é 9:16 exato — a mesma proporção que o
+                // Instagram usa no Reels, então o que o cliente vê aqui é o
+                // enquadramento real da peça, sem corte. O tamanho da prévia é
+                // controlado pela LARGURA máxima da moldura (ver max-w acima),
+                // que já embute o teto de altura em svh; um cap de altura aqui
+                // achataria a caixa e o `object-cover` comeria topo e rodapé.
+                // No desktop o mockup mantém a altura real do iPhone.
                 tab === 'player'
                   ? undefined
                   : reelsLandscape
                     ? 'pt-[46.1539%]'
-                    : 'pt-[min(177.7778%,58svh)] lg:pt-[216.6667%]',
+                    : 'pt-[177.7778%] lg:pt-[216.6667%]',
               )}
             />
 
@@ -799,18 +862,49 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
 
               {/* Chrome do Reels (aparece só nessa aba, com fade) */}
               <AnimatePresence>
-                {tab === 'reels' && !waitingForFile && (
+                {/*
+                  No CELULAR, peça horizontal não leva moldura de reel: a caixa
+                  fica baixa e larga, então a coluna de ícones saía cortada pelo
+                  topo e a legenda era atropelada — fora que imita um formato que
+                  não é o do vídeo. Sobra o vídeo, o som e o selo "Prévia
+                  horizontal". No computador a moldura de aparelho é alta e tem
+                  espaço de sobra, então nada muda lá.
+                */}
+                {tab === 'reels' && !waitingForFile && !(reelsLandscape && !isDesktop) && (
                   <ReelsChrome
                     client={video.clientName}
                     photoUrl={clientPhotoUrl}
                     description={clientDescription}
+                    compact
                   />
                 )}
               </AnimatePresence>
+              {/*
+                `left-14` só no celular: o selo nasceu no mesmo canto do botão
+                de som e ficava escondido atrás dele. No computador segue em
+                `left-3`, exatamente como estava — a mesma sobreposição existe
+                lá, mas mexer nisso é mudança de desktop, para outra hora.
+              */}
               {tab === 'reels' && reelsLandscape && !waitingForFile && (
-                <span className="pointer-events-none absolute left-3 top-3 z-10 rounded-full bg-black/55 px-2 py-1 text-[10px] font-medium text-white/85 backdrop-blur-sm">
+                <span className="pointer-events-none absolute left-14 top-3 z-10 rounded-full bg-black/55 px-2 py-1 text-[10px] font-medium text-white/85 backdrop-blur-sm lg:left-3">
                   Prévia horizontal
                 </span>
+              )}
+              {/*
+                Tela cheia de verdade — só no celular (no desktop a moldura já
+                mostra o reel inteiro). O toque na prévia continua abrindo a
+                tela cheia quando há fila de vídeos; com um vídeo só, este botão
+                é o único caminho, e a volta é o "<" do canto.
+              */}
+              {tab === 'reels' && !fullscreen && !waitingForFile && playbackUrl && (
+                <button
+                  type="button"
+                  onClick={() => setFullscreen(true)}
+                  aria-label="Ver em tela cheia"
+                  className="absolute right-3 top-3 z-20 grid size-9 place-items-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white lg:hidden"
+                >
+                  <Maximize className="size-4" />
+                </button>
               )}
               {tab === 'reels' && !waitingForFile && playbackUrl && (
                 <button
@@ -937,8 +1031,10 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
           Botões explícitos de navegação — alternativa ao swipe, disponível nas
           duas abas (o swipe por arrastar só existe na aba Reels). Sem isso,
           quem fica na aba Player não tinha nenhum jeito de trocar de vídeo.
+          No modo focado eles somem: a mesma navegação já está no paginador ao
+          lado das abas, e aqui embaixo só roubavam altura do vídeo.
         */}
-        {(hasNext || hasPrev) && (
+        {(hasNext || hasPrev) && !reelsFocus && (
           <div className="mt-3 grid grid-cols-2 gap-2 px-4 lg:px-0">
             <button
               type="button"
@@ -1099,11 +1195,14 @@ export const VideoStage = forwardRef<VideoStageHandle, VideoStageProps>(function
               </motion.div>
             </AnimatePresence>
 
-            <ReelsChrome
-              client={video.clientName}
-              photoUrl={clientPhotoUrl}
-              description={clientDescription}
-            />
+            {/* Mesma regra da prévia inline: sem moldura falsa em peça horizontal. */}
+            {!reelsLandscape && (
+              <ReelsChrome
+                client={video.clientName}
+                photoUrl={clientPhotoUrl}
+                description={clientDescription}
+              />
+            )}
 
             <button
               type="button"
@@ -1202,12 +1301,20 @@ function ReelsChrome({
   photoUrl,
   description,
   framed = false,
+  compact = false,
 }: {
   client: string
   photoUrl?: string | null
   description?: string | null
   /** Dentro da moldura de iPhone: desenha a Ilha Dinâmica. Na tela cheia real fica só uma pílula discreta, já que o aparelho tem a sua própria. */
   framed?: boolean
+  /**
+   * Prévia inline na moldura pequena do celular: a interface falsa (ícones,
+   * legenda, gradiente) encolhe para não cobrir o vídeo, que ali tem menos de
+   * metade da altura de uma tela de verdade. A partir do `lg` a moldura volta
+   * a ser o mockup grande, então as medidas originais voltam via `lg:`.
+   */
+  compact?: boolean
 }) {
   const handle = (client || 'cliente').toLowerCase().replace(/\s+/g, '')
   return (
@@ -1230,34 +1337,73 @@ function ReelsChrome({
       )}
       {/* Gradientes */}
       <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/60 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/80 to-transparent" />
+      <div
+        className={cn(
+          'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent',
+          compact ? 'h-28 lg:h-40' : 'h-40',
+        )}
+      />
 
       {/* Barra de ícones */}
-      <div className="absolute bottom-24 right-2 flex flex-col items-center gap-5 text-white">
-        <RailIcon icon={Heart} label="12,4 mil" />
-        <RailIcon icon={MessageCircle} label="318" />
-        <RailIcon icon={Send} label="204" />
-        <RailIcon icon={Bookmark} label="Salvar" />
-        <MoreHorizontal className="size-6" />
+      <div
+        className={cn(
+          'absolute right-2 flex flex-col items-center text-white',
+          compact ? 'bottom-[4.5rem] gap-3.5 lg:bottom-24 lg:gap-5' : 'bottom-24 gap-5',
+        )}
+      >
+        <RailIcon icon={Heart} label="12,4 mil" compact={compact} />
+        <RailIcon icon={MessageCircle} label="318" compact={compact} />
+        <RailIcon icon={Send} label="204" compact={compact} />
+        <RailIcon icon={Bookmark} label="Salvar" compact={compact} />
+        <MoreHorizontal className={cn(compact ? 'size-5 lg:size-6' : 'size-6')} />
       </div>
 
       {/* Legenda */}
-      <div className="absolute inset-x-0 bottom-0 p-3 pr-14 text-white">
+      <div
+        className={cn(
+          'absolute inset-x-0 bottom-0 text-white',
+          compact ? 'p-2.5 pr-12 lg:p-3 lg:pr-14' : 'p-3 pr-14',
+        )}
+      >
         <div className="flex items-center gap-2">
           {photoUrl ? (
-            <span className="relative size-8 shrink-0 overflow-hidden rounded-full">
+            <span
+              className={cn(
+                'relative shrink-0 overflow-hidden rounded-full',
+                compact ? 'size-7 lg:size-8' : 'size-8',
+              )}
+            >
               <Image src={photoUrl} alt="" fill className="object-cover" sizes="32px" unoptimized />
             </span>
           ) : (
-            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+            <span
+              className={cn(
+                'grid shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground',
+                compact ? 'size-7 lg:size-8' : 'size-8',
+              )}
+            >
               {(client || 'C').slice(0, 1)}
             </span>
           )}
-          <span className="text-sm font-semibold">@{handle}</span>
+          <span className={cn('font-semibold', compact ? 'text-xs lg:text-sm' : 'text-sm')}>
+            @{handle}
+          </span>
           <span className="rounded border border-white/50 px-1.5 py-0.5 text-[10px]">Seguir</span>
         </div>
-        <p className="mt-2 text-sm leading-snug">{description || 'Gostou do resultado?💛'}</p>
-        <div className="mt-2 flex items-center gap-1.5 text-xs">
+        <p
+          className={cn(
+            'leading-snug',
+            compact ? 'mt-1.5 line-clamp-2 text-xs lg:mt-2 lg:line-clamp-none lg:text-sm' : 'mt-2 text-sm',
+          )}
+        >
+          {description || 'Gostou do resultado?💛'}
+        </p>
+        <div
+          className={cn(
+            'flex items-center gap-1.5',
+            compact ? 'mt-1.5 text-[11px] lg:mt-2 lg:text-xs' : 'mt-2 text-xs',
+          )}
+        >
           <Music2 className="size-3.5" />
           <span className="truncate">Áudio original · {client}</span>
         </div>
@@ -1266,11 +1412,21 @@ function ReelsChrome({
   )
 }
 
-function RailIcon({ icon: Icon, label }: { icon: typeof Heart; label: string }) {
+function RailIcon({
+  icon: Icon,
+  label,
+  compact = false,
+}: {
+  icon: typeof Heart
+  label: string
+  compact?: boolean
+}) {
   return (
-    <div className="flex flex-col items-center gap-1">
-      <Icon className="size-7" />
-      <span className="text-[10px] font-medium">{label}</span>
+    <div className={cn('flex flex-col items-center', compact ? 'gap-0.5 lg:gap-1' : 'gap-1')}>
+      <Icon className={cn(compact ? 'size-5 lg:size-7' : 'size-7')} />
+      <span className={cn('font-medium', compact ? 'text-[9px] lg:text-[10px]' : 'text-[10px]')}>
+        {label}
+      </span>
     </div>
   )
 }

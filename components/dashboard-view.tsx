@@ -65,12 +65,23 @@ import { toast } from '@/lib/toast'
 import { Gesture } from '@/components/gestures'
 import { PageHeader } from '@/components/page-header'
 import { ClientAvatar } from '@/components/client-avatar'
+import { DeadlineBadge } from '@/components/deadline-badge'
+import {
+  FilterMenu,
+  SearchField,
+  StatusTabs,
+  ViewToggle,
+  useViewMode,
+  type TabItem,
+} from '@/components/collection-controls'
 
+// Ordem das abas segue o fluxo: o que espera o cliente, o que voltou pra
+// equipe, o que já foi aprovado e, por fim, tudo.
 const filters: { key: 'todos' | VideoStatus; label: string }[] = [
-  { key: 'todos', label: 'Todos' },
-  { key: 'pendente', label: 'Pendentes' },
+  { key: 'pendente', label: 'Aguardando cliente' },
+  { key: 'ajuste', label: 'Em ajustes' },
   { key: 'aprovado', label: 'Aprovados' },
-  { key: 'ajuste', label: 'Ajustes' },
+  { key: 'todos', label: 'Todos' },
 ]
 
 const ALL_CLIENTS = 'Todos os clientes'
@@ -121,8 +132,9 @@ export function DashboardView() {
   const { user } = useAuth()
   const isOwner = user?.teamRole === 'owner'
   const [client, setClient] = useState(ALL_CLIENTS)
-  const [status, setStatus] = useState<'todos' | VideoStatus>('todos')
+  const [status, setStatus] = useState<'todos' | VideoStatus>('pendente')
   const [search, setSearch] = useState('')
+  const [view, setView] = useViewMode('check:videos-visao')
 
   const { data, loading, error, refetch, setData } = useQuery<Video[]>(
     (signal) => videoService.list(undefined, signal),
@@ -240,6 +252,11 @@ export function DashboardView() {
       projects: Array.from(clientGroup.projects.values()),
     }))
   }, [filtered, projects.data])
+
+  const projectNameById = useMemo(
+    () => new Map((projects.data ?? []).map((p) => [p.id, p.name])),
+    [projects.data],
+  )
 
   const pending = videos.filter((v) => v.status === 'pendente').length
   const approved = videos.filter((v) => v.status === 'aprovado').length
@@ -392,59 +409,36 @@ export function DashboardView() {
       {!loading && !error && videos.length > 0 && <StageBreakdown videos={videos} />}
       {isOwner && !loading && !error && <TeamWorkloadPanel videos={videos} />}
 
-      {/* Filters */}
-      <div className="mt-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-          {filters.map((f) => {
-            const count = f.key === 'todos' ? videos.length : videos.filter((v) => v.status === f.key).length
-            const active = status === f.key
-            return (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => setStatus(f.key)}
-                className={cn(
-                  'inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors',
-                  active
-                    ? 'border-selected bg-selected font-semibold text-selected-foreground'
-                    : 'border-border bg-card text-foreground hover:border-primary-ink/40',
-                )}
-              >
-                {f.label}
-                <span
-                  className={cn(
-                    'inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold',
-                    active ? 'bg-selected-foreground/10 text-selected-foreground' : 'bg-secondary text-foreground',
-                  )}
-                >
-                  {count}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por arquivo..."
-              className="min-h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink sm:w-56"
-            />
-          </div>
-          <select
-            value={client}
-            onChange={(e) => setClient(e.target.value)}
-            className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary-ink"
-          >
-            {clientNames.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+      {/* Abas por status + busca, cliente e grade/lista (mesmo padrão de Projetos e Clientes) */}
+      <StatusTabs
+        className="mt-10"
+        value={status}
+        onChange={setStatus}
+        tabs={filters.map(
+          (f): TabItem<'todos' | VideoStatus> => ({
+            key: f.key,
+            label: f.label,
+            count: f.key === 'todos' ? videos.length : videos.filter((v) => v.status === f.key).length,
+          }),
+        )}
+      />
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <SearchField
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar vídeo"
+          className="w-full sm:w-auto sm:min-w-56 sm:max-w-sm sm:flex-1"
+        />
+        <FilterMenu
+          icon={<Users className="size-4" />}
+          label="Cliente"
+          value={client}
+          active={client !== ALL_CLIENTS}
+          options={clientNames.map((c) => ({ value: c, label: c }))}
+          onChange={setClient}
+        />
+        <div className="ml-auto">
+          <ViewToggle value={view} onChange={setView} />
         </div>
       </div>
 
@@ -529,6 +523,19 @@ export function DashboardView() {
               description="Nenhum vídeo corresponde aos filtros selecionados."
             />
           )
+        ) : view === 'grid' ? (
+          <StaggerList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filtered.map((v) => (
+              <VideoGridCard
+                key={v.id}
+                video={v}
+                projectName={v.projectId ? projectNameById.get(v.projectId) ?? null : null}
+                selected={selected.has(v.id)}
+                onToggleSelect={() => toggleSelected(v.id)}
+                onDeleted={() => handleRowDeleted(v.id)}
+              />
+            ))}
+          </StaggerList>
         ) : (
           <OrganizedVideoList
             groups={videoGroups}
@@ -689,6 +696,104 @@ function VideoStatusBadge({ status }: { status: VideoStatus }) {
       <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden="true" />
       {statusLabel[status]}
     </span>
+  )
+}
+
+/** Card da grade: miniatura grande, status por cima, título e cliente · projeto. */
+function VideoGridCard({
+  video: v,
+  projectName,
+  selected,
+  onToggleSelect,
+  onDeleted,
+}: {
+  video: Video
+  projectName: string | null
+  selected: boolean
+  onToggleSelect: () => void
+  onDeleted: () => void
+}) {
+  const { user } = useAuth()
+  const isOwner = user?.teamRole === 'owner'
+  return (
+    <motion.div
+      variants={staggerItem}
+      className={cn(
+        'group relative flex flex-col overflow-hidden rounded-[16px] border bg-card transition hover:-translate-y-0.5 hover:shadow-lg',
+        selected ? 'border-primary-ink ring-2 ring-primary/40' : 'border-border hover:border-foreground/20',
+      )}
+    >
+      <Link
+        href={`/videos/${v.id}/revisao`}
+        aria-label={`Abrir revisão interna de ${v.title}`}
+        className="absolute inset-0 z-[1]"
+      />
+      <div className="relative aspect-video w-full overflow-hidden bg-secondary">
+        {v.posterUrl ? (
+          <Image
+            src={v.posterUrl}
+            alt=""
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            unoptimized
+          />
+        ) : (
+          <span className="grid h-full w-full place-items-center text-muted-foreground/60">
+            <Film className="size-7" />
+          </span>
+        )}
+        <span className="pointer-events-none absolute inset-0 grid place-items-center opacity-0 transition-opacity group-hover:opacity-100">
+          <span className="grid size-11 place-items-center rounded-full bg-black/50 text-white backdrop-blur">
+            <Play className="size-5 fill-white" />
+          </span>
+        </span>
+        {/* Seleção para ações em lote: visível ao passar o mouse ou quando marcado. */}
+        <label
+          className={cn(
+            'absolute left-2.5 top-2.5 z-[2] grid size-7 cursor-pointer place-items-center rounded-[8px] bg-black/45 backdrop-blur transition-opacity',
+            selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100',
+          )}
+        >
+          <input
+            type="checkbox"
+            aria-label={`Selecionar ${v.title}`}
+            checked={selected}
+            onChange={onToggleSelect}
+            className="size-4 cursor-pointer accent-primary-ink"
+          />
+        </label>
+        <span className="absolute right-2.5 top-2.5">
+          <VideoStatusBadge status={v.status} />
+        </span>
+        <span className="absolute bottom-2 right-2 rounded-[6px] bg-black/70 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white">
+          {formatDuration(v.duration)}
+        </span>
+      </div>
+      <div className="flex flex-1 flex-col gap-1 p-4 pr-3">
+        <div className="flex items-start gap-2">
+          <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground" title={v.title}>
+            {v.title}
+          </h3>
+          <div className="relative z-[2] -my-1.5 shrink-0">
+            <RowActionsMenu video={v} isOwner={isOwner} onDeleted={onDeleted} />
+          </div>
+        </div>
+        <p className="truncate text-xs text-muted-foreground" title={[v.clientName, projectName].filter(Boolean).join(' · ')}>
+          {[v.clientName || 'Sem cliente', projectName].filter(Boolean).join(' · ')}
+        </p>
+        <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+          <span className={cn('inline-flex items-center gap-1', v.commentsCount > 0 && 'font-medium text-foreground')}>
+            <MessageSquare className="size-3.5" fill={v.commentsCount > 0 ? 'currentColor' : 'none'} />
+            {v.commentsCount}
+          </span>
+          <span className="truncate">{formatSentAtCompact(v.createdAt)}</span>
+          {v.deadline && v.status !== 'aprovado' && (
+            <DeadlineBadge deadline={v.deadline} className="ml-auto whitespace-nowrap !px-2 !py-0.5 !text-[11px]" />
+          )}
+        </div>
+      </div>
+    </motion.div>
   )
 }
 

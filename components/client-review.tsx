@@ -93,6 +93,29 @@ export function ClientReview({
   // Aba ativa do VideoStage: na aba Reels o cliente só assiste — sem
   // comentário nem nota, como um feed do Instagram de verdade.
   const [previewTab, setPreviewTab] = useState<'player' | 'reels'>('player')
+  /**
+   * Celular na aba Reels = tela focada só no vídeo.
+   *
+   * Antes a prévia dividia a tela com cabeçalho, título grande, dois botões de
+   * navegação, um parágrafo de aviso e uma caixa tracejada — sobrava menos de
+   * um quarto do celular pro vídeo que o cliente precisa aprovar. Aqui a
+   * página em volta encolhe (cabeçalho compacto com título + baixar, aviso de
+   * uma linha) e o vídeo fica com o resto.
+   *
+   * Vale só abaixo do `lg`; no desktop a tela segue exatamente como era. Começa
+   * `false` no servidor sem risco de divergir na hidratação, porque a aba
+   * inicial é sempre "player" — ou seja, `reelsFocus` só pode virar `true`
+   * depois de um toque do usuário, já no cliente.
+   */
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023px)')
+    setIsMobile(mq.matches)
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  const reelsFocus = previewTab === 'reels' && isMobile
 
   const [current, setCurrent] = useState(0)
 
@@ -100,8 +123,22 @@ export function ClientReview({
   const [draft, setDraft] = useState('')
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null)
-  const [authorName, setAuthorName] = useState(() => readStoredClientName())
-  const [showOnboarding, setShowOnboarding] = useState(() => !readOnboardingSeen())
+  /**
+   * Os dois valores abaixo moram no localStorage, que só existe no navegador.
+   * Lê-los já no primeiro render fazia o HTML do servidor (nome vazio, card de
+   * instruções escondido) divergir do primeiro render do cliente (nome salvo,
+   * card à mostra): o React acusava "hydration failed" e jogava fora a árvore
+   * inteira pra refazer no cliente — justamente na tela do cliente, no celular.
+   * Começar igual ao servidor e preencher num efeito, depois de montar, elimina
+   * a divergência; o card de instruções ainda entra com a animação do
+   * AnimatePresence, então visualmente nada muda.
+   */
+  const [authorName, setAuthorName] = useState('')
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  useEffect(() => {
+    setAuthorName(readStoredClientName())
+    setShowOnboarding(!readOnboardingSeen())
+  }, [])
 
   function dismissOnboarding() {
     setShowOnboarding(false)
@@ -509,35 +546,121 @@ export function ClientReview({
     }
   }
 
+  /**
+   * Menu "Baixar" (arquivo original ou MP4 compatível). Uma função, e não dois
+   * blocos iguais no JSX, porque ele aparece em dois lugares que nunca
+   * coexistem: ao lado do título e, no modo focado do celular, dentro do
+   * cabeçalho compacto — ali só como ícone, pra caber na mesma linha do título.
+   * Como só um deles é renderizado por vez, `downloadMenuRef` (o clique-fora
+   * que fecha o menu) continua apontando pro botão visível.
+   */
+  function renderDownloadMenu(compact = false) {
+    if (!video.originalUrl && !video.url) return null
+    return (
+      <div ref={downloadMenuRef} className="relative shrink-0">
+        <button
+          type="button"
+          onClick={() => setDownloadMenuOpen((open) => !open)}
+          disabled={downloading}
+          aria-haspopup="menu"
+          aria-expanded={downloadMenuOpen}
+          aria-label={compact ? 'Baixar vídeo' : undefined}
+          className={cn(
+            'inline-flex shrink-0 items-center rounded-lg bg-secondary font-medium text-foreground hover:bg-secondary/70 disabled:cursor-wait disabled:opacity-60',
+            compact
+              ? 'size-10 justify-center'
+              : 'min-h-9 gap-1.5 px-3 text-xs',
+          )}
+        >
+          {downloading ? (
+            <Loader2 className={cn('animate-spin', compact ? 'size-4' : 'size-3.5')} />
+          ) : (
+            <Download className={cn(compact ? 'size-4' : 'size-3.5')} />
+          )}
+          {!compact && (downloading ? 'Preparando…' : 'Baixar')}
+          {!compact && !downloading && <ChevronDown className="size-3.5" />}
+        </button>
+        {downloadMenuOpen && (
+          <div
+            role="menu"
+            className="absolute right-0 top-full z-30 mt-2 w-72 rounded-xl border border-border bg-popover p-1 text-left shadow-xl"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={downloadVideo}
+              className="w-full rounded-lg px-3 py-2.5 text-left hover:bg-secondary/70"
+            >
+              <span className="block text-sm font-medium text-foreground">Arquivo original</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Qualidade máxima, do jeito que a agência entregou.
+              </span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={downloadOptimized}
+              className="w-full rounded-lg px-3 py-2.5 text-left hover:bg-secondary/70"
+            >
+              <span className="block text-sm font-medium text-foreground">MP4 compatível</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Menor e abre em qualquer celular — no Android o original pode não aparecer na
+                Galeria.
+              </span>
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen" style={brandAccent}>
-      {/* Top bar — logo da agência (branding) com fallback pro logo do sistema */}
-      <motion.header
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
-        className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/90 px-4 py-4 backdrop-blur sm:px-8"
-      >
-        <AgencyLogo branding={data.branding} />
-        <div className="flex shrink-0 items-center gap-2">
-          {data.branding?.agencyName && (
-            <span className="hidden truncate text-sm text-muted-foreground md:inline">
-              Enviado por <span className="font-semibold text-foreground">{data.branding.agencyName}</span>
+      {/*
+        Topo em duas versões. Normal: logo da agência + cliente + tema. No modo
+        focado do celular ele vira uma linha só — marca, título do vídeo,
+        cliente e o botão de baixar em ícone —, devolvendo à prévia a altura que
+        o cabeçalho antigo, o título grande e o selo "para aprovação" ocupavam.
+      */}
+      {reelsFocus ? (
+        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-background/90 px-4 py-2.5 backdrop-blur">
+          <AgencyLogo branding={data.branding} size="icon" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold leading-tight">{video.title}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {video.clientName || 'Cliente'} · para aprovação
+            </p>
+          </div>
+          {renderDownloadMenu(true)}
+        </header>
+      ) : (
+        <motion.header
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/90 px-4 py-4 backdrop-blur sm:px-8"
+        >
+          <AgencyLogo branding={data.branding} />
+          <div className="flex shrink-0 items-center gap-2">
+            {data.branding?.agencyName && (
+              <span className="hidden truncate text-sm text-muted-foreground md:inline">
+                Enviado por <span className="font-semibold text-foreground">{data.branding.agencyName}</span>
+              </span>
+            )}
+            <span
+              className="min-w-0 shrink truncate rounded-full bg-accent px-3.5 py-1.5 text-sm font-medium text-accent-foreground"
+              title={video.clientName || 'Cliente'}
+            >
+              {video.clientName || 'Cliente'}
             </span>
-          )}
-          <span
-            className="min-w-0 shrink truncate rounded-full bg-accent px-3.5 py-1.5 text-sm font-medium text-accent-foreground"
-            title={video.clientName || 'Cliente'}
-          >
-            {video.clientName || 'Cliente'}
-          </span>
-          <ThemeToggle />
-        </div>
-      </motion.header>
+            <ThemeToggle />
+          </div>
+        </motion.header>
+      )}
 
       {/* Instruções rápidas de como usar a tela — some após a primeira dispensa. */}
       <AnimatePresence>
-        {showOnboarding && (
+        {showOnboarding && !reelsFocus && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -571,75 +694,25 @@ export function ClientReview({
       <FadeIn className="mx-auto max-w-6xl lg:grid lg:grid-cols-[1fr_400px] lg:gap-6 lg:px-6 lg:py-6">
         {/* LEFT: player / reels */}
         <div className="lg:min-w-0">
-          <div className="flex items-start justify-between gap-3 px-4 pt-4 lg:px-0">
-            <div className="min-w-0">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                {video.type} · para aprovação
-              </p>
-              <VideoTitleField
-                title={video.title}
-                onSave={async (title) => {
-                  const updated = await publicService.updateTitle(activeLink, title)
-                  setData((prev) => ({ ...prev, video: { ...prev.video, title: updated.title } }))
-                }}
-                className="mt-1 font-display text-3xl leading-tight sm:text-4xl"
-              />
-            </div>
-            {(video.originalUrl || video.url) && (
-              <div ref={downloadMenuRef} className="relative shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setDownloadMenuOpen((open) => !open)}
-                  disabled={downloading}
-                  aria-haspopup="menu"
-                  aria-expanded={downloadMenuOpen}
-                  className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:cursor-wait disabled:opacity-60"
-                >
-                  {downloading ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <Download className="size-3.5" />
-                  )}
-                  {downloading ? 'Preparando…' : 'Baixar'}
-                  {!downloading && <ChevronDown className="size-3.5" />}
-                </button>
-                {downloadMenuOpen && (
-                  <div
-                    role="menu"
-                    className="absolute right-0 top-full z-30 mt-2 w-72 rounded-xl border border-border bg-popover p-1 text-left shadow-xl"
-                  >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={downloadVideo}
-                      className="w-full rounded-lg px-3 py-2.5 text-left hover:bg-secondary/70"
-                    >
-                      <span className="block text-sm font-medium text-foreground">
-                        Arquivo original
-                      </span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
-                        Qualidade máxima, do jeito que a agência entregou.
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={downloadOptimized}
-                      className="w-full rounded-lg px-3 py-2.5 text-left hover:bg-secondary/70"
-                    >
-                      <span className="block text-sm font-medium text-foreground">
-                        MP4 compatível
-                      </span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
-                        Menor e abre em qualquer celular — no Android o original
-                        pode não aparecer na Galeria.
-                      </span>
-                    </button>
-                  </div>
-                )}
+          {/* Título e baixar — no modo focado migram pro cabeçalho compacto. */}
+          {!reelsFocus && (
+            <div className="flex items-start justify-between gap-3 px-4 pt-4 lg:px-0">
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {video.type} · para aprovação
+                </p>
+                <VideoTitleField
+                  title={video.title}
+                  onSave={async (title) => {
+                    const updated = await publicService.updateTitle(activeLink, title)
+                    setData((prev) => ({ ...prev, video: { ...prev.video, title: updated.title } }))
+                  }}
+                  className="mt-1 font-display text-3xl leading-tight sm:text-4xl"
+                />
               </div>
-            )}
-          </div>
+              {renderDownloadMenu()}
+            </div>
+          )}
 
           <div className="relative">
             <VideoStage
@@ -647,7 +720,7 @@ export function ClientReview({
               video={video}
               markers={markers}
               onCurrentChange={setCurrent}
-              className="mt-4"
+              className={reelsFocus ? 'mt-2' : 'mt-4'}
               playerMaxHeightClass="max-h-[58svh] lg:max-h-[62vh]"
               hasNext={!!nextInQueue}
               hasPrev={!!prevInQueue}
@@ -656,6 +729,12 @@ export function ClientReview({
               onTabChange={setPreviewTab}
               clientPhotoUrl={data.clientPhotoUrl}
               clientDescription={data.clientDescription}
+              reelsFocus={reelsFocus}
+              queuePosition={
+                queueIndex >= 0 && queue.length > 1
+                  ? { index: queueIndex, total: queue.length }
+                  : undefined
+              }
             />
             {switchingVideo && (
               <div className="pointer-events-none absolute inset-x-0 top-4 z-20 flex justify-center">
@@ -666,15 +745,30 @@ export function ClientReview({
             )}
           </div>
 
-          <p className="mt-3 px-4 text-center text-xs text-muted-foreground lg:px-0 lg:text-left">
-            Esta é uma prévia otimizada para visualização — a entrega final mantém a qualidade
-            original.
-          </p>
+          {/* Aviso de prévia otimizada — no modo focado sai de cena junto com o
+              resto do texto, pra não empurrar o vídeo tela abaixo. */}
+          {!reelsFocus && (
+            <p className="mt-3 px-4 text-center text-xs text-muted-foreground lg:px-0 lg:text-left">
+              Esta é uma prévia otimizada para visualização — a entrega final mantém a qualidade
+              original.
+            </p>
+          )}
         </div>
 
         {/* RIGHT: comments + ratings — escondido na aba Reels, que é só pra assistir */}
-        <div className="mt-6 px-4 pb-40 lg:mt-14 lg:px-0 lg:pb-6">
-          {previewTab === 'reels' ? (
+        <div
+          className={cn(
+            'px-4 lg:mt-14 lg:px-0 lg:pb-6',
+            // No modo focado o rodapé fixo (Aprovar/Pedir ajuste) já é a única
+            // coisa abaixo do vídeo — sobra só o respiro da própria barra.
+            reelsFocus ? 'mt-2 pb-36' : 'mt-6 pb-40',
+          )}
+        >
+          {reelsFocus ? (
+            <p className="text-center text-xs text-muted-foreground">
+              Só visualização. Para comentar e dar nota, use o Player.
+            </p>
+          ) : previewTab === 'reels' ? (
             <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">
               No modo Reels você só assiste. Volte para a aba Player para comentar e avaliar.
             </div>

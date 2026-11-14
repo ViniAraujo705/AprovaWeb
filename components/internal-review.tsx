@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   UploadCloud,
   History,
+  CalendarClock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Comment, CommentThread, PreviousVersionComment, Video } from '@/lib/types'
@@ -242,6 +243,15 @@ export function InternalReview({ videoId }: { videoId: string }) {
                 title={video.title}
                 onUploadingChange={setUploadingVersion}
               />
+            )}
+            {video.status === 'aprovado' && !video.fileRemovedAt && !isSuperseded && (
+              <Link
+                href={`/publicacoes?criar=${videoId}`}
+                className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90"
+              >
+                <CalendarClock className="size-3.5" />
+                Agendar publicação
+              </Link>
             )}
             {video.publicLink && (
               <Link
