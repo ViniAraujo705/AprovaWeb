@@ -10,9 +10,9 @@
  */
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Lock, X } from 'lucide-react'
+import { ArrowRight, Lock, X } from 'lucide-react'
 import { planService } from '@/lib/services'
-import type { PlanStatus, PlanUsage } from '@/lib/types'
+import { planLabel, type PlanId, type PlanStatus, type PlanUsage } from '@/lib/types'
 import { ApiError } from '@/lib/api'
 import { useQuery } from '@/lib/use-query'
 import { AnimatePresence, motion } from '@/components/motion'
@@ -74,7 +74,7 @@ export function PlanLimitProvider({ children }: { children: React.ReactNode }) {
     <PlanLimitContext.Provider value={value}>
       {children}
       <AnimatePresence>
-        {modalReason && <PlanLimitModal reason={modalReason} onClose={() => setModalReason(null)} />}
+        {modalReason && <PlanLimitModal reason={modalReason} currentPlan={planStatus?.plan ?? null} onClose={() => setModalReason(null)} />}
       </AnimatePresence>
     </PlanLimitContext.Provider>
   )
@@ -86,47 +86,78 @@ export function usePlanLimit(): PlanLimitContextValue {
   return ctx
 }
 
-function PlanLimitModal({ reason, onClose }: { reason: string; onClose: () => void }) {
+function PlanLimitModal({
+  reason,
+  currentPlan,
+  onClose,
+}: {
+  reason: string
+  currentPlan: PlanId | null
+  onClose: () => void
+}) {
+  // A mensagem diz qual plano libera o recurso; sem isso, "planos pagos".
+  const target = /ag[êe]ncia/i.test(reason) ? 'no plano Agência' : 'nos planos pagos'
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
       <motion.div
-        className="absolute inset-0 bg-black/70"
+        className="absolute inset-0 bg-black/60"
         onClick={onClose}
         aria-hidden="true"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
+        transition={{ duration: 0.15 }}
       />
       <motion.div
-        className="relative w-full max-w-md rounded-2xl border border-border bg-card p-5"
-        initial={{ y: 8, scale: 0.98 }}
-        animate={{ y: 0, scale: 1 }}
-        exit={{ y: 8, scale: 0.98 }}
-        transition={{ duration: 0.2 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="plan-limit-title"
+        className="relative w-full max-w-[26rem] overflow-hidden rounded-[16px] border border-border bg-card shadow-2xl"
+        initial={{ y: 8, scale: 0.98, opacity: 0 }}
+        animate={{ y: 0, scale: 1, opacity: 1 }}
+        exit={{ y: 8, scale: 0.98, opacity: 0 }}
+        transition={{ duration: 0.15 }}
       >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Fechar"
-          className="absolute right-3 top-3 grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-secondary"
-        >
-          <X className="size-4" />
-        </button>
-
-        <div className="flex items-center gap-2 pr-8 text-sm font-medium text-primary-ink">
-          <Lock className="size-4" />
-          Recurso do plano pago
+        <div className="p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-[10px] border border-border bg-secondary text-foreground">
+              <Lock className="size-[18px]" />
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fechar"
+              className="grid size-8 place-items-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+          <h2 id="plan-limit-title" className="mt-4 text-base font-semibold text-foreground">
+            Disponível {target}
+          </h2>
+          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{reason}</p>
+          {currentPlan && (
+            <p className="mt-4 inline-flex items-center gap-1.5 rounded-[6px] bg-secondary px-2 py-1 text-xs text-muted-foreground">
+              Seu plano atual: <span className="font-medium text-foreground">{planLabel[currentPlan]}</span>
+            </p>
+          )}
         </div>
-        <p className="mt-3 text-sm text-foreground">{reason}</p>
-
-        <Link
-          href="/planos"
-          onClick={onClose}
-          className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90"
-        >
-          Ver planos
-        </Link>
+        <div className="flex items-center justify-end gap-2 border-t border-border bg-secondary/40 px-5 py-3 sm:px-6">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-9 rounded-[10px] px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            Agora não
+          </button>
+          <Link
+            href="/planos"
+            onClick={onClose}
+            className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            Ver planos <ArrowRight className="size-4" />
+          </Link>
+        </div>
       </motion.div>
     </div>
   )

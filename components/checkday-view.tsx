@@ -850,9 +850,9 @@ function NoteEditor({
     commit([...current, created], { id: created.id, caret: 0 })
   }
 
+  const [imageDialog, setImageDialog] = useState(false)
   function addImage() {
-    const url = window.prompt('Cole o link da imagem')?.trim()
-    if (url) onImage(url)
+    setImageDialog(true)
   }
 
   // Botões da barra não podem roubar o foco do texto (senão perdemos a linha atual).
@@ -860,6 +860,15 @@ function NoteEditor({
 
   return (
     <>
+      {imageDialog && (
+        <ImageLinkDialog
+          onClose={() => setImageDialog(false)}
+          onConfirm={(url) => {
+            setImageDialog(false)
+            onImage(url)
+          }}
+        />
+      )}
       <div className="flex items-center gap-1 border-b border-border px-2 py-2 sm:px-4">
         <button
           type="button"
@@ -1033,5 +1042,105 @@ function ToolbarButton({
     >
       {children}
     </button>
+  )
+}
+
+/** Janela do próprio app para colar o link da imagem da nota (no lugar do `window.prompt`). */
+function ImageLinkDialog({ onConfirm, onClose }: { onConfirm: (url: string) => void; onClose: () => void }) {
+  const [url, setUrl] = useState('')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle')
+  const trimmed = url.trim()
+  const looksLikeUrl = /^https?:\/\/\S+$/i.test(trimmed)
+
+  useEffect(() => {
+    setStatus(looksLikeUrl ? 'loading' : 'idle')
+  }, [trimmed, looksLikeUrl])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (status === 'ok') onConfirm(trimmed)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onMouseDown={onClose}>
+      <form
+        onSubmit={submit}
+        onMouseDown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Inserir imagem"
+        className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-display text-lg font-bold text-foreground">Inserir imagem</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Cole o link de uma imagem (Drive público, site, Pinterest...).</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="grid size-8 shrink-0 place-items-center rounded-full bg-secondary text-foreground hover:bg-secondary/70"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        <input
+          autoFocus
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://..."
+          aria-label="Link da imagem"
+          className="mt-4 h-11 w-full rounded-[10px] border border-border bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary-ink"
+        />
+        <div className="mt-3 grid h-40 place-items-center overflow-hidden rounded-[12px] border border-dashed border-border bg-secondary/40">
+          {looksLikeUrl ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                key={trimmed}
+                src={trimmed}
+                alt="Prévia"
+                onLoad={() => setStatus('ok')}
+                onError={() => setStatus('error')}
+                className={cn('max-h-36 max-w-full object-contain', status !== 'ok' && 'hidden')}
+              />
+              {status === 'loading' && <p className="text-xs text-muted-foreground">Carregando prévia…</p>}
+              {status === 'error' && (
+                <p className="px-4 text-center text-xs text-danger-ink">
+                  Não conseguimos abrir essa imagem. Confira se o link é da imagem em si (termina em .jpg, .png...) e se é público.
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">{trimmed ? 'O link precisa começar com https://' : 'A prévia aparece aqui'}</p>
+          )}
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-10 rounded-[10px] border border-border px-4 text-sm font-medium text-foreground hover:bg-secondary"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={status !== 'ok'}
+            className="h-10 rounded-[10px] bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-40"
+          >
+            Inserir
+          </button>
+        </div>
+      </form>
+    </div>
   )
 }

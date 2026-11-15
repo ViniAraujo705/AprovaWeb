@@ -66,6 +66,7 @@ import { ApiError } from '@/lib/api'
 import { formatDuration } from '@/lib/format'
 import { ATTACHMENT_ACCEPTED_TYPES, COVER_IMAGE_TYPES, validateAttachmentFile } from '@/lib/upload'
 import { cn } from '@/lib/utils'
+import { useFitViewport } from '@/lib/use-fit-viewport'
 import { AnimatePresence, motion } from '@/components/motion'
 import { toast } from '@/lib/toast'
 import { Gesture } from '@/components/gestures'
@@ -4150,6 +4151,7 @@ function FilterPopover({
   onClose: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  const fit = useFitViewport(ref)
   useEffect(() => {
     function onDown(e: MouseEvent) {
       const t = e.target as Node
@@ -4187,6 +4189,7 @@ function FilterPopover({
       ref={ref}
       role="dialog"
       aria-label="Filtrar cards"
+      style={fit}
       className="absolute left-0 top-full z-30 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-[14px] border border-border bg-card p-3 shadow-xl sm:left-auto sm:right-0"
     >
       <div className="flex items-center justify-between px-1">
