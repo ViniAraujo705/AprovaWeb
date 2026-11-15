@@ -751,6 +751,103 @@ export interface AdminMetrics {
   approvedVideos: number
 }
 
+/* ------------------------- painel do super admin -------------------------- */
+
+/** Situação financeira de uma agência (ver GET /admin/dashboard). */
+export type AdminSituacao = 'pagante' | 'inadimplente' | 'checkout_pendente' | 'cortesia' | 'gratis'
+
+export interface AdminAccountRow {
+  id: string
+  agencia: string
+  owner: {
+    id: string
+    nome: string
+    email: string
+    status: 'ativo' | 'suspenso'
+    emailConfirmado: boolean
+    login: 'email' | 'google' | 'apple'
+  } | null
+  plano: PlanId
+  planoContratado: PlanId | null
+  ciclo: 'MONTHLY' | 'YEARLY' | null
+  valorCiclo: number
+  valorMensal: number
+  situacao: AdminSituacao
+  emAberto: number
+  criadoEm: string
+  ultimoAcesso: string | null
+  clientes: number
+  projetos: number
+  membros: number
+  videos: number
+}
+
+export interface AdminDebtor {
+  contaId: string
+  agencia: string
+  nome: string | null
+  email: string | null
+  plano: PlanId | null
+  ciclo: 'MONTHLY' | 'YEARLY' | null
+  valor: number
+  cobrancas: number
+  vencimento: string | null
+  diasAtraso: number | null
+  linkFatura: string | null
+  ultimoAcesso: string | null
+}
+
+export interface AdminPayment {
+  id: string
+  contaId: string | null
+  agencia: string | null
+  valor: number
+  liquido: number | null
+  data: string
+  forma: string | null
+  descricao: string | null
+  status: string
+}
+
+export interface AdminDashboard {
+  geradoEm: string
+  inscricoes: {
+    total: number
+    hoje: number
+    ultimos7: number
+    ultimos30: number
+    mesAtual: number
+    mesAnterior: number
+    emailConfirmado: number
+    porDia: { dia: string; total: number }[]
+    porMes: { mes: string; total: number }[]
+  }
+  planos: Partial<Record<PlanId, number>>
+  situacoes: Partial<Record<AdminSituacao, number>>
+  financeiro: {
+    mrr: number
+    arr: number
+    assinantes: number
+    ticketMedio: number
+    mrrEmRisco: number
+    porPlano: { plano: PlanId; assinantes: number; mensais: number; anuais: number; mrr: number }[]
+    asaas: {
+      disponivel: boolean
+      erro: string | null
+      saldo: number | null
+      recebidoMes: number
+      recebidoMesAnterior: number
+      aReceber: number
+      vencido: number
+      receitaPorMes: { mes: string; total: number }[]
+    }
+    ultimosPagamentos: AdminPayment[]
+  }
+  inadimplentes: AdminDebtor[]
+  usuarios: { total: number; suspensos: number; ativos7d: number; ativos30d: number }
+  contas: AdminAccountRow[]
+}
+
 /* --------------------------------- planos --------------------------------- */
 
 export type PlanId = 'portfolio' | 'free' | 'pro' | 'agencia'

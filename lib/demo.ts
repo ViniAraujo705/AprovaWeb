@@ -11,6 +11,8 @@
  */
 import { DEMO_FLAG_KEY, DEMO_GOOGLE_CALENDAR_KEY, DEMO_GOOGLE_DRIVE_KEY, DEMO_PLAN_KEY } from '@/lib/config'
 import type {
+  AdminDashboard,
+  AdminAccountRow,
   NotificationPreferences,
   RatingRecord,
   RatingsReport,
@@ -1923,6 +1925,117 @@ export const demoMetrics: AdminMetrics = {
   totalVideos: demoVideos.length,
   pendingVideos: demoVideos.filter((v) => v.status === 'pendente').length,
   approvedVideos: demoVideos.filter((v) => v.status === 'aprovado').length,
+}
+
+/** Painel do super admin com agências fictícias cobrindo todas as situações. */
+export function demoAdminDashboard(): AdminDashboard {
+  const now = Date.now()
+  const day = 86_400_000
+  const iso = (d: number) => new Date(now - d * day).toISOString()
+  const ymd = (d: number) => iso(d).slice(0, 10)
+  const nomes = ['Estúdio Norte', 'Lume Filmes', 'Pixel & Co', 'Agência Brava', 'Casa Frame', 'Ritmo Vídeos', 'Olho Mágico', 'Corte Seco', 'Trama Digital', 'Moov Studio']
+  const sit: AdminAccountRow['situacao'][] = ['pagante', 'pagante', 'inadimplente', 'pagante', 'checkout_pendente', 'gratis', 'cortesia', 'pagante', 'gratis', 'inadimplente']
+  const contas: AdminAccountRow[] = nomes.map((agencia, i) => {
+    const situacao = sit[i]
+    const pago = situacao === 'pagante' || situacao === 'inadimplente' || situacao === 'checkout_pendente'
+    const contratado = pago ? (i % 3 === 0 ? 'agencia' : 'pro') : null
+    const anual = i === 7
+    const valorCiclo = contratado === 'agencia' ? (anual ? 1488 : 149) : contratado === 'pro' ? (anual ? 684 : 69) : 0
+    return {
+      id: `demo-conta-${i}`,
+      agencia,
+      owner: { id: `demo-dono-${i}`, nome: `Responsável ${i + 1}`, email: `contato${i + 1}@exemplo.com`, status: 'ativo', emailConfirmado: i % 4 !== 3, login: i % 3 === 0 ? 'google' : 'email' },
+      plano: situacao === 'pagante' ? contratado! : situacao === 'cortesia' ? 'pro' : 'free',
+      planoContratado: contratado,
+      ciclo: contratado ? (anual ? 'YEARLY' : 'MONTHLY') : null,
+      valorCiclo,
+      valorMensal: anual ? Math.round((valorCiclo / 12) * 100) / 100 : valorCiclo,
+      situacao,
+      emAberto: situacao === 'inadimplente' ? valorCiclo * 2 : 0,
+      criadoEm: iso(3 + i * 9),
+      ultimoAcesso: iso(i),
+      clientes: 2 + i,
+      projetos: 4 + i * 2,
+      membros: 1 + (i % 3),
+      videos: 10 + i * 7,
+    }
+  })
+  const pagantes = contas.filter((c) => c.situacao === 'pagante')
+  const mrr = pagantes.reduce((s, c) => s + c.valorMensal, 0)
+  const meses = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now)
+    d.setDate(15)
+    d.setMonth(d.getMonth() - (11 - i))
+    return d.toISOString().slice(0, 7)
+  })
+  const count = <K extends string>(key: (c: AdminAccountRow) => K) =>
+    contas.reduce<Partial<Record<K, number>>>((acc, c) => ({ ...acc, [key(c)]: (acc[key(c)] ?? 0) + 1 }), {})
+  return {
+    geradoEm: new Date(now).toISOString(),
+    inscricoes: {
+      total: contas.length,
+      hoje: 1,
+      ultimos7: 2,
+      ultimos30: 4,
+      mesAtual: 3,
+      mesAnterior: 2,
+      emailConfirmado: contas.filter((c) => c.owner?.emailConfirmado).length,
+      porDia: Array.from({ length: 90 }, (_, i) => ({ dia: ymd(89 - i), total: (i * 7) % 5 === 0 ? 1 : (i * 3) % 11 === 0 ? 2 : 0 })),
+      porMes: meses.map((mes, i) => ({ mes, total: i < 6 ? 0 : i - 4 })),
+    },
+    planos: count((c) => c.plano),
+    situacoes: count((c) => c.situacao),
+    financeiro: {
+      mrr,
+      arr: mrr * 12,
+      assinantes: pagantes.length,
+      ticketMedio: pagantes.length ? Math.round((mrr / pagantes.length) * 100) / 100 : 0,
+      mrrEmRisco: contas.filter((c) => c.situacao === 'inadimplente').reduce((s, c) => s + c.valorMensal, 0),
+      porPlano: (['portfolio', 'pro', 'agencia'] as const).map((plano) => {
+        const p = pagantes.filter((c) => c.planoContratado === plano)
+        return { plano, assinantes: p.length, mensais: p.filter((c) => c.ciclo === 'MONTHLY').length, anuais: p.filter((c) => c.ciclo === 'YEARLY').length, mrr: p.reduce((s, c) => s + c.valorMensal, 0) }
+      }),
+      asaas: {
+        disponivel: true,
+        erro: null,
+        saldo: 812.4,
+        recebidoMes: 287,
+        recebidoMesAnterior: 218,
+        aReceber: 149,
+        vencido: 436,
+        receitaPorMes: meses.map((mes, i) => ({ mes, total: i < 6 ? 0 : 69 * (i - 5) + (i > 8 ? 149 : 0) })),
+      },
+      ultimosPagamentos: pagantes.map((c, i) => ({
+        id: `demo-pay-${i}`,
+        contaId: c.id,
+        agencia: c.agencia,
+        valor: c.valorCiclo,
+        liquido: Math.round(c.valorCiclo * 0.97 * 100) / 100,
+        data: ymd(i * 4 + 1),
+        forma: 'CREDIT_CARD',
+        descricao: `Check ${c.planoContratado}`,
+        status: 'CONFIRMED',
+      })),
+    },
+    inadimplentes: contas
+      .filter((c) => c.situacao === 'inadimplente')
+      .map((c, i) => ({
+        contaId: c.id,
+        agencia: c.agencia,
+        nome: c.owner?.nome ?? null,
+        email: c.owner?.email ?? null,
+        plano: c.planoContratado,
+        ciclo: c.ciclo,
+        valor: c.emAberto,
+        cobrancas: 2,
+        vencimento: ymd(38 - i * 20),
+        diasAtraso: 38 - i * 20,
+        linkFatura: null,
+        ultimoAcesso: c.ultimoAcesso,
+      })),
+    usuarios: { total: 24, suspensos: 0, ativos7d: 7, ativos30d: 9 },
+    contas,
+  }
 }
 
 /** Usuário demo + branding (para /configuracoes). Sem logo por padrão. */
