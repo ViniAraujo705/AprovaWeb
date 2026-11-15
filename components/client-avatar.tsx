@@ -57,7 +57,8 @@ export function ClientAvatar({
 
   if (photoUrl) {
     return (
-      <span className={`relative shrink-0 overflow-hidden rounded-full ${sizeClasses} ${className}`}>
+      // `block`: <span> é inline por padrão e ignoraria o size-* — a foto ficava 0×0.
+      <span className={`relative block shrink-0 overflow-hidden rounded-full ${sizeClasses} ${className}`}>
         <Image src={photoUrl} alt="" fill className="object-cover" sizes="40px" unoptimized />
       </span>
     )
