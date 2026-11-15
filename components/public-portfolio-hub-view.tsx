@@ -249,11 +249,50 @@ export function PublicPortfolioHubView({ hub }: { hub: PublicPortfolioHub }) {
             transition={{ duration: 0.3 }}
             className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:hidden"
           >
-            <button type="button" onClick={goHome}>
-              <AgencyLogo branding={hub.branding} />
+            <button type="button" onClick={goHome} className="min-w-0">
+              {hub.branding?.logoUrl ? (
+                <AgencyLogo branding={hub.branding} />
+              ) : (
+                <span className={cn('block truncate font-display text-base', layout.headingClass)}>{hub.agencyName}</span>
+              )}
             </button>
             <ThemeToggle />
           </motion.header>
+
+          {/* Perfil no celular: a sidebar (capa, foto, nome, bio, links) some abaixo de md. */}
+          {!category && (hub.coverUrl || hub.photoUrl || hub.agencyName || hub.bio || hub.links.length > 0) && (
+            <div className="flex flex-col items-center px-4 pb-6 pt-6 text-center md:hidden">
+              {hub.coverUrl && (
+                <div className="relative mb-5 h-32 w-full overflow-hidden rounded-lg">
+                  <Image src={hub.coverUrl} alt="" fill className="object-cover" sizes="100vw" unoptimized />
+                </div>
+              )}
+              {hub.photoUrl && (
+                <div className="relative h-16 w-32 shrink-0">
+                  <Image src={hub.photoUrl} alt="" fill className="object-contain" sizes="128px" unoptimized />
+                </div>
+              )}
+              {hub.agencyName && (
+                <span className={cn('mt-3 font-display text-lg', layout.headingClass)}>{hub.agencyName}</span>
+              )}
+              {hub.bio && <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">{hub.bio}</p>}
+              {hub.links.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
+                  {hub.links.map((l) => (
+                    <a
+                      key={l.id}
+                      href={l.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <ExternalLink className="size-3.5 shrink-0" /> {l.label}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {content}
         </div>
@@ -405,8 +444,15 @@ function AlbumGrid({
                   </p>
                 )}
               </div>
-              {/* Mobile (sem hover): mantém o nome sempre legível na base. */}
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent p-3 pt-10 md:hidden">
+              {/* Mobile (sem hover): logo do cliente + nome sempre visíveis na base. */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent p-2.5 pt-10 sm:p-3 md:hidden">
+                {p.logoUrl && (
+                  <div className="mb-1.5 w-fit max-w-full rounded-md bg-white/95 px-2 py-1 shadow">
+                    <div className="relative h-6 w-16 max-w-full">
+                      <Image src={p.logoUrl} alt="" fill className="object-contain" sizes="64px" unoptimized />
+                    </div>
+                  </div>
+                )}
                 <h3 className="truncate font-display text-sm tracking-wide text-white">{p.name}</h3>
                 {p.description && (
                   <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-white/75">{p.description}</p>
