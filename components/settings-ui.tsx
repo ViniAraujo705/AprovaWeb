@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Loader2, MoreHorizontal, X, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useFitViewport } from '@/lib/use-fit-viewport'
 import { FadeIn, motion } from '@/components/motion'
 
 export function SettingsPage({
@@ -206,6 +207,8 @@ export type ActionMenuItem = {
 export function ActionMenu({ label, items }: { label: string; items: ActionMenuItem[] }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const fit = useFitViewport(menuRef, open)
   const visible = items.filter((i) => !i.hidden)
   useEffect(() => {
     if (!open) return
@@ -239,7 +242,7 @@ export function ActionMenu({ label, items }: { label: string; items: ActionMenuI
         <MoreHorizontal className="size-4" />
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 top-full z-30 mt-1 w-56 overflow-hidden rounded-[12px] border border-border bg-card p-1 shadow-xl">
+        <div ref={menuRef} role="menu" style={fit} className="absolute right-0 top-full z-30 mt-1 w-56 overflow-hidden rounded-[12px] border border-border bg-card p-1 shadow-xl">
           {visible.map((it, i) => (
             <div key={it.label}>
               {it.danger && i > 0 && !visible[i - 1].danger && <div className="my-1 h-px bg-border" />}

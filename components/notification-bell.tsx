@@ -96,10 +96,17 @@ export function NotificationBell({
       const el = triggerRef.current
       if (!el) return
       const rect = el.getBoundingClientRect()
+      // Mesma largura do painel (w-80 / max-w-[90vw]). Alinha pela direita do
+      // sino quando cabe; senão encosta na margem — o sino no topo do sidebar
+      // fica perto da borda esquerda e o painel saía da tela.
+      const margin = 8
+      const width = Math.min(320, window.innerWidth * 0.9)
+      const preferred = direction === 'up' ? rect.left : rect.right - width
+      const left = Math.max(margin, Math.min(preferred, window.innerWidth - width - margin))
       setPanelStyle(
         direction === 'up'
-          ? { left: rect.left, bottom: window.innerHeight - rect.top + PANEL_GAP }
-          : { top: rect.bottom + PANEL_GAP, right: window.innerWidth - rect.right },
+          ? { left, bottom: window.innerHeight - rect.top + PANEL_GAP }
+          : { left, top: rect.bottom + PANEL_GAP },
       )
     }
     updatePosition()
