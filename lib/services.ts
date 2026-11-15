@@ -72,6 +72,7 @@ import {
   demoMe,
   demoMemberSessions,
   demoMetrics,
+  demoAdminDashboard,
   demoNewVersion,
   demoNotifications,
   demoNotifyCrew,
@@ -127,6 +128,7 @@ import {
 import type {
   AccountOption,
   AdminMetrics,
+  AdminDashboard,
   AdminUser,
   AppNotification,
   NotificationPreferences,
@@ -3318,6 +3320,14 @@ export const sampleDataService = {
 /* -------------------------------- admin ---------------------------------- */
 
 export const adminService = {
+  /**
+   * Painel do super admin. O contrato é nosso (Aprova-back
+   * src/admin/admin-dashboard.service.ts), então vai sem mapper defensivo.
+   */
+  async dashboard(signal?: AbortSignal): Promise<AdminDashboard> {
+    if (isDemo()) return delay(demoAdminDashboard())
+    return api.get<AdminDashboard>('/admin/dashboard', { signal })
+  },
   async users(signal?: AbortSignal): Promise<AdminUser[]> {
     if (isDemo()) return delay(demoAdminUsers)
     const res = await api.get('/admin/users', { signal })

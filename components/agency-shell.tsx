@@ -160,7 +160,7 @@ const settingsModules: NavModule[] = [
     key: 'sistema',
     label: 'Sistema',
     icon: Shield,
-    items: [{ href: '/admin', label: 'Admin', icon: Shield, role: 'admin' }],
+    items: [{ href: '/admin', label: 'Painel super admin', icon: Shield, role: 'admin' }],
   },
 ]
 
