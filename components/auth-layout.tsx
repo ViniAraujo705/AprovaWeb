@@ -45,6 +45,11 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
       <main className="relative grid min-h-screen place-items-center px-4 py-10 sm:px-8">
         <ThemeToggle className="absolute right-4 top-4" />
         {children}
+        {/* Links legais visíveis sem login: o Google exige que a página inicial do app aponte pra política de privacidade. */}
+        <nav aria-label="Links legais" className="absolute inset-x-0 bottom-4 flex justify-center gap-4 text-xs text-muted-foreground">
+          <a href="/privacidade" className="hover:text-foreground hover:underline">Privacidade</a>
+          <a href="/termos" className="hover:text-foreground hover:underline">Termos de uso</a>
+        </nav>
       </main>
     </div>
   )
