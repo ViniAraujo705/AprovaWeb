@@ -208,7 +208,11 @@ function ClientWorkspace({
 
   const clientVideos = useMemo(() => {
     const projectIds = new Set((projects.data ?? []).map((project) => project.id))
-    return (videos.data ?? []).filter((video) => video.projectId !== null && projectIds.has(video.projectId))
+    // Só a versão atual de cada cadeia: versões substituídas guardam o status
+    // da época (pendente/ajuste) e inflavam "Aguardando aprovação"/"Em ajustes".
+    return (videos.data ?? []).filter(
+      (video) => video.projectId !== null && projectIds.has(video.projectId) && video.latestVersionId === video.id,
+    )
   }, [projects.data, videos.data])
   const clientEvents = useMemo(() => (events.data ?? []).filter((event) => event.clientId === client.id), [client.id, events.data])
   const pendingVideos = clientVideos.filter((video) => video.status === 'pendente')
