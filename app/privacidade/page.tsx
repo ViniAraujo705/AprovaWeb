@@ -10,7 +10,8 @@ export default function PrivacidadePage() {
       <p>
         Esta política explica quais dados o {LEGAL.product}
         {LEGAL.company !== LEGAL.product ? `, operado por ${LEGAL.company}` : ''}
-        {LEGAL.cnpj ? ` (CNPJ ${LEGAL.cnpj})` : ''}, coleta, como usa e quais são os seus direitos, de acordo com a
+        {LEGAL.cnpj ? ` (CNPJ ${LEGAL.cnpj})` : ''}
+        {LEGAL.company !== LEGAL.product || LEGAL.cnpj ? ',' : ''} coleta, como usa e quais são os seus direitos, de acordo com a
         Lei Geral de Proteção de Dados (Lei 13.709/2018).
       </p>
 
@@ -23,6 +24,10 @@ export default function PrivacidadePage() {
           Ao conectar Instagram e Facebook: o identificador e o nome da sua conta do Facebook, as Páginas e contas
           profissionais do Instagram que você autorizar (identificador, nome, nome de usuário e foto) e os tokens de
           acesso concedidos pela Meta.
+        </li>
+        <li>
+          Ao conectar o Google Agenda ou o Google Drive: o e-mail da sua Conta do Google e os tokens de acesso
+          concedidos pelo Google (detalhes na seção 3).
         </li>
         <li>Dados técnicos de uso: endereço IP, navegador e registros de acesso, para segurança e suporte.</li>
       </ul>
@@ -43,28 +48,69 @@ export default function PrivacidadePage() {
         quando exigido por lei.
       </p>
 
-      <h2>3. Armazenamento e segurança</h2>
+      <h2>3. Dados do Google (Agenda e Drive)</h2>
+      <p>
+        A integração com o Google é opcional e só é ativada quando um membro da agência clica em conectar e autoriza
+        o acesso na tela do Google. O {LEGAL.product} pede apenas as permissões abaixo:
+      </p>
+      <ul>
+        <li>
+          <strong>Google Agenda</strong> (<code>calendar.events</code>): criar, atualizar e remover na sua agenda os
+          eventos que você agenda no {LEGAL.product} (gravações, entregas e reuniões), para que eles apareçam no seu
+          Google Agenda. Não lemos nem alteramos outros eventos da sua agenda.
+        </li>
+        <li>
+          <strong>Google Drive</strong> (<code>drive.metadata.readonly</code>): listar nomes e links de pastas e
+          arquivos para você escolher qual anexar a um projeto ou cliente. Não lemos, baixamos nem alteramos o
+          conteúdo dos arquivos.
+        </li>
+        <li>
+          <strong>E-mail da Conta do Google</strong> (<code>openid</code>, <code>email</code>): mostrar qual conta está
+          conectada.
+        </li>
+      </ul>
+      <p>
+        O uso e a transferência, para qualquer outro aplicativo, de informações recebidas das APIs do Google seguem a{' '}
+        <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">
+          Política de Dados do Usuário dos Serviços de API do Google
+        </a>
+        , incluindo os requisitos de Uso Limitado. Os dados do Google não são vendidos, não são usados para
+        publicidade, não são usados para treinar modelos de inteligência artificial e não são compartilhados com
+        terceiros, exceto quando necessário para prestar o serviço, por exigência legal ou com o seu consentimento.
+        Nenhuma pessoa da nossa equipe lê esses dados, salvo com a sua autorização (por exemplo, num pedido de
+        suporte), por segurança ou por exigência legal.
+      </p>
+      <p>
+        Você pode desconectar o Google a qualquer momento nas configurações do {LEGAL.product}: o acesso é revogado no
+        Google e os tokens são apagados na hora. Também é possível revogar pelo painel da sua Conta do Google, em{' '}
+        <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">
+          myaccount.google.com/permissions
+        </a>
+        .
+      </p>
+
+      <h2>4. Armazenamento e segurança</h2>
       <p>
         Os dados ficam em servidores de provedores de nuvem. Os tokens de acesso da Meta e do Google são guardados
         criptografados (AES-256) e nunca são exibidos no navegador. O acesso é restrito à equipe de cada agência,
         conforme as permissões definidas por ela.
       </p>
 
-      <h2>4. Por quanto tempo guardamos</h2>
+      <h2>5. Por quanto tempo guardamos</h2>
       <p>
-        Mantemos os dados enquanto a conta estiver ativa. Ao desconectar a Meta, os tokens e a lista de perfis são
+        Mantemos os dados enquanto a conta estiver ativa. Ao desconectar a Meta ou o Google, os tokens e a lista de perfis são
         apagados na hora. Ao encerrar a conta, os dados são excluídos em até 30 dias, salvo o que a lei obriga a
         guardar.
       </p>
 
-      <h2>5. Seus direitos</h2>
+      <h2>6. Seus direitos</h2>
       <p>
         Você pode pedir acesso, correção, portabilidade ou exclusão dos seus dados, e revogar consentimentos, a
         qualquer momento. Veja como excluir os dados da integração com a Meta em{' '}
         <a href="/exclusao-de-dados">Exclusão de dados</a>.
       </p>
 
-      <h2>6. Contato</h2>
+      <h2>7. Contato</h2>
       <p>
         Dúvidas ou pedidos sobre privacidade: <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>.
       </p>
