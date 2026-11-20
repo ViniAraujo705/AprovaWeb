@@ -38,6 +38,8 @@ import {
   ArrowLeft,
   ArrowRight,
   LayoutGrid,
+  Palette,
+  Copy,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
 import { teamService, demandService, clientService, labelService, boardService } from '@/lib/services'
@@ -136,6 +138,16 @@ const LABEL_COLORS = [
   { id: 'pink', className: 'bg-pink-500' },
 ] as const
 
+const LABEL_COLOR_NAME: Record<string, string> = {
+  red: 'vermelha',
+  orange: 'laranja',
+  amber: 'amarela',
+  emerald: 'verde',
+  sky: 'azul',
+  violet: 'roxa',
+  pink: 'rosa',
+}
+
 const LABEL_COLOR_CLASS: Record<string, string> = Object.fromEntries(
   LABEL_COLORS.map((c) => [c.id, c.className]),
 )
@@ -197,6 +209,8 @@ interface BoardItem {
   checklistTotal: number
   deadlineDone: boolean
   coverUrl: string | null
+  /** Capa só de cor (quando não há imagem). */
+  coverColor: LabelColor | null
   attachmentsCount: number
   responsibleId: string | null
   /** Card de quadro extra: a coluna é `columnId`, `stage` não vale. */
@@ -242,6 +256,7 @@ function videoToItem(v: Video, responsibleName: string | null): BoardItem {
     checklistTotal: 0,
     deadlineDone: false,
     coverUrl: null,
+    coverColor: null,
     attachmentsCount: 0,
     responsibleId: v.editorId ?? null,
     boardId: null,
@@ -280,6 +295,7 @@ function demandToItem(d: Demand, responsibleName: string | null, clientName: str
     checklistTotal: d.checklist.length,
     deadlineDone: d.deadlineDone,
     coverUrl: d.attachments.find((a) => a.id === d.coverAttachmentId)?.url ?? null,
+    coverColor: d.coverColor,
     attachmentsCount: d.attachments.length,
     responsibleId: d.responsibleId,
     boardId: d.boardId,
@@ -352,6 +368,8 @@ export function KanbanView() {
   const [activeItem, setActiveItem] = useState<{ kind: 'video' | 'demand'; id: string } | null>(null)
   /** Coluna (etapa ou id) onde o card novo vai nascer. */
   const [creatingStage, setCreatingStage] = useState<string | null>(null)
+  /** Título já digitado no "Adicionar um cartão" ao abrir o formulário completo. */
+  const [draftTitle, setDraftTitle] = useState('')
 
   // Filtros estilo Trello: etiquetas, pessoas (responsável ou colaborador) e prazo.
   const [filterLabels, setFilterLabels] = useState<string[]>([])
@@ -370,6 +388,10 @@ export function KanbanView() {
   const [deletingColumn, setDeletingColumn] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const hoveredIdRef = useRef<string | null>(null)
+  /** Coluna sob o mouse (atalhos N e \\, como no Trello). */
+  const hoveredColumnRef = useRef<string | null>(null)
+  /** Coluna com o "Adicionar um cartão" aberto (criação rápida só com o título). */
+  const [composerColumn, setComposerColumn] = useState<string | null>(null)
 
   // Etiquetas, colaboradores e a ordem dos cards vêm da API (a equipe toda
   // vê o mesmo quadro). Só as colunas recolhidas são deste navegador.
@@ -808,6 +830,54 @@ export function KanbanView() {
     }
   }
 
+  /**
+   * "Adicionar um cartão" do Trello: só o título, entra no fim da coluna.
+   * Com um cliente selecionado no filtro, o card já nasce desse cliente
+   * (senão sumiria da tela logo depois de criado).
+   */
+  async function quickCreate(column: string, title: string): Promise<boolean> {
+    const clientId = client === ALL_CLIENTS ? null : clients.data?.find((c) => c.name === client)?.id ?? null
+    try {
+      const created = await demandService.create(
+        boardId
+          ? { title, kind: 'demanda', clientId, boardId, columnId: column }
+          : { title, kind: 'demanda', clientId, stage: column as ProductionStage },
+      )
+      demandsQuery.setData((prev) => [...(prev ?? []), created])
+      return true
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível criar o card.')
+      return false
+    }
+  }
+
+  function boardNameOf(id: string | null) {
+    return id ? boards.find((b) => b.id === id)?.name ?? 'outro quadro' : 'Produção'
+  }
+
+  /** Card movido pelo "Mover" do card: some deste quadro se foi para outro. */
+  function handleMoved(d: Demand) {
+    if (d.boardId === boardId) {
+      demandsQuery.setData((prev) => (prev ?? []).map((x) => (x.id === d.id ? d : x)))
+      return
+    }
+    demandsQuery.setData((prev) => (prev ?? []).filter((x) => x.id !== d.id))
+    boardsQuery.setData((prev) =>
+      (prev ?? []).map((b) => (b.id === d.boardId ? { ...b, cardsCount: (b.cardsCount ?? 0) + 1 } : b)),
+    )
+    setActiveItem(null)
+    toast.success(`Card movido para o quadro ${boardNameOf(d.boardId)}.`)
+  }
+
+  function handleCopied(d: Demand) {
+    if (d.boardId === boardId) demandsQuery.setData((prev) => [...(prev ?? []), d])
+    else
+      boardsQuery.setData((prev) =>
+        (prev ?? []).map((b) => (b.id === d.boardId ? { ...b, cardsCount: (b.cardsCount ?? 0) + 1 } : b)),
+      )
+    toast.success(d.boardId === boardId ? 'Card copiado.' : `Card copiado para o quadro ${boardNameOf(d.boardId)}.`)
+  }
+
   // Link de notificação (/kanban?card=<id>) abre o card direto, trocando de
   // quadro se ele estiver em outro.
   const pendingCardRef = useRef<string | null>(null)
@@ -942,6 +1012,8 @@ export function KanbanView() {
 
   /* -------------------------------- atalhos -------------------------------- */
 
+  const toggleCollapsedRef = useRef(toggleCollapsed)
+  toggleCollapsedRef.current = toggleCollapsed
   // O listener é registrado uma vez; dados e ações sempre frescos via ref.
   const shortcutStateRef = useRef({ items, columns, labels, archiveDemand, toggleCollaborator, toggleCardLabel, moveDemand, endOfColumn })
   shortcutStateRef.current = { items, columns, labels, archiveDemand, toggleCollaborator, toggleCardLabel, moveDemand, endOfColumn }
@@ -979,7 +1051,16 @@ export function KanbanView() {
         clearFilters()
       } else if (key === 'n') {
         e.preventDefault()
-        setCreatingStage(hovered ? columnKeyOf(hovered) : cols[0]?.key ?? null)
+        const col = hovered ? columnKeyOf(hovered) : hoveredColumnRef.current
+        if (col) setComposerColumn(col)
+        else setCreatingStage(cols[0]?.key ?? null)
+      } else if (key === '\\') {
+        const col = hovered ? columnKeyOf(hovered) : hoveredColumnRef.current
+        if (col) {
+          e.preventDefault()
+          hoveredIdRef.current = null
+          toggleCollapsedRef.current(col)
+        }
       } else if (hovered && (key === 'Enter' || key === 'e')) {
         e.preventDefault()
         setActiveItem({ kind: 'demand', id: hovered.id })
@@ -1257,6 +1338,10 @@ export function KanbanView() {
                   key={col.key}
                   type="button"
                   onClick={() => toggleCollapsed(col.key)}
+                  onMouseEnter={() => (hoveredColumnRef.current = col.key)}
+                  onMouseLeave={() => {
+                    if (hoveredColumnRef.current === col.key) hoveredColumnRef.current = null
+                  }}
                   onDragOver={handleColumnDragOver}
                   onDragLeave={() => setDragOverColumn((prev) => (prev === col.key ? null : prev))}
                   onDrop={handleColumnDrop}
@@ -1281,6 +1366,10 @@ export function KanbanView() {
             return (
               <div
                 key={col.key}
+                onMouseEnter={() => (hoveredColumnRef.current = col.key)}
+                onMouseLeave={() => {
+                  if (hoveredColumnRef.current === col.key) hoveredColumnRef.current = null
+                }}
                 onDragOver={handleColumnDragOver}
                 onDragLeave={() => setDragOverColumn((prev) => (prev === col.key ? null : prev))}
                 onDrop={handleColumnDrop}
@@ -1314,7 +1403,7 @@ export function KanbanView() {
                     <button
                       type="button"
                       onClick={() => toggleCollapsed(col.key)}
-                      title="Recolher coluna"
+                      title="Recolher coluna (\)"
                       aria-label={`Recolher ${col.label}`}
                       className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                     >
@@ -1361,7 +1450,19 @@ export function KanbanView() {
                       }}
                     />
                   ))}
+                  {composerColumn === col.key && (
+                    <QuickAddCard
+                      onAdd={(title) => quickCreate(col.key, title)}
+                      onClose={() => setComposerColumn((c) => (c === col.key ? null : c))}
+                      onOpenFull={(title) => {
+                        setComposerColumn(null)
+                        setCreatingStage(col.key)
+                        setDraftTitle(title)
+                      }}
+                    />
+                  )}
                   {columnItems.length === 0 &&
+                    composerColumn !== col.key &&
                     (col.key === 'aguardando_aprovacao' ? (
                       <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border px-4 py-5 text-center">
                         <Gesture state="empty" className="h-16 w-auto" />
@@ -1375,14 +1476,17 @@ export function KanbanView() {
                     ))}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setCreatingStage(col.key)}
-                  className="flex items-center gap-1.5 rounded-lg px-1.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                >
-                  <Plus className="size-3.5" />
-                  Adicionar
-                </button>
+                {composerColumn !== col.key && (
+                  <button
+                    type="button"
+                    onClick={() => setComposerColumn(col.key)}
+                    title="Atalho: N"
+                    className="flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  >
+                    <Plus className="size-4" />
+                    Adicionar um cartão
+                  </button>
+                )}
               </div>
             )
           })}
@@ -1420,6 +1524,10 @@ export function KanbanView() {
               )
             }
             onDemandUpdated={(d) => demandsQuery.setData((prev) => (prev ?? []).map((x) => (x.id === d.id ? d : x)))}
+            boards={boards}
+            currentBoardId={boardId}
+            onMoved={handleMoved}
+            onCopied={handleCopied}
             onClose={() => setActiveItem(null)}
             onSave={saveDemand}
             onArchive={(id) => {
@@ -1453,7 +1561,11 @@ export function KanbanView() {
             isOwner={isOwner}
             onCommentsCountChange={() => {}}
             onDemandUpdated={() => {}}
-            onClose={() => setCreatingStage(null)}
+            initialTitle={draftTitle}
+            onClose={() => {
+              setCreatingStage(null)
+              setDraftTitle('')
+            }}
             onSave={saveDemand}
             onArchive={() => {}}
             onDelete={() => setCreatingStage(null)}
@@ -1627,12 +1739,17 @@ function BoardCard({
         !item.boardId && item.stage === 'ajustes' ? 'border-danger-border' : 'border-border',
       )}
     >
-      {item.coverUrl && (
+      {item.coverUrl ? (
         <div className="-mx-4 -mt-4 mb-3 h-32 overflow-hidden rounded-t-[15px] bg-secondary">
           {/* eslint-disable-next-line @next/next/no-img-element -- R2/object URL, tamanho livre */}
           <img src={item.coverUrl} alt="" draggable={false} className="h-full w-full object-cover" />
         </div>
-      )}
+      ) : item.coverColor ? (
+        <div
+          aria-hidden="true"
+          className={cn('-mx-4 -mt-4 mb-3 h-9 rounded-t-[15px]', LABEL_COLOR_CLASS[item.coverColor] ?? 'bg-secondary')}
+        />
+      ) : null}
       <div
         className={cn(
           'flex items-center gap-1.5 text-xs font-medium',
@@ -1986,11 +2103,21 @@ function DemandModal({
   isOwner,
   onCommentsCountChange,
   onDemandUpdated,
+  initialTitle = '',
+  boards = [],
+  currentBoardId = null,
+  onMoved,
+  onCopied,
   onClose,
   onSave,
   onArchive,
   onDelete,
 }: {
+  initialTitle?: string
+  boards?: KanbanBoard[]
+  currentBoardId?: string | null
+  onMoved?: (d: Demand) => void
+  onCopied?: (d: Demand) => void
   demand: Demand | null
   initialColumn: string
   columnOptions: { value: string; label: string }[]
@@ -2016,7 +2143,7 @@ function DemandModal({
   onDelete: (id: string) => void
 }) {
   const isEditing = demand !== null
-  const [title, setTitle] = useState(demand?.title ?? '')
+  const [title, setTitle] = useState(demand?.title ?? initialTitle)
   const [kind, setKind] = useState<DemandKind>(demand?.kind ?? 'demanda')
   const [clientId, setClientId] = useState(demand?.clientId ?? '')
   const [responsibleId, setResponsibleId] = useState(demand?.responsibleId ?? '')
@@ -2079,11 +2206,15 @@ function DemandModal({
       >
         {(() => {
           const cover = demand?.attachments.find((a) => a.id === demand.coverAttachmentId)
-          return cover ? (
-            <div className="h-36 shrink-0 overflow-hidden bg-secondary sm:h-44">
-              {/* eslint-disable-next-line @next/next/no-img-element -- R2/object URL */}
-              <img src={cover.url} alt="" className="h-full w-full object-cover" />
-            </div>
+          if (cover)
+            return (
+              <div className="h-36 shrink-0 overflow-hidden bg-secondary sm:h-44">
+                {/* eslint-disable-next-line @next/next/no-img-element -- R2/object URL */}
+                <img src={cover.url} alt="" className="h-full w-full object-cover" />
+              </div>
+            )
+          return demand?.coverColor ? (
+            <div aria-hidden="true" className={cn('h-16 shrink-0 sm:h-20', LABEL_COLOR_CLASS[demand.coverColor] ?? 'bg-secondary')} />
           ) : null
         })()}
         {/* Cabeçalho: tipo + título editável, como no Trello */}
@@ -2174,6 +2305,20 @@ function DemandModal({
 
           {/* Lateral com os campos do card */}
           <aside className="flex flex-col gap-3 md:border-l md:border-border md:pl-6">
+            {isEditing && (
+              <CardActions
+                demand={demand}
+                boards={boards}
+                currentBoardId={currentBoardId}
+                onDemandUpdated={onDemandUpdated}
+                onMoved={(d) => {
+                  if (d.boardId === currentBoardId) setStage(columnKeyOf(d))
+                  onMoved?.(d)
+                }}
+                onCopied={(d) => onCopied?.(d)}
+                onArchive={() => onArchive(demand.id)}
+              />
+            )}
             <Field label={columnFieldLabel}>
               <select value={stage} onChange={(e) => setStage(e.target.value)} className={fieldInputClass}>
                 {columnOptions.map((c) => (
@@ -2263,16 +2408,6 @@ function DemandModal({
               <div className="mr-auto flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => onArchive(demand.id)}
-                  aria-label="Arquivar"
-                  title="Arquivar"
-                  className="inline-flex h-9 items-center gap-1.5 rounded-[10px] px-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
-                >
-                  <Archive className="size-4" />
-                  <span className="hidden sm:inline">Arquivar</span>
-                </button>
-                <button
-                  type="button"
                   onClick={() => setConfirmingDelete(true)}
                   aria-label="Excluir"
                   title="Excluir"
@@ -2305,6 +2440,367 @@ function DemandModal({
         </div>
       </motion.div>
     </motion.div>
+  )
+}
+
+/* ------------------------- criação rápida (Trello) ------------------------- */
+
+/**
+ * "Adicionar um cartão" no fim da coluna: digita o título, Enter cria e já
+ * deixa pronto para o próximo. Esc ou clicar fora fecha.
+ */
+function QuickAddCard({
+  onAdd,
+  onClose,
+  onOpenFull,
+}: {
+  onAdd: (title: string) => Promise<boolean>
+  onClose: () => void
+  onOpenFull: (title: string) => void
+}) {
+  const [title, setTitle] = useState('')
+  const [saving, setSaving] = useState(false)
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const boxRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    ref.current?.focus()
+    boxRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [])
+
+  // Limpa o campo na hora (como o Trello): dá para digitar o próximo enquanto
+  // o anterior salva. Se falhar, o título volta para o campo.
+  const pendingRef = useRef(0)
+  async function submit() {
+    const t = title.trim()
+    if (!t) return
+    setTitle('')
+    pendingRef.current += 1
+    setSaving(true)
+    const ok = await onAdd(t)
+    pendingRef.current -= 1
+    if (pendingRef.current === 0) setSaving(false)
+    if (!ok) setTitle((cur) => (cur.trim() ? cur : t))
+    requestAnimationFrame(() => {
+      ref.current?.focus()
+      boxRef.current?.scrollIntoView({ block: 'nearest' })
+    })
+  }
+
+  return (
+    <div
+      ref={boxRef}
+      onBlur={(e) => {
+        // Fecha ao clicar fora (sem texto); com texto, mantém para não perder o que foi digitado.
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null) && !title.trim()) onClose()
+      }}
+      className="flex flex-col gap-2"
+    >
+      <textarea
+        ref={ref}
+        value={title}
+        onChange={(e) => setTitle(e.target.value.replace(/\n/g, ''))}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault()
+            void submit()
+          } else if (e.key === 'Escape') {
+            e.preventDefault()
+            onClose()
+          }
+        }}
+        rows={2}
+        maxLength={500}
+        aria-label="Título do cartão"
+        placeholder="Insira um título para este cartão…"
+        className="w-full resize-none rounded-2xl border border-primary-ink/60 bg-card px-3.5 py-3 text-sm font-medium text-foreground shadow-sm outline-none placeholder:text-muted-foreground"
+      />
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={!title.trim()}
+          className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] bg-primary px-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+          Adicionar cartão
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cancelar"
+          className="grid size-9 place-items-center rounded-[10px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <X className="size-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onOpenFull(title.trim())}
+          title="Abrir o formulário completo (cliente, responsável, prazo…)"
+          className="ml-auto inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-[10px] px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          Mais detalhes
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ----------------------- ações do card (Trello) ----------------------- */
+
+type ActionPanel = 'capa' | 'mover' | 'copiar' | null
+
+/** Barra "Ações" da lateral do card: Capa, Mover, Copiar e Arquivar — como no Trello. */
+function CardActions({
+  demand,
+  boards,
+  currentBoardId,
+  onDemandUpdated,
+  onMoved,
+  onCopied,
+  onArchive,
+}: {
+  demand: Demand
+  boards: KanbanBoard[]
+  currentBoardId: string | null
+  onDemandUpdated: (d: Demand) => void
+  onMoved: (d: Demand) => void
+  onCopied: (d: Demand) => void
+  onArchive: () => void
+}) {
+  const [open, setOpen] = useState<ActionPanel>(null)
+  const toggle = (p: ActionPanel) => setOpen((cur) => (cur === p ? null : p))
+  const actionClass = (active: boolean) =>
+    cn(
+      'flex h-9 w-full items-center gap-2 rounded-[10px] px-3 text-sm font-medium text-foreground transition-colors',
+      active ? 'bg-secondary' : 'bg-secondary/60 hover:bg-secondary',
+    )
+
+  return (
+    <div className="border-b border-border pb-4">
+      <span className="mb-2 block text-xs font-medium text-muted-foreground">Ações</span>
+      <div className="flex flex-col gap-1.5">
+        <button type="button" aria-expanded={open === 'capa'} onClick={() => toggle('capa')} className={actionClass(open === 'capa')}>
+          <Palette className="size-4 text-muted-foreground" />
+          Capa
+        </button>
+        {open === 'capa' && <CoverPanel demand={demand} onUpdated={onDemandUpdated} />}
+        <button type="button" aria-expanded={open === 'mover'} onClick={() => toggle('mover')} className={actionClass(open === 'mover')}>
+          <ArrowRight className="size-4 text-muted-foreground" />
+          Mover
+        </button>
+        {open === 'mover' && (
+          <DestinationPanel
+            mode="mover"
+            demand={demand}
+            boards={boards}
+            currentBoardId={currentBoardId}
+            onDone={(d) => {
+              setOpen(null)
+              onMoved(d)
+            }}
+          />
+        )}
+        <button type="button" aria-expanded={open === 'copiar'} onClick={() => toggle('copiar')} className={actionClass(open === 'copiar')}>
+          <Copy className="size-4 text-muted-foreground" />
+          Copiar
+        </button>
+        {open === 'copiar' && (
+          <DestinationPanel
+            mode="copiar"
+            demand={demand}
+            boards={boards}
+            currentBoardId={currentBoardId}
+            onDone={(d) => {
+              setOpen(null)
+              onCopied(d)
+            }}
+          />
+        )}
+        <button type="button" onClick={onArchive} className={actionClass(false)}>
+          <Archive className="size-4 text-muted-foreground" />
+          Arquivar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function CoverPanel({ demand, onUpdated }: { demand: Demand; onUpdated: (d: Demand) => void }) {
+  const [busy, setBusy] = useState(false)
+  const hasImage = Boolean(demand.coverAttachmentId)
+  async function apply(color: LabelColor | null) {
+    if (busy) return
+    setBusy(true)
+    try {
+      onUpdated(await demandService.setCover(demand.id, null, color))
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível mudar a capa.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="rounded-[12px] border border-border bg-background p-3">
+      <p className="text-xs font-medium text-muted-foreground">Cor da capa</p>
+      <div className="mt-2 grid grid-cols-4 gap-1.5">
+        {LABEL_COLORS.map((c) => {
+          const active = !hasImage && demand.coverColor === c.id
+          return (
+            <button
+              key={c.id}
+              type="button"
+              disabled={busy}
+              onClick={() => void apply(active ? null : c.id)}
+              aria-label={`Capa ${LABEL_COLOR_NAME[c.id] ?? c.id}`}
+              aria-pressed={active}
+              className={cn(
+                'h-8 rounded-[8px] ring-offset-2 ring-offset-background transition-transform hover:scale-[1.04] disabled:opacity-60',
+                c.className,
+                active && 'ring-2 ring-foreground',
+              )}
+            />
+          )
+        })}
+      </div>
+      {(demand.coverColor || hasImage) && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void apply(null)}
+          className="mt-2 h-8 w-full rounded-[8px] bg-secondary text-xs font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-60"
+        >
+          Remover capa
+        </button>
+      )}
+      <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+        Para usar uma imagem, anexe o arquivo e clique em <span className="font-medium text-foreground">Usar como capa</span>.
+      </p>
+    </div>
+  )
+}
+
+/** Destino de "Mover" e "Copiar": quadro + coluna (no de produção, a etapa). */
+function DestinationPanel({
+  mode,
+  demand,
+  boards,
+  currentBoardId,
+  onDone,
+}: {
+  mode: 'mover' | 'copiar'
+  demand: Demand
+  boards: KanbanBoard[]
+  currentBoardId: string | null
+  onDone: (d: Demand) => void
+}) {
+  const [target, setTarget] = useState<string>(currentBoardId ?? '')
+  const columnsFor = (boardKey: string) =>
+    boardKey
+      ? (boards.find((b) => b.id === boardKey)?.columns ?? []).map((c) => ({ value: c.id, label: c.name }))
+      : COLUMNS.map((c) => ({ value: c.stage, label: productionStageLabel[c.stage] }))
+  const [column, setColumn] = useState<string>(() => {
+    const own = columnKeyOf(demand)
+    return columnsFor(currentBoardId ?? '').some((c) => c.value === own) ? own : columnsFor(currentBoardId ?? '')[0]?.value ?? ''
+  })
+  const [title, setTitle] = useState(demand.title)
+  const [keepChecklist, setKeepChecklist] = useState(true)
+  const [keepLabels, setKeepLabels] = useState(true)
+  const [keepMembers, setKeepMembers] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const cols = columnsFor(target)
+  const unchanged = mode === 'mover' && (target || null) === demand.boardId && column === columnKeyOf(demand)
+
+  function changeBoard(v: string) {
+    setTarget(v)
+    setColumn(columnsFor(v)[0]?.value ?? '')
+  }
+
+  async function submit() {
+    if (busy || unchanged || (mode === 'copiar' && !title.trim())) return
+    const to = target
+      ? { boardId: target, columnId: column || null }
+      : { boardId: null, stage: column as ProductionStage }
+    setBusy(true)
+    try {
+      const d =
+        mode === 'mover'
+          ? await demandService.move(demand.id, to)
+          : await demandService.copy(demand.id, { ...to, title: title.trim(), keepChecklist, keepLabels, keepMembers })
+      onDone(d)
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : mode === 'mover' ? 'Não foi possível mover o card.' : 'Não foi possível copiar o card.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const check = (label: string, value: boolean, set: (v: boolean) => void, hint?: string) => (
+    <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+      <input type="checkbox" checked={value} onChange={(e) => set(e.target.checked)} className="size-4 rounded accent-[var(--color-success,#16a34a)]" />
+      {label}
+      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+    </label>
+  )
+
+  return (
+    <div className="flex flex-col gap-2.5 rounded-[12px] border border-border bg-background p-3">
+      {mode === 'copiar' && (
+        <Field label="Título">
+          <textarea
+            value={title}
+            onChange={(e) => setTitle(e.target.value.replace(/\n/g, ''))}
+            rows={2}
+            maxLength={500}
+            className={cn(fieldInputClass, 'h-auto resize-none py-2')}
+          />
+        </Field>
+      )}
+      <Field label="Quadro">
+        <select value={target} onChange={(e) => changeBoard(e.target.value)} className={fieldInputClass}>
+          <option value="">Produção{currentBoardId === null ? ' (atual)' : ''}</option>
+          {boards.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+              {b.id === currentBoardId ? ' (atual)' : ''}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label={target ? 'Coluna' : 'Etapa'}>
+        <select value={column} onChange={(e) => setColumn(e.target.value)} className={fieldInputClass}>
+          {cols.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+              {mode === 'mover' && (target || null) === demand.boardId && c.value === columnKeyOf(demand) ? ' (atual)' : ''}
+            </option>
+          ))}
+        </select>
+      </Field>
+      {mode === 'copiar' && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-muted-foreground">Manter</span>
+          {demand.checklist.length > 0 && check('Checklist', keepChecklist, setKeepChecklist, `(${demand.checklist.length})`)}
+          {demand.labelIds.length > 0 && check('Etiquetas', keepLabels, setKeepLabels)}
+          {(demand.responsibleId || demand.collaboratorIds.length > 0) && check('Responsável e colaboradores', keepMembers, setKeepMembers)}
+          <p className="text-[11px] leading-snug text-muted-foreground">Anexos e comentários não são copiados.</p>
+        </div>
+      )}
+      {mode === 'mover' && (target || null) !== demand.boardId && (
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          O card vai para o fim da coluna escolhida, com checklist, anexos e comentários.
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={() => void submit()}
+        disabled={busy || unchanged || cols.length === 0 || (mode === 'copiar' && !title.trim())}
+        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[10px] bg-primary px-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+      >
+        {busy && <Loader2 className="size-4 animate-spin" />}
+        {mode === 'mover' ? 'Mover' : 'Criar cópia'}
+      </button>
+    </div>
   )
 }
 
@@ -2553,6 +3049,15 @@ function describeActivity(a: DemandActivity): string {
       return `removeu o anexo "${str('arquivo') ?? ''}"`
     case 'checklist_feito':
       return `concluiu "${str('item') ?? ''}"`
+    case 'moveu_quadro': {
+      const place = (v: unknown) => {
+        const o = (v && typeof v === 'object' ? v : {}) as { quadro?: string | null; coluna?: string | null }
+        return o.quadro ?? 'Produção'
+      }
+      return `moveu do quadro ${place(d.de)} para ${place(d.para)}`
+    }
+    case 'copiou':
+      return `copiou este card de "${str('de') ?? ''}"`
     default:
       return 'atualizou o card'
   }
@@ -4255,7 +4760,8 @@ const SHORTCUTS: { group: string; items: { keys: string[]; label: string }[] }[]
     group: 'Quadro',
     items: [
       { keys: ['/'], label: 'Buscar' },
-      { keys: ['N'], label: 'Novo card' },
+      { keys: ['N'], label: 'Novo card (na coluna do mouse)' },
+      { keys: ['\\'], label: 'Recolher / abrir a coluna do mouse' },
       { keys: ['F'], label: 'Abrir o filtro' },
       { keys: ['Q'], label: 'Só os meus cards' },
       { keys: ['X'], label: 'Limpar filtros' },
