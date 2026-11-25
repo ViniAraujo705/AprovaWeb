@@ -60,9 +60,10 @@ export default function PrivacidadePage() {
           Google Agenda. Não lemos nem alteramos outros eventos da sua agenda.
         </li>
         <li>
-          <strong>Google Drive</strong> (<code>drive.metadata.readonly</code>): listar nomes e links de pastas e
-          arquivos para você escolher qual anexar a um projeto ou cliente. Não lemos, baixamos nem alteramos o
-          conteúdo dos arquivos.
+          <strong>Google Drive</strong> (<code>drive.file</code>): acessar somente as pastas e os arquivos que você
+          escolhe na janela de seleção do Google, para vinculá-los a um projeto ou cliente ou, no caso de vídeos,
+          copiá-los para o {LEGAL.product} e enviá-los para aprovação. Não vemos nem alteramos nenhum outro item do
+          seu Drive, e nunca editamos nem apagamos arquivos.
         </li>
         <li>
           <strong>E-mail da Conta do Google</strong> (<code>openid</code>, <code>email</code>): mostrar qual conta está

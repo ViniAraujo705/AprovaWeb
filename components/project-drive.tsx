@@ -4,8 +4,8 @@
  * Google Drive no projeto: vincular pastas/arquivos do Drive conectado (só a
  * referência — nada é copiado, movido nem tem permissão alterada no Drive).
  *
- * - `DrivePickerModal`: navega pelo Drive de quem está logado (raiz, pastas,
- *   busca por nome) e devolve o item escolhido via `onPick`.
+ * - `DrivePickerModal`: abre o Google Picker (escolha de arquivos/pastas na
+ *   janela do Google, escopo `drive.file`) e devolve cada item via `onPick`.
  * - `ProjectDriveSection`: bloco da tela do projeto com a lista do que está
  *   vinculado, o botão de vincular e o desvincular.
  *
@@ -40,6 +40,8 @@ import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
 import { toast } from '@/lib/toast'
 import { DriveImportError, importDriveVideo } from '@/lib/drive-import'
+import { isDemo } from '@/lib/demo'
+import { openGooglePicker, pickerConfigured } from '@/lib/google-picker'
 
 const INTEGRATIONS_PATH = '/configuracoes/integracoes'
 
@@ -88,19 +90,7 @@ function kindLabel(item: GoogleDriveItem) {
 
 /* ------------------------------------------------------------------------- */
 
-/**
- * Seletor do Drive em formato de navegador de arquivos: clicar numa pasta
- * entra nela; a caixinha à esquerda marca o item. A ação (vincular/adicionar)
- * é uma só, no rodapé, para tudo o que foi marcado.
- */
-export function DrivePickerModal({
-  linkedIds,
-  onPick,
-  onClose,
-  title = 'Vincular do Google Drive',
-  mode = 'link',
-  initialTrail = [],
-}: {
+type DrivePickerProps = {
   /** Abre já dentro desta pasta (ex.: "Importar vídeos" de uma pasta vinculada). */
   initialTrail?: { id: string; name: string }[]
   /**
@@ -114,7 +104,155 @@ export function DrivePickerModal({
   onPick: (item: GoogleDriveItem) => Promise<void> | void
   onClose: () => void
   title?: string
-}) {
+}
+
+/**
+ * Seletor do Drive. Na conta real abre o Google Picker (janela do próprio
+ * Google, escopo `drive.file`); no demo, o navegador simulado abaixo.
+ */
+export function DrivePickerModal(props: DrivePickerProps) {
+  return isDemo() ? <DriveBrowserModal {...props} /> : <GooglePickerFlow {...props} />
+}
+
+function GooglePickerFlow({
+  linkedIds,
+  onPick,
+  onClose,
+  title = 'Vincular do Google Drive',
+  mode = 'link',
+  initialTrail = [],
+}: DrivePickerProps) {
+  const importing = mode === 'import'
+  const [phase, setPhase] = useState<'opening' | 'saving' | 'error'>('opening')
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState<GoogleDriveItem[]>([])
+  const started = useRef(false)
+
+  async function save(items: GoogleDriveItem[]) {
+    setPhase('saving')
+    setError(null)
+    const left = [...items]
+    try {
+      while (left.length > 0) {
+        await onPick(left[0])
+        left.shift()
+      }
+      onClose()
+    } catch (err) {
+      setPending(left)
+      setError(err instanceof ApiError ? err.message : 'Não foi possível concluir. Tente de novo.')
+      setPhase('error')
+    }
+  }
+
+  async function open() {
+    setPhase('opening')
+    setError(null)
+    if (!pickerConfigured()) {
+      setError('A seleção de arquivos do Google Drive ainda não está configurada.')
+      setPhase('error')
+      return
+    }
+    try {
+      const accessToken = await googleDriveService.getPickerToken()
+      const picked = await openGooglePicker({
+        accessToken,
+        title,
+        videoMimeTypes: importing ? DRIVE_IMPORTABLE_TYPES : undefined,
+        parentId: initialTrail[initialTrail.length - 1]?.id,
+      })
+      const fresh = picked.filter(
+        (item) => !linkedIds.has(item.id) && (importing ? isDriveImportable(item) : true),
+      )
+      if (fresh.length === 0) {
+        onClose()
+        return
+      }
+      await save(fresh)
+    } catch (err) {
+      setPending([])
+      setError(
+        err instanceof ApiError || err instanceof Error
+          ? err.message
+          : 'Não foi possível abrir o Google Drive.',
+      )
+      setPhase('error')
+    }
+  }
+
+  useEffect(() => {
+    if (started.current) return
+    started.current = true
+    void open()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Enquanto o Picker do Google está na tela, ele mesmo é o "modal".
+  if (phase === 'opening') return null
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
+      <div className="w-full max-w-sm rounded-t-2xl border border-border bg-card p-5 shadow-xl sm:rounded-xl">
+        <div className="flex items-center gap-3">
+          <Image src="/icons/google-drive.svg" alt="" width={18} height={18} className="shrink-0" />
+          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{title}</p>
+        </div>
+        {phase === 'saving' ? (
+          <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            {importing ? 'Adicionando os vídeos…' : 'Vinculando…'}
+          </p>
+        ) : (
+          <>
+            <p className="mt-4 text-sm text-foreground">{error}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Se continuar, use “Reconectar” no card do Google Drive em{' '}
+              <Link href={INTEGRATIONS_PATH} className="text-primary-ink underline">
+                Integrações
+              </Link>
+              .
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-9 rounded-md px-3 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                onClick={() => (pending.length > 0 ? save(pending) : open())}
+                className="h-9 rounded-md bg-foreground px-4 text-sm font-medium text-background hover:opacity-90"
+              >
+                Tentar de novo
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Navegador de arquivos simulado (só no demo): clicar numa pasta entra nela;
+ * a caixinha à esquerda marca o item. A ação (vincular/adicionar) é uma só,
+ * no rodapé, para tudo o que foi marcado.
+ */
+function DriveBrowserModal({
+  linkedIds,
+  onPick,
+  onClose,
+  title = 'Vincular do Google Drive',
+  mode = 'link',
+  initialTrail = [],
+}: DrivePickerProps) {
   const importing = mode === 'import'
   // Pilha de pastas abertas (vazia = raiz do Drive).
   const [trail, setTrail] = useState<{ id: string; name: string }[]>(initialTrail)
