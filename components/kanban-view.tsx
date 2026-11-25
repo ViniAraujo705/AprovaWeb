@@ -40,6 +40,9 @@ import {
   LayoutGrid,
   Palette,
   Copy,
+  FoldHorizontal,
+  UnfoldHorizontal,
+  Kanban as KanbanIcon,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
 import { teamService, demandService, clientService, labelService, boardService } from '@/lib/services'
@@ -54,6 +57,7 @@ import {
   type Demand,
   type DemandKind,
   type KanbanBoard,
+  type BoardBackground,
   type ProductionStage,
   type TeamMember,
   type Video,
@@ -73,6 +77,19 @@ import { AnimatePresence, motion } from '@/components/motion'
 import { toast } from '@/lib/toast'
 import { Gesture } from '@/components/gestures'
 import { PageHeader } from '@/components/page-header'
+import {
+  BOARD_BACKGROUNDS,
+  BackgroundPicker,
+  BoardDock,
+  FavoriteButton,
+  InboxPanel,
+  PlannerPanel,
+  PRODUCTION_KEY,
+  headerIconButton,
+  useFavoriteBoards,
+  useUnreadCount,
+  type SidePanel,
+} from '@/components/kanban-board-chrome'
 
 const COLUMNS: { stage: ProductionStage; dot: string }[] = [
   { stage: 'planejado', dot: 'bg-muted-foreground' },
@@ -227,6 +244,7 @@ interface ColumnDef {
 }
 
 const LS_BOARD_KEY = 'aprova:kanban:quadro'
+const LS_VIEW_KEY = 'aprova:kanban:visao'
 
 /** Chave da coluna de um card: etapa no quadro de produção, id da coluna nos extras. */
 function columnKeyOf(d: { boardId: string | null; columnId: string | null; productionStage?: ProductionStage; stage?: ProductionStage }): string {
@@ -383,6 +401,26 @@ export function KanbanView() {
     setFilterDue(null)
   }
   const [showShortcuts, setShowShortcuts] = useState(false)
+
+  // Visões estilo Trello (barra flutuante): painel lateral e quadro visível.
+  // Preferência de cada pessoa, guardada neste navegador.
+  const [sidePanel, setSidePanelState] = useState<SidePanel>(null)
+  const [boardVisible, setBoardVisibleState] = useState(true)
+  useEffect(() => {
+    const saved = loadJSON<{ panel?: SidePanel; board?: boolean }>(LS_VIEW_KEY, {})
+    if (saved.panel === 'inbox' || saved.panel === 'planner') setSidePanelState(saved.panel)
+    if (saved.board === false && saved.panel) setBoardVisibleState(false)
+  }, [])
+  function setView(panel: SidePanel, board: boolean) {
+    // Sem painel, o quadro sempre aparece (nunca fica a tela vazia).
+    const nextBoard = panel ? board : true
+    setSidePanelState(panel)
+    setBoardVisibleState(nextBoard)
+    saveJSON(LS_VIEW_KEY, { panel, board: nextBoard })
+  }
+  const unread = useUnreadCount()
+  const favorites = useFavoriteBoards()
+  const productionBg = useQuery<BoardBackground | null>((signal) => boardService.productionBackground(signal), [])
   const [boardForm, setBoardForm] = useState<{ mode: 'create' } | { mode: 'rename'; board: KanbanBoard } | null>(null)
   const [deletingBoard, setDeletingBoard] = useState<KanbanBoard | null>(null)
   const [deletingColumn, setDeletingColumn] = useState<string | null>(null)
@@ -882,6 +920,17 @@ export function KanbanView() {
   // quadro se ele estiver em outro.
   const pendingCardRef = useRef<string | null>(null)
   const lookedUpCardRef = useRef<string | null>(null)
+  const [cardRequest, setCardRequest] = useState(0)
+  /** Abre um card de qualquer quadro (Planejador, Caixa de entrada). */
+  function openCardAnywhere(id: string) {
+    if (demands.some((d) => d.id === id)) {
+      setActiveItem({ kind: 'demand', id })
+      return
+    }
+    pendingCardRef.current = id
+    lookedUpCardRef.current = null
+    setCardRequest((n) => n + 1)
+  }
   useEffect(() => {
     const cardId = new URLSearchParams(window.location.search).get('card')
     if (!cardId) return
@@ -919,7 +968,7 @@ export function KanbanView() {
         toast.error('Esse card foi excluído.')
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demandsReady, demands])
+  }, [demandsReady, demands, cardRequest])
 
   /* ----------------------------- quadros extras ----------------------------- */
 
@@ -1086,8 +1135,42 @@ export function KanbanView() {
 
   const activeDemand = activeItem?.kind === 'demand' ? demands.find((d) => d.id === activeItem.id) ?? null : null
 
+  const boardBgKey: BoardBackground | null = currentBoard ? currentBoard.background : productionBg.data ?? null
+  const boardBg = boardBgKey ? BOARD_BACKGROUNDS[boardBgKey] : null
+  async function changeBackground(v: BoardBackground | null) {
+    if (currentBoard) {
+      const id = currentBoard.id
+      const previous = currentBoard.background
+      boardsQuery.setData((prev) => (prev ?? []).map((b) => (b.id === id ? { ...b, background: v } : b)))
+      try {
+        await boardService.setBackground(id, v)
+      } catch (err) {
+        boardsQuery.setData((prev) => (prev ?? []).map((b) => (b.id === id ? { ...b, background: previous } : b)))
+        toast.error(err instanceof ApiError ? err.message : 'Não foi possível trocar o fundo.')
+      }
+      return
+    }
+    const previous = productionBg.data ?? null
+    productionBg.setData(v)
+    try {
+      await boardService.setProductionBackground(v)
+    } catch (err) {
+      productionBg.setData(previous)
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível trocar o fundo.')
+    }
+  }
+  // Recarrega o Planejador quando um prazo muda no quadro aberto.
+  const plannerRefreshKey = useMemo(
+    () =>
+      demands
+        .filter((d) => d.deadline)
+        .map((d) => `${d.id}:${d.deadline}:${d.deadlineDone ? 1 : 0}`)
+        .join('|'),
+    [demands],
+  )
+
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+    <div className="px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pt-10">
       <PageHeader
         eyebrow="Fluxo de produção"
         title="Kanban"
@@ -1140,10 +1223,64 @@ export function KanbanView() {
       </div>
       )}
 
-      {/* Quadro */}
-      <div className="mt-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <h2 className="sr-only">{currentBoard ? currentBoard.name : 'Quadro de produção'}</h2>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      {/* Visões estilo Trello: painel lateral (Planejador / Caixa de entrada) + quadro */}
+      <div className="mt-8 flex flex-col gap-4 lg:flex-row lg:items-start">
+        {sidePanel && (
+          <div
+            className={cn(
+              'flex lg:sticky lg:top-4',
+              boardVisible ? 'h-[60vh] lg:h-[calc(100dvh-2rem)] lg:w-80 lg:shrink-0' : 'h-[calc(100dvh-14rem)] min-h-96 w-full',
+            )}
+          >
+            {sidePanel === 'planner' ? (
+              <PlannerPanel
+                onOpenCard={openCardAnywhere}
+                onClose={() => setView(null, true)}
+                refreshKey={plannerRefreshKey}
+                wide={!boardVisible}
+              />
+            ) : (
+              <InboxPanel
+                onOpenCard={openCardAnywhere}
+                onClose={() => setView(null, true)}
+                onChanged={unread.refetch}
+                wide={!boardVisible}
+              />
+            )}
+          </div>
+        )}
+        {boardVisible && (
+      <section
+        aria-label={currentBoard ? currentBoard.name : 'Quadro de produção'}
+        style={boardBg ? { backgroundImage: boardBg.style } : undefined}
+        className={cn(
+          'min-w-0 flex-1 rounded-3xl border p-3 sm:p-4',
+          boardBg ? 'border-transparent' : 'border-border bg-card/40',
+        )}
+      >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 max-w-full shrink-0 items-center gap-1">
+          <h2 className={cn('truncate px-1 font-display text-lg', boardBg?.dark ? 'text-white' : 'text-foreground')}>
+            {currentBoard ? currentBoard.name : 'Produção'}
+          </h2>
+          <FavoriteButton
+            active={favorites.isFavorite(currentBoard?.id ?? PRODUCTION_KEY)}
+            onToggle={() => favorites.toggle(currentBoard?.id ?? PRODUCTION_KEY)}
+            onDark={boardBg?.dark}
+          />
+          <BackgroundPicker value={boardBgKey} onChange={(v) => void changeBackground(v)} onDark={boardBg?.dark} />
+          <button
+            type="button"
+            onClick={() => setView(sidePanel === 'planner' ? null : 'planner', true)}
+            aria-pressed={sidePanel === 'planner'}
+            aria-label="Planejador"
+            title="Planejador"
+            className={cn(headerIconButton(boardBg?.dark, sidePanel === 'planner'), 'hidden lg:grid')}
+          >
+            <CalendarClock className="size-4" />
+          </button>
+        </div>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -1239,7 +1376,7 @@ export function KanbanView() {
         </div>
       </div>
 
-      <nav aria-label="Clientes" className="mt-4 flex gap-2 overflow-x-auto pb-1">
+      <nav aria-label="Clientes" className="mt-3 flex gap-2 overflow-x-auto pb-1">
         {clientNames.map((name) => (
           <button
             key={name}
@@ -1258,14 +1395,14 @@ export function KanbanView() {
       </nav>
 
       {activeFilterCount > 0 && !boardLoading && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <div className={cn('mt-3 flex flex-wrap items-center gap-2 text-sm', boardBg?.dark ? 'text-white/80' : 'text-muted-foreground')}>
           <span>
-            Mostrando <span className="font-semibold text-foreground">{filtered.length}</span> de {items.length} cards
+            Mostrando <span className={cn('font-semibold', boardBg?.dark ? 'text-white' : 'text-foreground')}>{filtered.length}</span> de {items.length} cards
           </span>
           <button
             type="button"
             onClick={clearFilters}
-            className="rounded-[8px] px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+            className="rounded-[8px] bg-card px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
           >
             Limpar filtros
           </button>
@@ -1309,7 +1446,7 @@ export function KanbanView() {
           onDragOver={handleBoardDragOver}
           onDragEnd={stopBoardAutoScroll}
           onDrop={stopBoardAutoScroll}
-          className="mt-4 -mx-4 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0"
+          className="mt-4 flex items-start gap-3 overflow-x-auto pb-2"
         >
           {columns.map((col, colIndex) => {
             const columnItems = sortByOrder(
@@ -1347,11 +1484,11 @@ export function KanbanView() {
                   onDrop={handleColumnDrop}
                   title={`Expandir ${col.label}`}
                   className={cn(
-                    'flex w-11 shrink-0 flex-col items-center gap-2 rounded-2xl border border-transparent bg-card py-3 transition-colors hover:border-primary-ink/50',
+                    'flex w-11 shrink-0 flex-col items-center gap-2 rounded-2xl border border-transparent bg-secondary py-3 shadow-sm transition-colors hover:border-primary-ink/50',
                     dragOverColumn === col.key && 'border-primary-ink/40 bg-primary/5',
                   )}
                 >
-                  <ChevronRight className="size-3.5 text-muted-foreground" />
+                  <UnfoldHorizontal className="size-3.5 text-muted-foreground" />
                   <span className={cn('size-2 shrink-0 rounded-full', col.dot)} aria-hidden="true" />
                   <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-secondary px-1.5 text-[10px] font-semibold text-foreground">
                     {columnItems.length}
@@ -1374,7 +1511,7 @@ export function KanbanView() {
                 onDragLeave={() => setDragOverColumn((prev) => (prev === col.key ? null : prev))}
                 onDrop={handleColumnDrop}
                 className={cn(
-                  'flex w-72 shrink-0 flex-col gap-3 rounded-2xl border border-transparent p-2 transition-colors',
+                  'flex w-72 shrink-0 flex-col gap-3 rounded-2xl border border-transparent bg-secondary p-2 shadow-sm transition-colors',
                   dragOverColumn === col.key && 'border-primary-ink/40 bg-primary/5',
                 )}
               >
@@ -1385,10 +1522,10 @@ export function KanbanView() {
                   ) : (
                     <h3 className="truncate text-xs font-semibold uppercase tracking-wide text-foreground">{col.label}</h3>
                   )}
-                  <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-secondary px-1.5 text-xs font-semibold text-foreground">
-                    {columnItems.length}
-                  </span>
-                  <div className="ml-auto flex shrink-0 items-center">
+                  <div className="ml-auto flex shrink-0 items-center gap-0.5">
+                    <span className="px-1 text-xs font-semibold tabular-nums text-muted-foreground" aria-label={`${columnItems.length} cards`}>
+                      {columnItems.length}
+                    </span>
                     {currentBoard && (
                       <ColumnMenu
                         label={col.label}
@@ -1407,7 +1544,7 @@ export function KanbanView() {
                       aria-label={`Recolher ${col.label}`}
                       className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                     >
-                      <ChevronLeft className="size-3.5" />
+                      <FoldHorizontal className="size-3.5" />
                     </button>
                   </div>
                 </div>
@@ -1493,6 +1630,26 @@ export function KanbanView() {
           {currentBoard && <AddColumnTile onAdd={(name) => void addColumn(name)} />}
         </div>
       )}
+      </section>
+        )}
+      </div>
+
+      <BoardDock
+        panel={sidePanel}
+        onPanel={(p) => setView(p, p ? boardVisible : true)}
+        boardVisible={boardVisible}
+        onToggleBoard={() => setView(sidePanel ?? 'planner', !boardVisible)}
+        unreadCount={unread.count}
+        boards={boards}
+        currentId={boardId}
+        favorites={favorites.favorites}
+        onToggleFavorite={favorites.toggle}
+        onSelectBoard={(id) => {
+          setBoardId(id)
+          if (!boardVisible) setView(sidePanel, true)
+        }}
+        onCreateBoard={() => setBoardForm({ mode: 'create' })}
+      />
 
       <AnimatePresence>
         {activeDemand && (
@@ -4284,7 +4441,7 @@ function AddColumnTile({ onAdd }: { onAdd: (name: string) => void }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-12 w-72 shrink-0 items-center gap-2 rounded-2xl border border-dashed border-border px-4 text-sm font-medium text-muted-foreground transition-colors hover:border-primary-ink/50 hover:text-foreground"
+        className="flex h-12 w-72 shrink-0 items-center gap-2 rounded-2xl border border-dashed border-border bg-card/70 px-4 text-sm font-medium text-muted-foreground transition-colors hover:border-primary-ink/50 hover:text-foreground"
       >
         <Plus className="size-4" />
         Adicionar coluna

@@ -36,6 +36,8 @@ import {
   demoListBoards,
   demoCreateBoard,
   demoRenameBoard,
+  demoSetBoardBackground,
+  demoProductionBackground,
   demoRemoveBoard,
   demoAddBoardColumn,
   demoUpdateBoardColumn,
@@ -165,6 +167,8 @@ import type {
   DemandActivity,
   DemandAttachment,
   KanbanBoard,
+  BoardBackground,
+  AgendaCard,
   DemandAuthor,
   DemandComment,
   BoardLabel,
@@ -436,7 +440,13 @@ function mapKanbanBoard(raw: Raw): KanbanBoard {
       }))
       .sort((a, b) => a.position - b.position),
     cardsCount: Number(pick(raw, ['demandasCount', 'cardsCount'], 0)) || 0,
+    background: normalizeBoardBackground(pick(raw, ['fundo', 'background'], null)),
   }
+}
+
+const BOARD_BACKGROUNDS: BoardBackground[] = ['verde', 'musgo', 'grafite', 'areia', 'lima', 'ceu']
+function normalizeBoardBackground(v: unknown): BoardBackground | null {
+  return BOARD_BACKGROUNDS.includes(v as BoardBackground) ? (v as BoardBackground) : null
 }
 
 const cloneBoard = (b: KanbanBoard): KanbanBoard => ({ ...b, columns: b.columns.map((c) => ({ ...c })) })
@@ -455,6 +465,24 @@ export const boardService = {
   async rename(id: string, name: string): Promise<KanbanBoard> {
     if (isDemo()) return delay(cloneBoard(demoRenameBoard(id, name)), 200)
     return mapKanbanBoard(await api.patch<Raw>(`/quadros/${id}`, { nome: name }))
+  },
+  async setBackground(id: string, background: BoardBackground | null): Promise<KanbanBoard> {
+    if (isDemo()) return delay(cloneBoard(demoSetBoardBackground(id, background)), 150)
+    return mapKanbanBoard(await api.patch<Raw>(`/quadros/${id}`, { fundo: background }))
+  },
+  /** Fundo do quadro de produção (fica na conta, não é uma linha de quadro). */
+  async productionBackground(signal?: AbortSignal): Promise<BoardBackground | null> {
+    if (isDemo()) return delay(demoProductionBackground.value)
+    const res = await api.get<Raw>('/quadros/producao', { signal })
+    return normalizeBoardBackground(pick(res, ['fundo'], null))
+  },
+  async setProductionBackground(background: BoardBackground | null): Promise<BoardBackground | null> {
+    if (isDemo()) {
+      demoProductionBackground.value = background
+      return delay(background, 150)
+    }
+    const res = await api.patch<Raw>('/quadros/producao', { fundo: background })
+    return normalizeBoardBackground(pick(res, ['fundo'], null))
   },
   /** Apaga o quadro com todas as colunas e cards. */
   async remove(id: string): Promise<void> {
@@ -2054,6 +2082,32 @@ export const demandService = {
     if (boardId) qs.set('quadroId', boardId)
     const res = await api.get(`/demandas${qs.size ? `?${qs}` : ''}`, { signal })
     return asArray(res).map(mapDemand)
+  },
+  /** Planejador: cards ativos com prazo entre `from` e `to`, de todos os quadros. */
+  async agenda(from: Date, to: Date, signal?: AbortSignal): Promise<AgendaCard[]> {
+    if (isDemo()) {
+      const boards = demoListBoards()
+      return delay(
+        demoDemands
+          .filter((d) => !d.archivedAt && d.deadline)
+          .filter((d) => {
+            const t = new Date(d.deadline!).getTime()
+            return t >= from.getTime() && t <= to.getTime()
+          })
+          .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
+          .map((d) => ({
+            ...cloneDemand(d),
+            boardName: d.boardId ? boards.find((b) => b.id === d.boardId)?.name ?? null : null,
+            clientName: demoClients.find((c) => c.id === d.clientId)?.name ?? null,
+          })),
+      )
+    }
+    const res = await api.get('/demandas/agenda', { query: { de: from.toISOString(), ate: to.toISOString() }, signal })
+    return asArray(res).map((raw: Raw) => ({
+      ...mapDemand(raw),
+      boardName: pick<string | null>(raw, ['quadroNome', 'boardName'], null),
+      clientName: pick<string | null>(raw, ['clienteNome', 'clientName'], null),
+    }))
   },
   /** Um card (ativo ou arquivado), de qualquer quadro. */
   async get(id: string, signal?: AbortSignal): Promise<Demand> {

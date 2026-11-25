@@ -303,6 +303,18 @@ export interface KanbanBoard {
   columns: KanbanColumn[]
   /** Cards ativos (não arquivados). */
   cardsCount: number
+  /** Fundo escolhido para o quadro; null = fundo padrão do Check. */
+  background: BoardBackground | null
+}
+
+/** Paleta fixa de fundos do quadro, nas cores da identidade Check. */
+export type BoardBackground = 'verde' | 'musgo' | 'grafite' | 'areia' | 'lima' | 'ceu'
+
+/** Card com prazo no Planejador (GET /demandas/agenda), de qualquer quadro. */
+export interface AgendaCard extends Demand {
+  /** Nome do quadro extra; null = quadro de produção. */
+  boardName: string | null
+  clientName: string | null
 }
 
 /** Arquivo anexado a um card do Kanban. */

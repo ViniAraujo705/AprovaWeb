@@ -71,6 +71,7 @@ import type {
   User,
   Video,
   KanbanBoard,
+  BoardBackground,
 } from '@/lib/types'
 
 export const DEMO_TOKEN = 'demo'
@@ -436,8 +437,18 @@ const demoBoards: KanbanBoard[] = [
       { id: 'qc-agendado', name: 'Agendado', position: 3072 },
     ],
     cardsCount: 0,
+    background: 'musgo',
   },
 ]
+
+/** Fundo do quadro de produção no demo (na API fica na conta). */
+export const demoProductionBackground: { value: BoardBackground | null } = { value: null }
+
+export function demoSetBoardBackground(id: string, background: BoardBackground | null): KanbanBoard {
+  const b = demoBoardOrThrow(id)
+  b.background = background
+  return demoBoardWithCount(b)
+}
 
 function demoBoardOrThrow(id: string): KanbanBoard {
   const b = demoBoards.find((x) => x.id === id)
@@ -464,6 +475,7 @@ export function demoCreateBoard(name: string, columns?: string[]): KanbanBoard {
     position: Math.max(0, ...demoBoards.map((b) => b.position)) + 1024,
     columns: names.map((n, i) => ({ id: `${id}-c${i}`, name: n, position: (i + 1) * 1024 })),
     cardsCount: 0,
+    background: null,
   }
   demoBoards.push(board)
   return board
