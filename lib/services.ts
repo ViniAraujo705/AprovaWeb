@@ -3931,6 +3931,15 @@ export const googleDriveService = {
   },
 
   /**
+   * Token curto (escopo `drive.file`) para abrir o Google Picker com a conta
+   * conectada. Não existe no demo — lá o seletor usa a lista simulada.
+   */
+  async getPickerToken(): Promise<string> {
+    const res = await api.get<Raw>('/integrations/google-drive/picker-token')
+    return pick(res, ['accessToken', 'access_token', 'token'], '')
+  },
+
+  /**
    * Importa um vídeo do Drive para aprovação no projeto. O backend copia
    * Drive → armazenamento em segundo plano e registra o vídeo pelo mesmo
    * fluxo do upload; acompanhe com `getImport` até `concluido`/`erro`.
