@@ -60,6 +60,14 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="bg-background font-sans antialiased" suppressHydrationWarning>
+        {/* Guarda o convite de instalação (PWA) assim que o navegador oferece,
+            mesmo antes da tela que mostra o botão montar — ver lib/use-install-app.ts. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__checkInstallPrompt=e;});",
+          }}
+        />
         <div className="relative z-[1]">
           <ThemeProvider>
             <AuthProvider>{children}</AuthProvider>
