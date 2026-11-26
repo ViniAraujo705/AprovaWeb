@@ -26,6 +26,8 @@ import { portfolioProfileService, portfolioService } from '@/lib/services'
 import type { Portfolio, PortfolioCategory, PortfolioLink, PortfolioProfile, PortfolioTemplateId } from '@/lib/types'
 import { PORTFOLIO_TEMPLATE_OPTIONS } from '@/lib/portfolio-templates'
 import { ImageCropModal } from '@/components/image-crop-modal'
+import { PortfolioHubPreview } from '@/components/portfolio-hub-preview'
+import { useAuth } from '@/components/auth-provider'
 import { ErrorState, EmptyState, Skeleton } from '@/components/states'
 import { useQuery } from '@/lib/use-query'
 import { ApiError } from '@/lib/api'
@@ -429,22 +431,31 @@ function PortfolioProfileEditModal({
   onUpdated: (updater: PortfolioProfile | ((prev: PortfolioProfile | null) => PortfolioProfile)) => void
   onClose: () => void
 }) {
+  const { user } = useAuth()
   const coverInputRef = useRef<HTMLInputElement>(null)
   const [coverBusy, setCoverBusy] = useState(false)
   const [coverError, setCoverError] = useState<string | null>(null)
+  // Imagem escolhida aguardando o enquadramento (zoom/posição) no ImageCropModal.
+  const [coverCropFile, setCoverCropFile] = useState<File | null>(null)
   const [bio, setBio] = useState(profile.bio ?? '')
   const [links, setLinks] = useState<PortfolioLink[]>(profile.links)
   const [templateId, setTemplateId] = useState<PortfolioTemplateId | null>(profile.templateId)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function handleCoverFile(file: File | undefined | null) {
+  function pickCoverFile(file: File | undefined | null) {
+    if (coverInputRef.current) coverInputRef.current.value = ''
     if (!file) return
     const invalid = validatePhotoFile(file)
     if (invalid) {
       setCoverError(invalid)
       return
     }
+    setCoverError(null)
+    setCoverCropFile(file)
+  }
+
+  async function handleCoverFile(file: File) {
     setCoverError(null)
     setCoverBusy(true)
     try {
@@ -518,7 +529,7 @@ function PortfolioProfileEditModal({
         transition={{ duration: 0.2 }}
       />
       <motion.div
-        className="relative flex max-h-[85vh] w-full max-w-md flex-col overflow-y-auto rounded-2xl border border-border bg-card p-5"
+        className="relative flex max-h-[85vh] w-full max-w-md flex-col overflow-y-auto rounded-2xl border border-border bg-card p-5 md:max-w-3xl"
         onClick={(e) => e.stopPropagation()}
         initial={{ y: 8, scale: 0.98 }}
         animate={{ y: 0, scale: 1 }}
@@ -537,6 +548,8 @@ function PortfolioProfileEditModal({
           </button>
         </div>
 
+        <div className="md:grid md:grid-cols-[minmax(0,1fr)_240px] md:gap-6">
+          <div className="min-w-0">
         <label className="mt-4 flex flex-col gap-1.5">
           <span className="text-sm font-medium text-foreground">Capa do hub</span>
           <button
@@ -552,18 +565,35 @@ function PortfolioProfileEditModal({
                 <ImagePlus className="size-5" />
               </span>
             )}
-            <span className="absolute inset-0 hidden items-center justify-center bg-black/50 text-white group-hover:flex">
-              {coverBusy ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
+            <span
+              className={cn(
+                'absolute inset-0 items-center justify-center gap-1.5 bg-black/50 text-xs font-medium text-white',
+                coverBusy ? 'flex' : 'hidden group-hover:flex group-focus-visible:flex',
+              )}
+            >
+              {coverBusy ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <>
+                  <ImagePlus className="size-4" /> {profile.coverUrl ? 'Trocar e ajustar' : 'Escolher imagem'}
+                </>
+              )}
             </span>
             <input
               ref={coverInputRef}
               type="file"
               accept="image/png,image/jpeg,image/webp"
               className="hidden"
-              onChange={(e) => handleCoverFile(e.target.files?.[0])}
+              onChange={(e) => pickCoverFile(e.target.files?.[0])}
             />
           </button>
-          {coverError && <span className="text-xs text-destructive">{coverError}</span>}
+          {coverError ? (
+            <span className="text-xs text-destructive">{coverError}</span>
+          ) : (
+            <span className="text-[11px] text-muted-foreground">
+              Ao escolher a imagem, você ajusta o zoom e a posição antes de salvar.
+            </span>
+          )}
         </label>
 
         <label className="mt-4 flex flex-col gap-1.5">
@@ -639,6 +669,24 @@ function PortfolioProfileEditModal({
             ))}
           </div>
         </div>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-1.5 md:sticky md:top-0 md:self-start">
+            <span className="text-sm font-medium text-foreground">Prévia do hub</span>
+            <PortfolioHubPreview
+              templateId={templateId}
+              coverUrl={profile.coverUrl}
+              photoUrl={profile.photoUrl}
+              name={user?.branding?.agencyName?.trim() || user?.name || 'Sua agência'}
+              bio={bio}
+              links={links}
+              className="mx-auto max-w-[240px]"
+            />
+            <span className="text-center text-[11px] text-muted-foreground">
+              {PORTFOLIO_TEMPLATE_OPTIONS.find((o) => o.id === templateId)?.name ?? 'Livre'} · atualiza ao vivo
+            </span>
+          </div>
+        </div>
 
         {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
 
@@ -661,6 +709,24 @@ function PortfolioProfileEditModal({
             Salvar
           </button>
         </div>
+
+        {coverCropFile &&
+          createPortal(
+            <ImageCropModal
+              file={coverCropFile}
+              aspect={3}
+              shape="rect"
+              title="Ajustar capa do hub"
+              outputWidth={1800}
+              outputType="image/jpeg"
+              onCancel={() => setCoverCropFile(null)}
+              onConfirm={(cropped) => {
+                setCoverCropFile(null)
+                void handleCoverFile(cropped)
+              }}
+            />,
+            document.body,
+          )}
       </motion.div>
     </div>
   )

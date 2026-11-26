@@ -36,6 +36,8 @@ import { toast } from '@/lib/toast'
 import { publicUrl } from '@/lib/site'
 import { cn } from '@/lib/utils'
 import { ImageCropModal } from '@/components/image-crop-modal'
+import { usePlanLimit } from '@/components/plan-limit-provider'
+import Link from 'next/link'
 
 /** Lê um arquivo como Data URL (usado só no preview/modo demo). */
 function readAsDataUrl(file: File): Promise<string> {
@@ -595,6 +597,7 @@ function SelectExistingVideoModal({
   const [query, setQuery] = useState('')
   const [addingId, setAddingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const { handlePlanLimitError } = usePlanLimit()
 
   const filtered = (videos.data ?? []).filter((v) => {
     const q = query.trim().toLowerCase()
@@ -612,6 +615,12 @@ function SelectExistingVideoModal({
       onAdded(updated)
       toast.success('Vídeo adicionado ao portfólio')
     } catch (err) {
+      if (isPlanLimitError(err)) {
+        // Fecha esta modal para a de upgrade (→ /planos) não ficar por baixo dela.
+        onClose()
+        handlePlanLimitError(err)
+        return
+      }
       setError(err instanceof ApiError ? err.message : 'Falha ao adicionar o vídeo.')
     } finally {
       setAddingId(null)
@@ -726,6 +735,13 @@ interface PendingPortfolioFile {
   status: 'pending' | 'uploading' | 'done' | 'error'
   progress: number
   error?: string
+  /** Falhou por limite do plano (403) — a linha mostra o atalho "Ver planos". */
+  limitHit?: boolean
+}
+
+/** 403 do backend = limite/recurso do plano (ver `PlanLimitProvider.handlePlanLimitError`). */
+function isPlanLimitError(err: unknown): err is ApiError {
+  return err instanceof ApiError && err.status === 403
 }
 
 function UploadPortfolioMediaForm({
@@ -747,6 +763,7 @@ function UploadPortfolioMediaForm({
   const [items, setItems] = useState<PendingPortfolioFile[]>([])
   const [fileError, setFileError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const { handlePlanLimitError } = usePlanLimit()
 
   useEffect(() => {
     // As URLs de preview existem apenas durante este formulário. Liberá-las ao
@@ -800,6 +817,9 @@ function UploadPortfolioMediaForm({
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)))
   }
 
+  // Itens já enviados ficam na lista (com o check), mas não contam para o botão.
+  const toSendCount = items.filter((i) => i.status !== 'done').length
+
   async function submit() {
     const pending = items.filter((i) => i.status === 'pending' || i.status === 'error')
     if (pending.length === 0) {
@@ -811,7 +831,7 @@ function UploadPortfolioMediaForm({
     let allSucceeded = true
 
     for (const item of pending) {
-      updateItem(item.id, { status: 'uploading', progress: 0, error: undefined })
+      updateItem(item.id, { status: 'uploading', progress: 0, error: undefined, limitHit: false })
       try {
         // Modo demo: simula o upload sem tocar no backend/R2, reproduzindo o
         // arquivo local escolhido (mesmo padrão de `upload-view.tsx`).
@@ -855,6 +875,16 @@ function UploadPortfolioMediaForm({
         onItemUploaded(updated)
       } catch (err) {
         allSucceeded = false
+        if (isPlanLimitError(err)) {
+          // Limite do plano: os próximos itens do lote falhariam igual. Marca
+          // todos os que faltam e abre a modal de upgrade (→ /planos).
+          const rest = new Set(pending.slice(pending.indexOf(item)).map((i) => i.id))
+          setItems((prev) =>
+            prev.map((i) => (rest.has(i.id) ? { ...i, status: 'error', error: err.message, limitHit: true } : i)),
+          )
+          handlePlanLimitError(err)
+          break
+        }
         updateItem(item.id, {
           status: 'error',
           error:
@@ -999,7 +1029,16 @@ function UploadPortfolioMediaForm({
                   </div>
                 )}
                 {item.status === 'error' ? (
-                  <p className="truncate text-xs text-destructive">{item.error}</p>
+                  item.limitHit ? (
+                    <p className="text-xs text-destructive">
+                      Limite do seu plano atingido.{' '}
+                      <Link href="/planos" className="font-medium underline underline-offset-2 hover:opacity-80">
+                        Ver planos
+                      </Link>
+                    </p>
+                  ) : (
+                    <p className="truncate text-xs text-destructive">{item.error}</p>
+                  )
                 ) : item.status === 'uploading' ? (
                   <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
                     <div
@@ -1031,11 +1070,11 @@ function UploadPortfolioMediaForm({
       <button
         type="button"
         onClick={submit}
-        disabled={busy || items.length === 0}
+        disabled={busy || toSendCount === 0}
         className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
       >
         {busy && <Loader2 className="size-4 animate-spin" />}
-        {items.length > 1 ? `Enviar ${items.length} itens` : 'Enviar para o portfólio'}
+        {toSendCount > 1 ? `Enviar ${toSendCount} itens` : 'Enviar para o portfólio'}
       </button>
     </FadeIn>
   )
