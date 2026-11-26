@@ -36,6 +36,7 @@ import {
   NOTIFICATION_TYPE_ICON as TYPE_ICON,
   describeNotification,
   notificationTimeAgo,
+  notificationTone,
 } from '@/lib/notification-format'
 
 /* --------------------------------- fundos --------------------------------- */
@@ -791,7 +792,7 @@ export function InboxPanel({
             const { subject, text, context, href } = describeNotification(n, isOwner)
             const body = (
               <>
-                <span className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-secondary text-muted-foreground">
+                <span className={cn('grid size-9 shrink-0 place-items-center rounded-[10px]', notificationTone(n.type) ?? 'bg-secondary text-muted-foreground')}>
                   <Icon className="size-4" />
                 </span>
                 <span className="min-w-0 flex-1">

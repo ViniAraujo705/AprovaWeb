@@ -19,6 +19,7 @@ import {
   NOTIFICATION_TYPE_ICON,
   describeNotification,
   notificationTimeAgo,
+  notificationTone,
 } from '@/lib/notification-format'
 import { useAuth } from '@/components/auth-provider'
 
@@ -131,8 +132,13 @@ export function NotificationsView() {
                           unoptimized
                         />
                       ) : (
-                        <span className="grid h-full w-full place-items-center bg-deep text-primary">
+                        <span className={cn('grid h-full w-full place-items-center', notificationTone(n.type) ?? 'bg-deep text-primary')}>
                           <Icon className="size-5" />
+                        </span>
+                      )}
+                      {n.video?.posterUrl && notificationTone(n.type) && (
+                        <span className={cn('absolute bottom-0.5 right-0.5 grid size-4 place-items-center rounded-full ring-2 ring-black/20', notificationTone(n.type))}>
+                          <Icon className="size-2.5" />
                         </span>
                       )}
                     </div>

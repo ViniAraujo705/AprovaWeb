@@ -14,6 +14,7 @@ import {
   NOTIFICATION_TYPE_ICON as TYPE_ICON,
   describeNotification,
   notificationTimeAgo as timeAgo,
+  notificationTone,
 } from '@/lib/notification-format'
 import { useAuth } from '@/components/auth-provider'
 import { NOTIFICATIONS_CHANGED_EVENT } from '@/components/notification-popups'
@@ -233,8 +234,13 @@ export function NotificationBell({
                                     unoptimized
                                   />
                                 ) : (
-                                  <span className="grid h-full w-full place-items-center text-muted-foreground">
+                                  <span className={cn('grid h-full w-full place-items-center', notificationTone(n.type) ?? 'text-muted-foreground')}>
                                     <Icon className="size-4" />
+                                  </span>
+                                )}
+                                {n.video?.posterUrl && notificationTone(n.type) && (
+                                  <span className={cn('absolute bottom-0.5 right-0.5 grid size-4 place-items-center rounded-full ring-2 ring-black/20', notificationTone(n.type))}>
+                                    <Icon className="size-2.5" />
                                   </span>
                                 )}
                               </div>

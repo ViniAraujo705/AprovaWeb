@@ -3504,12 +3504,16 @@ function mapPlanStatus(raw: Raw): PlanStatus {
     plan: normalizePlanId(pick(raw, ['plan', 'plano'], 'free')),
     limits: {
       maxClients: pick<number | null>(limitsRaw, ['maxClients'], null),
-      maxVideosPerMonth: pick<number | null>(limitsRaw, ['maxVideosPerMonth'], null),
+      maxVideosPerMonth: pick<number | null>(limitsRaw, ['maxVideosPerMonth', 'maxApprovalFilesPerMonth'], null),
       maxRatingQuestions: pick<number | null>(limitsRaw, ['maxRatingQuestions'], null),
       maxExtraEditors: pick<number | null>(limitsRaw, ['maxExtraEditors'], null),
       whiteLabel: Boolean(pick(limitsRaw, ['whiteLabel'], false)),
-      pdfReports: Boolean(pick(limitsRaw, ['pdfReports'], false)),
-      priorityQueue: Boolean(pick(limitsRaw, ['priorityQueue'], false)),
+      // O backend expõe `reports: 'none' | 'basic' | 'advanced'`; PDF libera em qualquer nível pago.
+      pdfReports: Boolean(
+        pick<boolean | null>(limitsRaw, ['pdfReports'], null) ??
+          ['basic', 'advanced'].includes(String(pick(limitsRaw, ['reports'], 'none'))),
+      ),
+      priorityQueue: Boolean(pick(limitsRaw, ['priorityQueue', 'priorityProcessing'], false)),
       teamPerformance: Boolean(pick(limitsRaw, ['teamPerformance'], false)),
       storageGb: pick<number | null>(limitsRaw, ['storageGb'], null),
     },
