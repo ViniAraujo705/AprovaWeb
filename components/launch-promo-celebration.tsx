@@ -7,6 +7,7 @@ import { AnimatePresence, motion, useReducedMotion } from '@/components/motion'
 import { CheckLogo } from '@/components/page-header'
 import { useAuth } from '@/components/auth-provider'
 import { usePlanLimit } from '@/components/plan-limit-provider'
+import { shouldShowOnboarding } from '@/lib/onboarding'
 
 /**
  * Promo de lançamento: quem cria a conta de 10/11/2026 até o fim de 30/11/2026
@@ -75,6 +76,8 @@ export function LaunchPromoCelebration() {
     const created = new Date(user.createdAt).getTime()
     if (Number.isNaN(created) || created < PROMO_STARTS_AT || created >= PROMO_ENDS_AT) return
     if (readSeen(user.id)) return
+    // Conta nova passa pelo /boas-vindas, que já conta o presente.
+    if (shouldShowOnboarding(user)) return
     setOpen(true)
   }, [user, planStatus?.plan, forced])
 
@@ -100,7 +103,8 @@ export function LaunchPromoCelebration() {
   )
 }
 
-function Celebration({ firstName, onClose }: { firstName: string; onClose: () => void }) {
+/** Também é o final do tutorial `/boas-vindas` pra quem entrou na promo. */
+export function Celebration({ firstName, onClose }: { firstName: string; onClose: () => void }) {
   const reduce = useReducedMotion()
   const rise = (delay: number) =>
     reduce

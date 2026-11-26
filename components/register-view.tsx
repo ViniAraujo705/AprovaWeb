@@ -57,9 +57,9 @@ export function RegisterView() {
     setSubmitting(true)
     try {
       await register(name.trim(), email.trim(), password)
-      // O backend cria um projeto de exemplo junto com a conta; o dashboard
-      // já abre com esse conteúdo (banner de onboarding).
-      router.replace('/dashboard?onboarding=1')
+      // Primeiro acesso: passo a passo de boas-vindas (adaptado ao plano).
+      // O backend já cria um projeto de exemplo junto com a conta.
+      router.replace('/boas-vindas')
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setFormError('Já existe uma conta com esse e-mail.')

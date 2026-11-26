@@ -3,6 +3,7 @@ import { RequireAuth } from '@/components/require-auth'
 import { Suspense } from 'react'
 import { PlanLimitProvider } from '@/components/plan-limit-provider'
 import { LaunchPromoCelebration } from '@/components/launch-promo-celebration'
+import { OnboardingGate } from '@/components/onboarding/onboarding-gate'
 
 /**
  * Layout das rotas protegidas do profissional de marketing.
@@ -12,6 +13,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <RequireAuth>
       <PlanLimitProvider>
+        <OnboardingGate />
         <AgencyShell>{children}</AgencyShell>
         <Suspense fallback={null}>
           <LaunchPromoCelebration />
