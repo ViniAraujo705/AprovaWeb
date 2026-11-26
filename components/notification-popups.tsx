@@ -9,7 +9,8 @@ import { notificationService } from '@/lib/services'
 import type { AppNotification } from '@/lib/types'
 import { AnimatePresence, motion } from '@/components/motion'
 import { useAuth } from '@/components/auth-provider'
-import { NOTIFICATION_TYPE_ICON, describeNotification } from '@/lib/notification-format'
+import { NOTIFICATION_TYPE_ICON, describeNotification, notificationTone } from '@/lib/notification-format'
+import { cn } from '@/lib/utils'
 
 const POLL_MS = 30_000
 const AUTO_DISMISS_MS = 10_000
@@ -119,12 +120,17 @@ export function NotificationPopups() {
                 onClick={() => open(n, href)}
                 className="flex w-full items-start gap-3 p-3 pr-10 text-left text-sm transition-colors hover:bg-white/5"
               >
-                <div className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-primary">
+                <div className={cn('relative size-11 shrink-0 overflow-hidden rounded-lg', notificationTone(n.type) ?? 'bg-primary')}>
                   {n.video?.posterUrl ? (
                     <Image src={n.video.posterUrl} alt="" fill className="object-cover" sizes="44px" unoptimized />
                   ) : (
-                    <span className="grid h-full w-full place-items-center text-primary-foreground">
+                    <span className={cn('grid h-full w-full place-items-center', notificationTone(n.type) ?? 'text-primary-foreground')}>
                       <Icon className="size-5" />
+                    </span>
+                  )}
+                  {n.video?.posterUrl && notificationTone(n.type) && (
+                    <span className={cn('absolute bottom-0.5 right-0.5 grid size-4 place-items-center rounded-full ring-2 ring-black/20', notificationTone(n.type))}>
+                      <Icon className="size-2.5" />
                     </span>
                   )}
                 </div>

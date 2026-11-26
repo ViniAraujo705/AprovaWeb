@@ -133,3 +133,13 @@ export function notificationTimeAgo(iso: string | null): string {
   if (h < 24) return `${h}h`
   return `${Math.floor(h / 24)}d`
 }
+
+/**
+ * Cor do ícone por tipo — só nas notificações: aprovado em verde, pedido de
+ * ajuste em laranja. Os demais tipos mantêm o estilo padrão da superfície.
+ */
+export function notificationTone(type: NotificationType): string | null {
+  if (type === 'aprovacao_cliente') return 'bg-notify-approved text-white'
+  if (type === 'ajuste_solicitado') return 'bg-notify-adjust text-white'
+  return null
+}

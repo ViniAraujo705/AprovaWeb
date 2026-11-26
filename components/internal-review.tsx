@@ -267,7 +267,7 @@ export function InternalReview({ videoId }: { videoId: string }) {
       </div>
 
       {video.status === 'ajuste' && (
-        <div className="mt-4 rounded-xl border border-warning-border bg-warning-soft p-3 text-sm text-amber-300">
+        <div className="mt-4 rounded-xl border border-warning-border bg-warning-soft p-3 text-sm text-warning-ink">
           O cliente solicitou ajustes. Os comentários dele aparecem abaixo automaticamente.
         </div>
       )}
