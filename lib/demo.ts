@@ -12,6 +12,9 @@
 import { DEMO_FLAG_KEY, DEMO_GOOGLE_CALENDAR_KEY, DEMO_GOOGLE_DRIVE_KEY, DEMO_PLAN_KEY } from '@/lib/config'
 import type {
   AdminDashboard,
+  AdminErrorVideo,
+  AdminPerson,
+  AdminStorageReport,
   AdminAccountRow,
   NotificationPreferences,
   RatingRecord,
@@ -2697,4 +2700,96 @@ export function demoUpdateCheckDayNote(
 
 export function demoDeleteCheckDayNote(id: string): void {
   checkDayNotes = checkDayNotes.filter((note) => note.id !== id)
+}
+
+const DEMO_ADMIN_AGENCIAS = ['Estúdio Norte', 'Lume Filmes', 'Pixel & Co', 'Agência Brava', 'Casa Frame', 'Ritmo Vídeos', 'Olho Mágico', 'Corte Seco', 'Trama Digital', 'Moov Studio']
+
+/** Armazenamento fictício do painel do super admin (`GET /admin/storage`). */
+export function demoAdminStorage(): AdminStorageReport {
+  const GB = 1024 ** 3
+  const porConta = DEMO_ADMIN_AGENCIAS.map((nomeAgencia, i) => {
+    const videos = Math.round((38 - i * 3.4) * GB)
+    const otim = Math.round(videos * 0.22)
+    const port = Math.round((i % 3 === 0 ? 2.4 : 0.3) * GB)
+    const thumbs = Math.round(videos * 0.004)
+    return {
+      accountId: `demo-conta-${i}`,
+      nomeAgencia,
+      plano: (i % 3 === 0 ? 'agencia' : i % 2 === 0 ? 'pro' : 'free') as AdminStorageReport['porConta'][number]['plano'],
+      bytes: videos + otim + port + thumbs,
+      arquivos: 420 - i * 37,
+      porCategoria: { videos, videos_otimizados: otim, portfolio: port, miniaturas: thumbs },
+    }
+  })
+  const sum = (k: 'videos' | 'videos_otimizados' | 'portfolio' | 'miniaturas') =>
+    porConta.reduce((s, c) => s + (c.porCategoria[k] ?? 0), 0)
+  const orfaos = Math.round(6.8 * GB)
+  const total = porConta.reduce((s, c) => s + c.bytes, 0) + orfaos
+  return {
+    disponivel: true,
+    erro: null,
+    atualizadoEm: new Date().toISOString(),
+    totalBytes: total,
+    totalArquivos: porConta.reduce((s, c) => s + c.arquivos, 0) + 212,
+    custoEstimadoUsdMes: Math.round(Math.max(0, total / GB - 10) * 0.015 * 100) / 100,
+    porCategoria: [
+      { categoria: 'videos', label: 'Vídeos e fotos enviados (originais)', bytes: sum('videos'), arquivos: 1430 },
+      { categoria: 'videos_otimizados', label: 'Versões otimizadas para streaming', bytes: sum('videos_otimizados'), arquivos: 1388 },
+      { categoria: 'portfolio', label: 'Portfólio', bytes: sum('portfolio'), arquivos: 310 },
+      { categoria: 'miniaturas', label: 'Miniaturas', bytes: sum('miniaturas'), arquivos: 1412 },
+    ],
+    porConta,
+    naoVinculados: {
+      bytes: orfaos,
+      arquivos: 212,
+      porPasta: [
+        { pasta: 'videos', bytes: Math.round(5.9 * GB), arquivos: 64 },
+        { pasta: 'optimized', bytes: Math.round(0.8 * GB), arquivos: 51 },
+        { pasta: 'thumbnails', bytes: Math.round(0.1 * GB), arquivos: 97 },
+      ],
+    },
+  }
+}
+
+/** Pessoas fictícias do painel do super admin (`GET /admin/people`). */
+export function demoAdminPeople(): AdminPerson[] {
+  const day = 86_400_000
+  const now = Date.now()
+  const people: AdminPerson[] = []
+  DEMO_ADMIN_AGENCIAS.forEach((nomeAgencia, i) => {
+    const conta = { accountId: `demo-conta-${i}`, nomeAgencia, plano: (i % 3 === 0 ? 'agencia' : i % 2 === 0 ? 'pro' : 'free') as AdminPerson['contas'][number]['plano'], status: 'ativo' as const }
+    people.push({
+      id: `demo-dono-${i}`,
+      nome: `Responsável ${i + 1}`,
+      email: `contato${i + 1}@exemplo.com`,
+      status: 'ativo',
+      criadoEm: new Date(now - (60 - i * 5) * day).toISOString(),
+      emailConfirmado: i % 4 !== 3,
+      login: i % 3 === 0 ? 'google' : 'email',
+      ultimoAcesso: i === 6 ? null : new Date(now - i * 1.7 * day).toISOString(),
+      contas: [{ ...conta, papel: 'owner' }],
+    })
+    for (let e = 0; e < (i % 3); e++) {
+      people.push({
+        id: `demo-editor-${i}-${e}`,
+        nome: `Editor ${e + 1} · ${nomeAgencia}`,
+        email: `editor${e + 1}.${i + 1}@exemplo.com`,
+        status: i === 2 && e === 1 ? 'suspenso' : 'ativo',
+        criadoEm: new Date(now - (40 - i * 3) * day).toISOString(),
+        emailConfirmado: true,
+        login: 'email',
+        ultimoAcesso: new Date(now - (i + e) * 3 * day).toISOString(),
+        contas: [{ ...conta, papel: 'editor' }],
+      })
+    }
+  })
+  return people
+}
+
+/** Vídeos com falha de processamento (`GET /admin/videos/errors`). */
+export function demoAdminErrorVideos(): AdminErrorVideo[] {
+  return [
+    { id: 'demo-err-1', nomeArquivo: 'reel_final_v3.mov', versao: 3, criadoEm: new Date(Date.now() - 3_600_000).toISOString(), project: { id: 'p1', nome: 'Campanha verão', account: { id: 'demo-conta-1', nomeAgencia: 'Lume Filmes', users: [{ id: 'demo-dono-1', nome: 'Responsável 2', email: 'contato2@exemplo.com' }] } } },
+    { id: 'demo-err-2', nomeArquivo: 'depoimento_cliente.mp4', versao: 1, criadoEm: new Date(Date.now() - 26 * 3_600_000).toISOString(), project: { id: 'p2', nome: 'Institucional', account: { id: 'demo-conta-4', nomeAgencia: 'Casa Frame', users: [{ id: 'demo-dono-4', nome: 'Responsável 5', email: 'contato5@exemplo.com' }] } } },
+  ]
 }

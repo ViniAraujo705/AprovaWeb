@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '@/lib/api'
 
-interface QueryState<T> {
+export interface QueryState<T> {
   data: T | null
   loading: boolean
   error: string | null

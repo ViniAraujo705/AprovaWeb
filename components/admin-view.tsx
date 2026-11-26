@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { createContext, useContext, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   ChevronDown,
@@ -17,8 +17,10 @@ import {
   type AdminAccountRow,
   type AdminDashboard,
   type AdminSituacao,
+  type AdminStorageReport,
   type PlanId,
 } from '@/lib/types'
+import { PeopleTab, StorageTab, SystemTab, formatBytes } from '@/components/admin-extra-tabs'
 import { EmptyState, ErrorState, Skeleton } from '@/components/states'
 import { PageHeader, StatCard } from '@/components/page-header'
 import { useQuery } from '@/lib/use-query'
@@ -32,7 +34,7 @@ const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' 
 const money = (n: number | null | undefined) => brl.format(n ?? 0)
 /** Valor em R$ no StatCard: menor no celular para caber em 2 colunas. */
 const bigMoney = (n: number | null | undefined) => (
-  <span className="text-[22px] sm:text-3xl xl:text-4xl">{money(n)}</span>
+  <span className="text-[22px] sm:text-3xl lg:text-2xl xl:text-3xl 2xl:text-4xl">{money(n)}</span>
 )
 const num = (n: number | null | undefined) => (n ?? 0).toLocaleString('pt-BR')
 
@@ -116,19 +118,32 @@ function SituacaoBadge({ value }: { value: AdminSituacao }) {
 
 /* ---------------------------------- view ---------------------------------- */
 
-type Tab = 'geral' | 'contas' | 'financeiro' | 'devedores'
+type Tab = 'geral' | 'contas' | 'pessoas' | 'armazenamento' | 'financeiro' | 'devedores' | 'sistema'
+
+/** Bytes por agência (GET /admin/storage), lidos no detalhe de cada conta sem prop drilling. */
+const StorageByAccount = createContext<Map<string, number> | null>(null)
 
 export function AdminView() {
   const q = useQuery<AdminDashboard>((signal) => adminService.dashboard(signal), [], { refetchOnFocus: true })
   const [tab, setTab] = useState<Tab>('geral')
   const [contasFilter, setContasFilter] = useState<AdminSituacao | 'todas'>('todas')
   const data = q.data
+  // Armazenamento real do R2 (cache de 10 min no backend) — alimenta a visão
+  // geral, a aba Armazenamento e o detalhe de cada agência.
+  const storage = useQuery<AdminStorageReport>((signal) => adminService.storage(false, signal), [])
+  const storageByAccount = useMemo(
+    () => new Map((storage.data?.porConta ?? []).map((c) => [c.accountId, c.bytes])),
+    [storage.data],
+  )
 
   const tabs: { id: Tab; label: string; count?: number; danger?: boolean }[] = [
     { id: 'geral', label: 'Visão geral' },
-    { id: 'contas', label: 'Inscritos', count: data?.contas.length },
+    { id: 'contas', label: 'Agências', count: data?.contas.length },
+    { id: 'pessoas', label: 'Pessoas' },
+    { id: 'armazenamento', label: 'Armazenamento' },
     { id: 'financeiro', label: 'Financeiro' },
     { id: 'devedores', label: 'Inadimplentes', count: data?.inadimplentes.length, danger: true },
+    { id: 'sistema', label: 'Sistema' },
   ]
 
   function openContas(filter: AdminSituacao | 'todas') {
@@ -141,7 +156,7 @@ export function AdminView() {
       <PageHeader
         eyebrow="Super admin"
         title="Painel da plataforma"
-        description="Inscrições, assinaturas, receita e inadimplência de todas as agências."
+        description="Agências, pessoas, planos, receita, armazenamento e saúde do sistema — tudo que acontece no Check."
         actions={
           <button
             type="button"
@@ -191,13 +206,26 @@ export function AdminView() {
         ))}
       </div>
 
+      <StorageByAccount.Provider value={storageByAccount}>
       <div className="mt-6">
-        {q.error && !data ? (
+        {tab === 'pessoas' ? (
+          <PeopleTab />
+        ) : tab === 'armazenamento' ? (
+          <StorageTab q={storage} />
+        ) : tab === 'sistema' ? (
+          <SystemTab />
+        ) : q.error && !data ? (
           <ErrorState message={q.error} onRetry={q.refetch} />
         ) : !data ? (
           <LoadingGrid />
         ) : tab === 'geral' ? (
-          <Overview data={data} onOpenContas={openContas} onOpenDevedores={() => setTab('devedores')} />
+          <Overview
+            data={data}
+            storage={storage.data}
+            onOpenContas={openContas}
+            onOpenDevedores={() => setTab('devedores')}
+            onOpenStorage={() => setTab('armazenamento')}
+          />
         ) : tab === 'contas' ? (
           <Accounts data={data} filter={contasFilter} onFilter={setContasFilter} onChanged={q.refetch} />
         ) : tab === 'financeiro' ? (
@@ -206,6 +234,7 @@ export function AdminView() {
           <Debtors data={data} />
         )}
       </div>
+      </StorageByAccount.Provider>
     </div>
   )
 }
@@ -240,12 +269,16 @@ function AsaasWarning({ data }: { data: AdminDashboard }) {
 
 function Overview({
   data,
+  storage,
   onOpenContas,
   onOpenDevedores,
+  onOpenStorage,
 }: {
   data: AdminDashboard
+  storage: AdminStorageReport | null
   onOpenContas: (f: AdminSituacao | 'todas') => void
   onOpenDevedores: () => void
+  onOpenStorage: () => void
 }) {
   const { inscricoes: i, financeiro: f } = data
   const devendo = data.inadimplentes.reduce((s, d) => s + d.valor, 0)
@@ -280,6 +313,25 @@ function Overview({
           }
         />
       </div>
+
+      <button
+        type="button"
+        onClick={onOpenStorage}
+        className="flex w-full flex-col gap-1 rounded-2xl border border-border bg-card px-5 py-4 text-left transition-colors hover:bg-secondary/60 sm:flex-row sm:items-center sm:gap-6"
+      >
+        <span className="text-sm text-muted-foreground">Armazenamento</span>
+        <span className="font-display text-2xl font-semibold tabular-nums text-foreground">
+          {storage?.disponivel ? formatBytes(storage.totalBytes) : '—'}
+        </span>
+        <span className="text-xs text-muted-foreground sm:flex-1">
+          {storage?.disponivel
+            ? `${num(storage.totalArquivos)} arquivos no R2 · custo estimado US$ ${storage.custoEstimadoUsdMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês${storage.naoVinculados.bytes > 0 ? ` · ${formatBytes(storage.naoVinculados.bytes)} sem dono` : ''}`
+            : storage
+              ? 'Não foi possível medir agora'
+              : 'Medindo no R2…'}
+        </span>
+        <span className="text-xs font-medium text-foreground underline underline-offset-2">Ver por agência</span>
+      </button>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Panel title="Inscrições por dia" subtitle="Últimos 90 dias" className="lg:col-span-2">
@@ -584,6 +636,7 @@ function AccountRow({
 }
 
 function AccountDetail({ row: c, onChanged }: { row: AdminAccountRow; onChanged: () => void }) {
+  const storageBytes = useContext(StorageByAccount)?.get(c.id)
   const [plan, setPlan] = useState<PlanId>(c.plano)
   const [saving, setSaving] = useState(false)
   const [confirmSuspend, setConfirmSuspend] = useState(false)
@@ -658,6 +711,7 @@ function AccountDetail({ row: c, onChanged }: { row: AdminAccountRow; onChanged:
         <Field label="Clientes" value={num(c.clientes)} />
         <Field label="Projetos" value={num(c.projetos)} />
         <Field label="Vídeos" value={num(c.videos)} />
+        <Field label="Armazenamento" value={storageBytes !== undefined ? formatBytes(storageBytes) : '—'} />
         <Field label="Membros da equipe" value={num(c.membros)} />
       </dl>
 
