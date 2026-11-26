@@ -36,6 +36,8 @@ import {
   demoListBoards,
   demoCreateBoard,
   demoRenameBoard,
+  demoSetBoardBackground,
+  demoProductionBackground,
   demoRemoveBoard,
   demoAddBoardColumn,
   demoUpdateBoardColumn,
@@ -45,6 +47,8 @@ import {
   demoAddDemandAttachment,
   demoRemoveDemandAttachment,
   demoSetDemandCover,
+  demoMoveDemand,
+  demoCopyDemand,
   demoListDemandComments,
   demoAddDemandComment,
   demoUpdateDemandComment,
@@ -163,6 +167,8 @@ import type {
   DemandActivity,
   DemandAttachment,
   KanbanBoard,
+  BoardBackground,
+  AgendaCard,
   DemandAuthor,
   DemandComment,
   BoardLabel,
@@ -415,6 +421,7 @@ function mapDemand(raw: Raw): Demand {
     commentsCount: Number(pick(raw, ['comentariosCount', 'commentsCount'], 0)) || 0,
     attachments: asArray(pick<unknown>(raw, ['anexos', 'attachments'], [])).map(mapDemandAttachment),
     coverAttachmentId: pick<string | null>(raw, ['capaAnexoId', 'coverAttachmentId'], null),
+    coverColor: pick<LabelColor | null>(raw, ['capaCor', 'coverColor'], null),
     boardId: pick<string | null>(raw, ['quadroId', 'boardId'], null),
     columnId: pick<string | null>(raw, ['colunaId', 'columnId'], null),
   }
@@ -433,7 +440,13 @@ function mapKanbanBoard(raw: Raw): KanbanBoard {
       }))
       .sort((a, b) => a.position - b.position),
     cardsCount: Number(pick(raw, ['demandasCount', 'cardsCount'], 0)) || 0,
+    background: normalizeBoardBackground(pick(raw, ['fundo', 'background'], null)),
   }
+}
+
+const BOARD_BACKGROUNDS: BoardBackground[] = ['verde', 'musgo', 'grafite', 'areia', 'lima', 'ceu']
+function normalizeBoardBackground(v: unknown): BoardBackground | null {
+  return BOARD_BACKGROUNDS.includes(v as BoardBackground) ? (v as BoardBackground) : null
 }
 
 const cloneBoard = (b: KanbanBoard): KanbanBoard => ({ ...b, columns: b.columns.map((c) => ({ ...c })) })
@@ -452,6 +465,24 @@ export const boardService = {
   async rename(id: string, name: string): Promise<KanbanBoard> {
     if (isDemo()) return delay(cloneBoard(demoRenameBoard(id, name)), 200)
     return mapKanbanBoard(await api.patch<Raw>(`/quadros/${id}`, { nome: name }))
+  },
+  async setBackground(id: string, background: BoardBackground | null): Promise<KanbanBoard> {
+    if (isDemo()) return delay(cloneBoard(demoSetBoardBackground(id, background)), 150)
+    return mapKanbanBoard(await api.patch<Raw>(`/quadros/${id}`, { fundo: background }))
+  },
+  /** Fundo do quadro de produção (fica na conta, não é uma linha de quadro). */
+  async productionBackground(signal?: AbortSignal): Promise<BoardBackground | null> {
+    if (isDemo()) return delay(demoProductionBackground.value)
+    const res = await api.get<Raw>('/quadros/producao', { signal })
+    return normalizeBoardBackground(pick(res, ['fundo'], null))
+  },
+  async setProductionBackground(background: BoardBackground | null): Promise<BoardBackground | null> {
+    if (isDemo()) {
+      demoProductionBackground.value = background
+      return delay(background, 150)
+    }
+    const res = await api.patch<Raw>('/quadros/producao', { fundo: background })
+    return normalizeBoardBackground(pick(res, ['fundo'], null))
   },
   /** Apaga o quadro com todas as colunas e cards. */
   async remove(id: string): Promise<void> {
@@ -1971,6 +2002,22 @@ export const projectService = {
 }
 
 /** Cópia funda o bastante para o estado do componente não apontar para o fixture mutável do demo. */
+/** Destino de mover/copiar: quadro extra + coluna, ou produção (`boardId` null) + etapa. */
+export interface DemandDestination {
+  boardId: string | null
+  columnId?: string | null
+  stage?: ProductionStage
+  position?: number
+}
+
+function destinationBody(to: DemandDestination) {
+  return {
+    quadroId: to.boardId,
+    ...(to.boardId ? { colunaId: to.columnId ?? null } : { etapa: to.stage }),
+    ...(to.position !== undefined ? { posicao: to.position } : {}),
+  }
+}
+
 function cloneDemand(d: Demand): Demand {
   return {
     ...d,
@@ -2036,6 +2083,32 @@ export const demandService = {
     const res = await api.get(`/demandas${qs.size ? `?${qs}` : ''}`, { signal })
     return asArray(res).map(mapDemand)
   },
+  /** Planejador: cards ativos com prazo entre `from` e `to`, de todos os quadros. */
+  async agenda(from: Date, to: Date, signal?: AbortSignal): Promise<AgendaCard[]> {
+    if (isDemo()) {
+      const boards = demoListBoards()
+      return delay(
+        demoDemands
+          .filter((d) => !d.archivedAt && d.deadline)
+          .filter((d) => {
+            const t = new Date(d.deadline!).getTime()
+            return t >= from.getTime() && t <= to.getTime()
+          })
+          .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
+          .map((d) => ({
+            ...cloneDemand(d),
+            boardName: d.boardId ? boards.find((b) => b.id === d.boardId)?.name ?? null : null,
+            clientName: demoClients.find((c) => c.id === d.clientId)?.name ?? null,
+          })),
+      )
+    }
+    const res = await api.get('/demandas/agenda', { query: { de: from.toISOString(), ate: to.toISOString() }, signal })
+    return asArray(res).map((raw: Raw) => ({
+      ...mapDemand(raw),
+      boardName: pick<string | null>(raw, ['quadroNome', 'boardName'], null),
+      clientName: pick<string | null>(raw, ['clienteNome', 'clientName'], null),
+    }))
+  },
   /** Um card (ativo ou arquivado), de qualquer quadro. */
   async get(id: string, signal?: AbortSignal): Promise<Demand> {
     if (isDemo()) return delay(cloneDemand(demoFindDemandOrThrow(id)))
@@ -2062,11 +2135,14 @@ export const demandService = {
     /** Quadro extra; sem ele vai para o quadro de produção. */
     boardId?: string | null
     columnId?: string | null
+    /** Etapa do card no quadro de produção (sem ela: Planejado). */
+    stage?: ProductionStage
   }): Promise<Demand> {
     if (isDemo()) return delay(cloneDemand(demoCreateDemand(input)), 300)
     const res = await api.post<Raw>('/demandas', {
       quadroId: input.boardId || undefined,
       colunaId: input.boardId ? input.columnId || undefined : undefined,
+      etapa: input.boardId ? undefined : input.stage,
       titulo: input.title,
       tipo: input.kind,
       clienteId: input.clientId,
@@ -2172,10 +2248,31 @@ export const demandService = {
     if (isDemo()) return delay(cloneDemand(demoRemoveDemandAttachment(id, attachmentId)), 250)
     return mapDemand(await api.delete<Raw>(`/demandas/${id}/anexos/${attachmentId}`))
   },
-  /** `null` tira a capa. */
-  async setCover(id: string, attachmentId: string | null): Promise<Demand> {
-    if (isDemo()) return delay(cloneDemand(demoSetDemandCover(id, attachmentId)), 200)
-    return mapDemand(await api.patch<Raw>(`/demandas/${id}/capa`, { anexoId: attachmentId }))
+  /** Capa de imagem (anexo) ou só de cor; os dois `null` tiram a capa. */
+  async setCover(id: string, attachmentId: string | null, color: LabelColor | null = null): Promise<Demand> {
+    if (isDemo()) return delay(cloneDemand(demoSetDemandCover(id, attachmentId, color)), 200)
+    return mapDemand(await api.patch<Raw>(`/demandas/${id}/capa`, { anexoId: attachmentId, cor: attachmentId ? null : color }))
+  },
+  /** Move o card para outro quadro (`boardId` null = produção, usa `stage`). Sem posição: fim da coluna. */
+  async move(id: string, to: DemandDestination): Promise<Demand> {
+    if (isDemo()) return delay(cloneDemand(demoMoveDemand(id, to)), 300)
+    return mapDemand(await api.post<Raw>(`/demandas/${id}/mover`, destinationBody(to)))
+  },
+  /** Cria uma cópia do card no destino. Anexos e comentários não vão junto. */
+  async copy(
+    id: string,
+    to: DemandDestination & { title: string; keepChecklist: boolean; keepLabels: boolean; keepMembers: boolean },
+  ): Promise<Demand> {
+    if (isDemo()) return delay(cloneDemand(demoCopyDemand(id, to)), 300)
+    return mapDemand(
+      await api.post<Raw>(`/demandas/${id}/copiar`, {
+        ...destinationBody(to),
+        titulo: to.title,
+        manterChecklist: to.keepChecklist,
+        manterEtiquetas: to.keepLabels,
+        manterMembros: to.keepMembers,
+      }),
+    )
   },
   /** Comentários do card, mais recente primeiro. */
   async listComments(id: string, signal?: AbortSignal): Promise<DemandComment[]> {

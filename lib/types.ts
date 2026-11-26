@@ -280,6 +280,8 @@ export interface Demand {
   attachments: DemandAttachment[]
   /** Anexo de imagem usado como capa do card (null = sem capa). */
   coverAttachmentId: string | null
+  /** Capa só de cor (estilo Trello); exclusiva com a capa de imagem. */
+  coverColor: LabelColor | null
   /** Quadro extra do card; null = quadro de produção (coluna = `productionStage`). */
   boardId: string | null
   /** Coluna do quadro extra (ignorada no quadro de produção). */
@@ -301,6 +303,18 @@ export interface KanbanBoard {
   columns: KanbanColumn[]
   /** Cards ativos (não arquivados). */
   cardsCount: number
+  /** Fundo escolhido para o quadro; null = fundo padrão do Check. */
+  background: BoardBackground | null
+}
+
+/** Paleta fixa de fundos do quadro, nas cores da identidade Check. */
+export type BoardBackground = 'verde' | 'musgo' | 'grafite' | 'areia' | 'lima' | 'ceu'
+
+/** Card com prazo no Planejador (GET /demandas/agenda), de qualquer quadro. */
+export interface AgendaCard extends Demand {
+  /** Nome do quadro extra; null = quadro de produção. */
+  boardName: string | null
+  clientName: string | null
 }
 
 /** Arquivo anexado a um card do Kanban. */

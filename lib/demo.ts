@@ -71,6 +71,7 @@ import type {
   User,
   Video,
   KanbanBoard,
+  BoardBackground,
 } from '@/lib/types'
 
 export const DEMO_TOKEN = 'demo'
@@ -349,6 +350,7 @@ export const demoDemands: Demand[] = [
       },
     ],
     coverAttachmentId: 'da-img1',
+    coverColor: null,
     boardId: null,
     columnId: null,
   },
@@ -371,6 +373,7 @@ export const demoDemands: Demand[] = [
     commentsCount: 0,
     attachments: [],
     coverAttachmentId: null,
+    coverColor: 'violet',
     boardId: null,
     columnId: null,
   },
@@ -393,6 +396,7 @@ export const demoDemands: Demand[] = [
     commentsCount: 0,
     attachments: [],
     coverAttachmentId: null,
+    coverColor: null,
     boardId: 'qb-social',
     columnId: 'qc-ideias',
   },
@@ -415,6 +419,7 @@ export const demoDemands: Demand[] = [
     commentsCount: 0,
     attachments: [],
     coverAttachmentId: null,
+    coverColor: null,
     boardId: 'qb-social',
     columnId: 'qc-producao',
   },
@@ -432,8 +437,18 @@ const demoBoards: KanbanBoard[] = [
       { id: 'qc-agendado', name: 'Agendado', position: 3072 },
     ],
     cardsCount: 0,
+    background: 'musgo',
   },
 ]
+
+/** Fundo do quadro de produção no demo (na API fica na conta). */
+export const demoProductionBackground: { value: BoardBackground | null } = { value: null }
+
+export function demoSetBoardBackground(id: string, background: BoardBackground | null): KanbanBoard {
+  const b = demoBoardOrThrow(id)
+  b.background = background
+  return demoBoardWithCount(b)
+}
 
 function demoBoardOrThrow(id: string): KanbanBoard {
   const b = demoBoards.find((x) => x.id === id)
@@ -460,6 +475,7 @@ export function demoCreateBoard(name: string, columns?: string[]): KanbanBoard {
     position: Math.max(0, ...demoBoards.map((b) => b.position)) + 1024,
     columns: names.map((n, i) => ({ id: `${id}-c${i}`, name: n, position: (i + 1) * 1024 })),
     cardsCount: 0,
+    background: null,
   }
   demoBoards.push(board)
   return board
@@ -556,10 +572,70 @@ export function demoRemoveDemandAttachment(demandId: string, attachmentId: strin
   return d
 }
 
-export function demoSetDemandCover(demandId: string, attachmentId: string | null): Demand {
+export function demoSetDemandCover(demandId: string, attachmentId: string | null, color: LabelColor | null = null): Demand {
   const d = demoFindDemand(demandId)
   d.coverAttachmentId = attachmentId
+  d.coverColor = attachmentId ? null : color
   return d
+}
+
+type DemoDestination = { boardId: string | null; columnId?: string | null; stage?: ProductionStage; position?: number }
+
+/** Onde o card cai: coluna do quadro extra (ou a primeira) / etapa no de produção, no fim da coluna. */
+function demoResolveDestination(to: DemoDestination, currentStage: ProductionStage, ignoreId?: string) {
+  const boardId = to.boardId ?? null
+  const columnId = boardId ? to.columnId ?? demoBoardOrThrow(boardId).columns[0]?.id ?? null : null
+  const stage = boardId ? currentStage : to.stage ?? currentStage
+  const same = demoDemands.filter(
+    (d) => d.id !== ignoreId && !d.archivedAt && d.boardId === boardId && (boardId ? d.columnId === columnId : d.productionStage === stage),
+  )
+  const position = to.position ?? Math.max(0, ...same.map((d) => d.position)) + 1024
+  return { boardId, columnId, stage, position }
+}
+
+export function demoMoveDemand(id: string, to: DemoDestination): Demand {
+  const d = demoFindDemand(id)
+  const dest = demoResolveDestination(to, d.productionStage, id)
+  if (d.boardId !== dest.boardId) {
+    demoLogDemandActivity(id, 'moveu_quadro', {
+      de: { quadro: d.boardId ? demoBoardOrThrow(d.boardId).name : null },
+      para: { quadro: dest.boardId ? demoBoardOrThrow(dest.boardId).name : null },
+    })
+  }
+  d.boardId = dest.boardId
+  d.columnId = dest.columnId
+  d.productionStage = dest.stage
+  d.position = dest.position
+  return d
+}
+
+export function demoCopyDemand(
+  id: string,
+  to: DemoDestination & { title: string; keepChecklist: boolean; keepLabels: boolean; keepMembers: boolean },
+): Demand {
+  const src = demoFindDemand(id)
+  const dest = demoResolveDestination(to, src.productionStage)
+  const copy: Demand = {
+    ...src,
+    id: demoDemandId(),
+    title: to.title.trim(),
+    createdAt: new Date().toISOString(),
+    responsibleId: to.keepMembers ? src.responsibleId : null,
+    collaboratorIds: to.keepMembers ? [...src.collaboratorIds] : [],
+    labelIds: to.keepLabels ? [...src.labelIds] : [],
+    checklist: to.keepChecklist ? src.checklist.map((c, i) => ({ ...c, id: `${c.id}-c${Date.now()}${i}` })) : [],
+    attachments: [],
+    coverAttachmentId: null,
+    commentsCount: 0,
+    archivedAt: null,
+    boardId: dest.boardId,
+    columnId: dest.columnId,
+    productionStage: dest.stage,
+    position: dest.position,
+  }
+  demoDemands.push(copy)
+  demoLogDemandActivity(copy.id, 'copiou', { de: src.title })
+  return copy
 }
 
 const demoAuthorMarina: DemandAuthor = { id: 'm2', name: 'Marina Alves', photoUrl: null }
@@ -745,8 +821,10 @@ export function demoCreateDemand(input: {
   collaboratorIds?: string[]
   boardId?: string | null
   columnId?: string | null
+  stage?: ProductionStage
 }): Demand {
   const boardId = input.boardId ?? null
+  const stage: ProductionStage = boardId ? 'planejado' : input.stage ?? 'planejado'
   const columnId = boardId ? input.columnId ?? demoBoardOrThrow(boardId).columns[0]?.id ?? null : null
   const created: Demand = {
     id: demoDemandId(),
@@ -755,25 +833,26 @@ export function demoCreateDemand(input: {
     clientId: input.clientId ?? null,
     responsibleId: input.responsibleId ?? null,
     deadline: input.deadline ?? null,
-    productionStage: 'planejado',
+    productionStage: stage,
     createdAt: new Date().toISOString(),
     labelIds: input.labelIds ?? [],
     collaboratorIds: input.collaboratorIds ?? [],
     description: input.description?.trim() || null,
     position: boardId
       ? Math.max(0, ...demoDemands.filter((d) => d.columnId === columnId && !d.archivedAt).map((d) => d.position)) + 1024
-      : demoNextPosition('planejado'),
+      : demoNextPosition(stage),
     archivedAt: null,
     deadlineDone: false,
     checklist: [],
     commentsCount: 0,
     attachments: [],
     coverAttachmentId: null,
+    coverColor: null,
     boardId,
     columnId,
   }
   demoDemands.push(created)
-  demoLogDemandActivity(created.id, 'criou', { etapa: 'planejado' })
+  demoLogDemandActivity(created.id, 'criou', { etapa: stage })
   return created
 }
 
