@@ -73,6 +73,9 @@ import {
   demoMemberSessions,
   demoMetrics,
   demoAdminDashboard,
+  demoAdminStorage,
+  demoAdminPeople,
+  demoAdminErrorVideos,
   demoNewVersion,
   demoNotifications,
   demoNotifyCrew,
@@ -129,6 +132,9 @@ import type {
   AccountOption,
   AdminMetrics,
   AdminDashboard,
+  AdminErrorVideo,
+  AdminPerson,
+  AdminStorageReport,
   AdminUser,
   AppNotification,
   NotificationPreferences,
@@ -3327,6 +3333,23 @@ export const adminService = {
   async dashboard(signal?: AbortSignal): Promise<AdminDashboard> {
     if (isDemo()) return delay(demoAdminDashboard())
     return api.get<AdminDashboard>('/admin/dashboard', { signal })
+  },
+  /** Armazenamento real do R2. `refresh` ignora o cache de 10 min do backend. */
+  async storage(refresh = false, signal?: AbortSignal): Promise<AdminStorageReport> {
+    if (isDemo()) return delay(demoAdminStorage())
+    return api.get<AdminStorageReport>(`/admin/storage${refresh ? '?atualizar=1' : ''}`, { signal })
+  },
+  async people(signal?: AbortSignal): Promise<AdminPerson[]> {
+    if (isDemo()) return delay(demoAdminPeople())
+    return api.get<AdminPerson[]>('/admin/people', { signal })
+  },
+  async errorVideos(signal?: AbortSignal): Promise<AdminErrorVideo[]> {
+    if (isDemo()) return delay(demoAdminErrorVideos())
+    return api.get<AdminErrorVideo[]>('/admin/videos/errors', { signal })
+  },
+  async reprocessVideo(id: string): Promise<void> {
+    if (isDemo()) return void (await delay(null, 300))
+    await api.post(`/admin/videos/${id}/reprocess`, {})
   },
   async users(signal?: AbortSignal): Promise<AdminUser[]> {
     if (isDemo()) return delay(demoAdminUsers)

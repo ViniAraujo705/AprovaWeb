@@ -809,6 +809,69 @@ export interface AdminPayment {
   status: string
 }
 
+export type AdminStorageCategoria =
+  | 'videos'
+  | 'videos_otimizados'
+  | 'miniaturas'
+  | 'portfolio'
+  | 'arquivos_clientes'
+  | 'anexos_kanban'
+  | 'audios'
+  | 'checkday'
+  | 'marca_fotos'
+
+/** `GET /admin/storage` — armazenamento real do R2 (Aprova-back src/admin/admin-storage.service.ts). */
+export interface AdminStorageReport {
+  disponivel: boolean
+  erro: string | null
+  atualizadoEm: string
+  totalBytes: number
+  totalArquivos: number
+  custoEstimadoUsdMes: number
+  porCategoria: { categoria: AdminStorageCategoria; label: string; bytes: number; arquivos: number }[]
+  porConta: {
+    accountId: string
+    nomeAgencia: string
+    plano: PlanId
+    bytes: number
+    arquivos: number
+    porCategoria: Partial<Record<AdminStorageCategoria, number>>
+  }[]
+  naoVinculados: { bytes: number; arquivos: number; porPasta: { pasta: string; bytes: number; arquivos: number }[] }
+}
+
+/** `GET /admin/people` — toda pessoa com login, com as agências de que participa. */
+export interface AdminPerson {
+  id: string
+  nome: string
+  email: string
+  status: 'ativo' | 'suspenso'
+  criadoEm: string
+  emailConfirmado: boolean
+  login: 'email' | 'google' | 'apple'
+  ultimoAcesso: string | null
+  contas: {
+    accountId: string
+    nomeAgencia: string
+    plano: PlanId
+    papel: 'owner' | 'editor' | 'admin'
+    status: 'ativo' | 'suspenso'
+  }[]
+}
+
+/** `GET /admin/videos/errors` — vídeos cujo processamento falhou. */
+export interface AdminErrorVideo {
+  id: string
+  nomeArquivo: string
+  versao: number
+  criadoEm: string
+  project: {
+    id: string
+    nome: string
+    account: { id: string; nomeAgencia: string; users: { id: string; nome: string; email: string }[] }
+  }
+}
+
 export interface AdminDashboard {
   geradoEm: string
   inscricoes: {
