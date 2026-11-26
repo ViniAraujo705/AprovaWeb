@@ -89,7 +89,7 @@ export function BackgroundPicker({
           style={fit}
           role="dialog"
           aria-label="Fundo do quadro"
-          className="absolute right-0 top-full z-30 mt-2 w-64 rounded-[14px] border border-border bg-card p-3 text-foreground shadow-xl"
+          className="absolute right-0 top-full z-30 mt-2 w-64 rounded-[14px] border border-border bg-card p-3 text-foreground shadow-xl max-sm:fixed max-sm:inset-x-4 max-sm:bottom-4 max-sm:top-auto max-sm:mt-0 max-sm:w-auto"
         >
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Fundo do quadro</p>
           <div className="grid grid-cols-3 gap-2">
