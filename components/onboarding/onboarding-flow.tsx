@@ -203,7 +203,7 @@ export function OnboardingFlow() {
   // `AnimatePresence mode="wait"` a próxima etapa só montava depois que a
   // animação de saída terminasse — em alguns Android ela não terminava e a
   // tela ficava vazia (progresso avançado, conteúdo em branco).
-  const enterFrom = reduce ? { opacity: 0 } : { opacity: 0, y: direction > 0 ? 24 : -24 }
+  const enterFrom = reduce ? { opacity: 0 } : { opacity: 0, y: direction > 0 ? 16 : -16 }
 
   const footerHint: Record<StepId, string> = {
     name: 'Você poderá mudar o nome quando quiser.',
@@ -277,7 +277,7 @@ export function OnboardingFlow() {
             key={index}
             initial={enterFrom}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: reduce ? 0.15 : 0.4, ease: EASE }}
+            transition={{ duration: reduce ? 0.15 : 0.25, ease: EASE }}
             className="flex flex-1 flex-col"
           >
             {index === -1 && <WelcomeStep firstName={firstName} plan={plan} inPromo={inPromo} onStart={() => go(1)} reduce={reduce} />}
@@ -382,7 +382,7 @@ function StepTitle({ title, subtitle }: { title: React.ReactNode; subtitle?: Rea
       <motion.h1
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: EASE, delay: 0.05 }}
+        transition={{ duration: 0.3, ease: EASE }}
         className="font-display text-3xl font-extrabold leading-[1.08] tracking-tight text-balance sm:text-5xl"
       >
         {title}
@@ -391,7 +391,7 @@ function StepTitle({ title, subtitle }: { title: React.ReactNode; subtitle?: Rea
         <motion.p
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: EASE, delay: 0.18 }}
+          transition={{ duration: 0.3, ease: EASE, delay: 0.06 }}
           className="mx-auto mt-3 max-w-md text-base text-muted-foreground text-balance"
         >
           {subtitle}
@@ -402,12 +402,12 @@ function StepTitle({ title, subtitle }: { title: React.ReactNode; subtitle?: Rea
 }
 
 /** Entra depois do título, como no vídeo de referência. */
-function Reveal({ children, delay = 0.3, className }: { children: React.ReactNode; delay?: number; className?: string }) {
+function Reveal({ children, delay = 0.12, className }: { children: React.ReactNode; delay?: number; className?: string }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: EASE, delay }}
+      transition={{ duration: 0.3, ease: EASE, delay }}
       className={className}
     >
       {children}
@@ -433,7 +433,7 @@ function CtaButton({
       disabled={busy}
       whileHover={reduce || busy ? undefined : { scale: 1.03 }}
       whileTap={reduce || busy ? undefined : { scale: 0.97 }}
-      className="group inline-flex min-h-12 min-w-44 items-center justify-center gap-2 rounded-full bg-primary px-7 font-display text-base font-bold text-primary-foreground shadow-[0_10px_30px_-12px_var(--primary-ink)] transition-shadow hover:shadow-[0_14px_36px_-10px_var(--primary-ink)] disabled:opacity-70"
+      className="group inline-flex min-h-12 min-w-44 touch-manipulation select-none items-center justify-center gap-2 rounded-full bg-primary px-7 font-display text-base font-bold text-primary-foreground shadow-[0_10px_30px_-12px_var(--primary-ink)] transition-shadow hover:shadow-[0_14px_36px_-10px_var(--primary-ink)] disabled:opacity-70"
     >
       {busy ? <Loader2 className="size-4 animate-spin" /> : null}
       {children}
@@ -460,20 +460,21 @@ function LockedNote({ children, cta, onClick }: { children: React.ReactNode; cta
   )
 }
 
-function AmbientGlow({ reduce }: { reduce: boolean }) {
+/**
+ * Brilho de fundo. Gradiente radial estático de propósito: as manchas com
+ * `blur` grande se mexendo sem parar eram redesenhadas a cada frame no Safari
+ * do iPhone e deixavam a tela toda lenta (toques "não pegavam").
+ */
+function AmbientGlow(_: { reduce: boolean }) {
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-      <motion.div
-        className="absolute -left-40 -top-40 size-[480px] rounded-full bg-primary/25 blur-[120px]"
-        animate={reduce ? undefined : { x: [0, 50, 0], y: [0, 30, 0] }}
-        transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
-      />
-      <motion.div
-        className="absolute -bottom-48 -right-40 size-[520px] rounded-full bg-primary/15 blur-[140px]"
-        animate={reduce ? undefined : { x: [0, -40, 0], y: [0, -25, 0] }}
-        transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
-      />
-    </div>
+    <div
+      className="pointer-events-none absolute inset-0 overflow-hidden"
+      aria-hidden="true"
+      style={{
+        backgroundImage:
+          'radial-gradient(480px circle at 0% 0%, color-mix(in oklab, var(--primary) 22%, transparent), transparent 70%), radial-gradient(520px circle at 100% 100%, color-mix(in oklab, var(--primary) 14%, transparent), transparent 70%)',
+      }}
+    />
   )
 }
 
@@ -524,7 +525,7 @@ function WelcomeStep({
             className="inline-block"
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 40, rotate: -4 }}
             animate={{ opacity: 1, y: 0, rotate: 0 }}
-            transition={{ type: 'spring', stiffness: 220, damping: 18, delay: 1.0 + i * 0.1 }}
+            transition={{ type: 'spring', stiffness: 220, damping: 18, delay: 0.45 + i * 0.1 }}
           >
             {firstName ? w : 'Boas-vindas!'}
           </motion.span>
@@ -534,7 +535,7 @@ function WelcomeStep({
             className="relative inline-block whitespace-nowrap"
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 40, rotate: 4 }}
             animate={{ opacity: 1, y: 0, rotate: 0 }}
-            transition={{ type: 'spring', stiffness: 220, damping: 18, delay: 1.15 }}
+            transition={{ type: 'spring', stiffness: 220, damping: 18, delay: 0.55 }}
           >
             {/* marca-texto lima que passa por trás do nome */}
             <motion.span
@@ -542,7 +543,7 @@ function WelcomeStep({
               className="absolute inset-x-[-0.12em] bottom-[0.08em] -z-10 h-[0.42em] origin-left rounded-full bg-primary"
               initial={{ scaleX: 0 }}
               animate={{ scaleX: 1 }}
-              transition={{ duration: 0.55, delay: reduce ? 0 : 1.45, ease: EASE }}
+              transition={{ duration: 0.55, delay: reduce ? 0 : 0.8, ease: EASE }}
             />
             {firstName}!
           </motion.span>
@@ -552,7 +553,7 @@ function WelcomeStep({
       <motion.p
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: EASE, delay: reduce ? 0.1 : 1.6 }}
+        transition={{ duration: 0.5, ease: EASE, delay: reduce ? 0.1 : 0.6 }}
         className="mt-4 max-w-lg text-lg text-muted-foreground text-balance"
       >
         Que bom ter você no Check. Em menos de 2 minutos a gente deixa tudo pronto pro seu primeiro check.
@@ -561,7 +562,7 @@ function WelcomeStep({
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.45, ease: EASE, delay: reduce ? 0.15 : 1.8 }}
+        transition={{ duration: 0.45, ease: EASE, delay: reduce ? 0.15 : 0.7 }}
         className="mt-5"
       >
         {inPromo ? (
@@ -581,18 +582,10 @@ function WelcomeStep({
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: EASE, delay: reduce ? 0.2 : 2.0 }}
+        transition={{ duration: 0.5, ease: EASE, delay: reduce ? 0.2 : 0.8 }}
         className="mt-9 flex flex-col items-center gap-3"
       >
         <div className="relative isolate">
-          {!reduce && (
-            <motion.span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 -z-10 rounded-full bg-primary"
-              animate={{ scale: [1, 1.18], opacity: [0.55, 0] }}
-              transition={{ duration: 1.8, repeat: Infinity, delay: 2.4, ease: 'easeOut' }}
-            />
-          )}
           <CtaButton onClick={onStart} reduce={reduce}>
             Vamos começar
           </CtaButton>
@@ -613,7 +606,7 @@ function WelcomeHero({ reduce }: { reduce: boolean }) {
     {
       x: -104,
       y: -46,
-      delay: 0.75,
+      delay: 0.3,
       node: (
         <span className="flex items-center gap-1.5">
           <span className="grid size-5 place-items-center rounded-md bg-deep text-deep-foreground">
@@ -626,7 +619,7 @@ function WelcomeHero({ reduce }: { reduce: boolean }) {
     {
       x: 112,
       y: -58,
-      delay: 0.85,
+      delay: 0.4,
       node: (
         <span className="flex items-center gap-1.5">
           <span className="rounded bg-warning-soft px-1 font-mono text-[10px] font-bold text-warning-ink">00:12</span>
@@ -637,7 +630,7 @@ function WelcomeHero({ reduce }: { reduce: boolean }) {
     {
       x: -118,
       y: 34,
-      delay: 0.95,
+      delay: 0.5,
       className: 'hidden sm:flex',
       node: (
         <span className="flex items-center gap-0.5 text-amber-400">
@@ -650,7 +643,7 @@ function WelcomeHero({ reduce }: { reduce: boolean }) {
     {
       x: 100,
       y: 30,
-      delay: 1.05,
+      delay: 0.6,
       node: (
         <span className="flex items-center gap-1.5">
           <span className="grid size-5 place-items-center rounded-full bg-primary text-primary-foreground">
@@ -663,7 +656,7 @@ function WelcomeHero({ reduce }: { reduce: boolean }) {
     {
       x: 8,
       y: -98,
-      delay: 1.15,
+      delay: 0.7,
       className: 'hidden sm:flex',
       node: (
         <span className="flex items-center -space-x-1.5">
@@ -682,10 +675,10 @@ function WelcomeHero({ reduce }: { reduce: boolean }) {
       {!reduce && (
         <motion.span
           aria-hidden="true"
-          className="absolute inset-[-40%] rounded-full bg-primary/40 blur-3xl"
+          className="absolute inset-[-40%] rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--primary)_55%,transparent),transparent)]"
           initial={{ opacity: 0, scale: 0.6 }}
           animate={{ opacity: [0, 0.9, 0.6], scale: [0.6, 1.1, 1] }}
-          transition={{ duration: 1.6, delay: 0.3 }}
+          transition={{ duration: 1, delay: 0.1 }}
         />
       )}
 
@@ -698,7 +691,7 @@ function WelcomeHero({ reduce }: { reduce: boolean }) {
             className="absolute inset-0 rounded-[30%] border-2 border-primary-ink/30"
             initial={{ scale: 1, opacity: 0 }}
             animate={{ scale: [1, 1.9], opacity: [0.6, 0] }}
-            transition={{ duration: 1.4, delay: 0.95 + i * 0.25, ease: 'easeOut' }}
+            transition={{ duration: 1.4, delay: 0.5 + i * 0.2, ease: 'easeOut' }}
           />
         ))}
 
@@ -719,7 +712,7 @@ function WelcomeHero({ reduce }: { reduce: boolean }) {
               strokeLinejoin="round"
               initial={{ pathLength: reduce ? 1 : 0 }}
               animate={{ pathLength: 1 }}
-              transition={{ duration: 0.5, delay: reduce ? 0 : 0.55, ease: [0.65, 0, 0.35, 1] }}
+              transition={{ duration: 0.5, delay: reduce ? 0 : 0.3, ease: [0.65, 0, 0.35, 1] }}
             />
           </svg>
         </div>
@@ -742,7 +735,7 @@ function WelcomeHero({ reduce }: { reduce: boolean }) {
                   scale: [0, 1.3, 0],
                   opacity: [1, 1, 0],
                 }}
-                transition={{ duration: 0.85, delay: 1.0, ease: 'easeOut' }}
+                transition={{ duration: 0.7, delay: 0.55, ease: 'easeOut' }}
               />
             )
           })}
@@ -763,13 +756,7 @@ function WelcomeHero({ reduce }: { reduce: boolean }) {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: 'spring', stiffness: 320, damping: 18, delay: reduce ? 0.1 : c.delay }}
         >
-          <motion.span
-            className="flex"
-            animate={reduce ? undefined : { y: [0, -6, 0] }}
-            transition={{ duration: 3 + i * 0.4, repeat: Infinity, ease: 'easeInOut', delay: c.delay + 0.4 }}
-          >
-            {c.node}
-          </motion.span>
+          <span className="flex">{c.node}</span>
         </motion.div>
       ))}
     </div>
@@ -827,7 +814,7 @@ function BrandStep({
         }
       />
       <div className="mx-auto mt-10 grid w-full max-w-3xl items-center gap-10 md:grid-cols-2">
-        <Reveal delay={0.3} className="flex flex-col items-center gap-5">
+        <Reveal delay={0.12} className="flex flex-col items-center gap-5">
           <div className={cn('grid grid-cols-6 gap-3', locked && 'pointer-events-none opacity-50')}>
             {BRAND_SWATCHES.map((c, i) => {
               const active = c.toLowerCase() === color.toLowerCase()
@@ -883,7 +870,7 @@ function BrandStep({
           )}
         </Reveal>
 
-        <Reveal delay={0.45}>
+        <Reveal delay={0.18}>
           <ClientScreenPreview color={valid ? color : null} agencyName={agencyName} logoUrl={logoUrl} />
         </Reveal>
       </div>
@@ -898,7 +885,6 @@ function ClientScreenPreview({ color, agencyName, logoUrl }: { color: string | n
       <motion.div
         className="theme-light overflow-hidden rounded-[28px] bg-background text-foreground"
         style={brandAccentStyle(color, { dark: false })}
-        layout
       >
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
           {logoUrl ? (
@@ -913,8 +899,8 @@ function ClientScreenPreview({ color, agencyName, logoUrl }: { color: string | n
           <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-[linear-gradient(135deg,#3a3f3c,#151816)]">
             <div className="absolute inset-x-2 bottom-2 h-1 rounded-full bg-white/25">
               <motion.div
-                className="h-full rounded-full bg-primary transition-colors duration-500"
-                animate={{ width: ['10%', '85%', '10%'] }}
+                className="h-full w-full origin-left rounded-full bg-primary transition-colors duration-500"
+                animate={{ scaleX: [0.1, 0.85, 0.1] }}
                 transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
               />
             </div>
