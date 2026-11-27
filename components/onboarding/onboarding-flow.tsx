@@ -102,7 +102,13 @@ export function OnboardingFlow() {
 
   const step = index >= 0 && index < steps.length ? steps[index] : null
 
+  // Trava curta contra toque duplo: sem ela, dois toques no "Continuar"
+  // pulavam uma etapa inteira no celular.
+  const lastGoRef = useRef(0)
   function go(delta: number) {
+    const now = Date.now()
+    if (now - lastGoRef.current < 400) return
+    lastGoRef.current = now
     setError(null)
     setDirection(delta)
     setIndex((i) => Math.max(-1, Math.min(steps.length, i + delta)))
@@ -193,11 +199,11 @@ export function OnboardingFlow() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, steps.length])
 
-  const variants = {
-    enter: (dir: number) => (reduce ? { opacity: 0 } : { opacity: 0, y: dir > 0 ? 28 : -28, filter: 'blur(6px)' }),
-    center: { opacity: 1, y: 0, filter: 'blur(0px)' },
-    exit: (dir: number) => (reduce ? { opacity: 0 } : { opacity: 0, y: dir > 0 ? -20 : 20, filter: 'blur(6px)' }),
-  }
+  // Só entrada, sem `blur` e sem esperar a saída da etapa anterior: com
+  // `AnimatePresence mode="wait"` a próxima etapa só montava depois que a
+  // animação de saída terminasse — em alguns Android ela não terminava e a
+  // tela ficava vazia (progresso avançado, conteúdo em branco).
+  const enterFrom = reduce ? { opacity: 0 } : { opacity: 0, y: direction > 0 ? 24 : -24 }
 
   const footerHint: Record<StepId, string> = {
     name: 'Você poderá mudar o nome quando quiser.',
@@ -267,15 +273,11 @@ export function OnboardingFlow() {
       </header>
 
       <main className="relative z-10 flex flex-1 flex-col">
-        <AnimatePresence mode="wait" custom={direction}>
-          <motion.section
+        <motion.section
             key={index}
-            custom={direction}
-            variants={variants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration: reduce ? 0.15 : 0.45, ease: EASE }}
+            initial={enterFrom}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: reduce ? 0.15 : 0.4, ease: EASE }}
             className="flex flex-1 flex-col"
           >
             {index === -1 && <WelcomeStep firstName={firstName} plan={plan} inPromo={inPromo} onStart={() => go(1)} reduce={reduce} />}
@@ -347,7 +349,6 @@ export function OnboardingFlow() {
               />
             )}
           </motion.section>
-        </AnimatePresence>
       </main>
     </div>
   )
